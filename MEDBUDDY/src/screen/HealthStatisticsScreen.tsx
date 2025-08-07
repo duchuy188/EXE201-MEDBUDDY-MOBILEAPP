@@ -1,0 +1,270 @@
+import React, { useState } from "react";
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions } from "react-native";
+import { FontAwesome5, Feather } from "@expo/vector-icons";
+import { PieChart, LineChart } from 'react-native-chart-kit';
+
+const bloodPressureData = [
+  { day: "T2", systolic: 125, diastolic: 82, time: "7:30" },
+  { day: "T3", systolic: 120, diastolic: 80, time: "7:45" },
+  { day: "T4", systolic: 130, diastolic: 85, time: "8:00" },
+  { day: "T5", systolic: 118, diastolic: 78, time: "7:20" },
+  { day: "T6", systolic: 122, diastolic: 81, time: "7:35" },
+  { day: "T7", systolic: 128, diastolic: 84, time: "8:10" },
+  { day: "CN", systolic: 124, diastolic: 80, time: "8:30" }
+];
+
+const medicineComplianceData = [
+  { day: "T2", taken: 2, missed: 0, total: 2 },
+  { day: "T3", taken: 2, missed: 0, total: 2 },
+  { day: "T4", taken: 1, missed: 1, total: 2 },
+  { day: "T5", taken: 2, missed: 0, total: 2 },
+  { day: "T6", taken: 2, missed: 0, total: 2 },
+  { day: "T7", taken: 2, missed: 0, total: 2 },
+  { day: "CN", taken: 1, missed: 1, total: 2 }
+];
+
+const weeklyOverview = [
+  { name: "Uống đúng giờ", value: 85, color: "#10b981" },
+  { name: "Uống muộn", value: 10, color: "#f59e0b" },
+  { name: "Bỏ lỡ", value: 5, color: "#ef4444" }
+];
+
+const TABS = [
+  { key: 'overview', label: 'Tổng quan' },
+  { key: 'bloodpressure', label: 'Huyết áp' },
+  { key: 'medicine', label: 'Thuốc' },
+];
+
+const HealthStatisticsScreen: React.FC = () => {
+  const [activeTab, setActiveTab] = useState('overview');
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <FontAwesome5 name="chart-line" size={22} color="#3B82F6" />
+          <Text style={styles.headerTitle}>Thống kê sức khỏe</Text>
+        </View>
+      </View>
+      <View style={styles.tabsRow}>
+        {TABS.map(tab => (
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.tabBtn, activeTab === tab.key && styles.tabBtnActive]}
+            onPress={() => setActiveTab(tab.key)}
+          >
+            <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>{tab.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {activeTab === 'overview' && (
+        <>
+          <View style={styles.cardRow}>
+            <View style={[styles.statCard, {backgroundColor: '#D1FAE5'}]}>
+              <Text style={styles.statValue}>85%</Text>
+              <Text style={styles.statLabel}>Tuân thủ thuốc</Text>
+            </View>
+            <View style={[styles.statCard, {backgroundColor: '#DBEAFE'}]}>
+              <Text style={[styles.statValue, {color: '#3B82F6'}]}>124/81</Text>
+              <Text style={styles.statLabel}>Huyết áp TB</Text>
+            </View>
+          </View>
+          <View style={styles.sectionCard}>
+            <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
+              <Feather name="target" size={18} color="#10b981" />
+              <Text style={styles.sectionTitle}> Tuân thủ uống thuốc tuần này</Text>
+            </View>
+            <View style={{alignItems: 'center', marginVertical: 8}}>
+              <PieChart
+                data={weeklyOverview.map(item => ({
+                  name: item.name,
+                  population: item.value,
+                  color: item.color,
+                  legendFontColor: '#1E293B',
+                  legendFontSize: 13
+                }))}
+                width={Dimensions.get('window').width * 0.9}
+                height={180}
+                chartConfig={{
+                  color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
+                  labelColor: (opacity = 1) => `rgba(30, 41, 59, ${opacity})`,
+                }}
+                accessor={'population'}
+                backgroundColor={'transparent'}
+                paddingLeft={'0'}
+                hasLegend={false}
+                center={[0, 0]}
+              />
+              <View style={{flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginTop: 12}}>
+                {weeklyOverview.map((item, idx) => (
+                  <View key={idx} style={{alignItems: 'center'}}>
+                    <View style={{width: 12, height: 12, borderRadius: 6, backgroundColor: item.color, marginBottom: 4}} />
+                    <Text style={{fontSize: 13}}>{item.name}</Text>
+                    <Text style={{fontWeight: 'bold', color: item.color}}>{item.value}%</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Thống kê nhanh</Text>
+            <View style={styles.quickStatRow}>
+              <Feather name="check-circle" size={18} color="#10b981" />
+              <Text style={styles.quickStatLabel}>Ngày uống thuốc đầy đủ</Text>
+              <Text style={{color: '#10b981', fontWeight: 'bold'}}>5/7 ngày</Text>
+            </View>
+            <View style={styles.quickStatRow}>
+              <Feather name="heart" size={18} color="#3B82F6" />
+              <Text style={styles.quickStatLabel}>Ngày đo huyết áp</Text>
+              <Text style={{color: '#3B82F6', fontWeight: 'bold'}}>7/7 ngày</Text>
+            </View>
+            <View style={styles.quickStatRow}>
+              <Feather name="alert-circle" size={18} color="#f59e0b" />
+              <Text style={styles.quickStatLabel}>Cần chú ý</Text>
+              <Text style={{color: '#f59e0b', fontWeight: 'bold'}}>Huyết áp thứ 4</Text>
+            </View>
+          </View>
+        </>
+      )}
+      {activeTab === 'bloodpressure' && (
+        <>
+          <View style={styles.sectionCard}>
+            <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
+              <Feather name="activity" size={18} color="#ef4444" />
+              <Text style={styles.sectionTitle}> Biến động huyết áp 7 ngày</Text>
+            </View>
+            <View style={{alignItems: 'center'}}>
+              <LineChart
+                data={{
+                  labels: bloodPressureData.map(item => item.day),
+                  datasets: [
+                    {
+                      data: bloodPressureData.map(item => item.systolic),
+                      color: () => '#ef4444',
+                      strokeWidth: 2,
+                    },
+                    {
+                      data: bloodPressureData.map(item => item.diastolic),
+                      color: () => '#3B82F6',
+                      strokeWidth: 2,
+                    },
+                  ],
+                  legend: ['Tâm thu', 'Tâm trương'],
+                }}
+                width={Dimensions.get('window').width * 0.85}
+                height={180}
+                chartConfig={{
+                  backgroundGradientFrom: '#fff',
+                  backgroundGradientTo: '#fff',
+                  decimalPlaces: 0,
+                  color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
+                  labelColor: (opacity = 1) => `rgba(30, 41, 59, ${opacity})`,
+                  propsForDots: {
+                    r: '4',
+                    strokeWidth: '2',
+                    stroke: '#fff',
+                  },
+                  propsForBackgroundLines: {
+                    stroke: '#E0E7EF',
+                  },
+                }}
+                bezier
+                style={{marginVertical: 8, borderRadius: 12}}
+              />
+            </View>
+          </View>
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Chi tiết 7 ngày qua</Text>
+            {bloodPressureData.map((record, idx) => {
+              const status = record.systolic > 130 || record.diastolic > 85 ? 'high' : 'normal';
+              return (
+                <View key={idx} style={[styles.bpRow, status === 'high' ? styles.bpHigh : styles.bpNormal]}>
+                  <View>
+                    <Text style={{fontWeight: 'bold'}}>{record.day}</Text>
+                    <Text style={{fontSize: 12, color: '#64748B'}}>{record.time}</Text>
+                  </View>
+                  <View style={{alignItems: 'flex-end'}}>
+                    <Text style={[styles.bpValue, status === 'high' ? {color: '#ef4444'} : {color: '#10b981'}]}>{record.systolic}/{record.diastolic}</Text>
+                    <Text style={{fontSize: 12, color: status === 'high' ? '#ef4444' : '#10b981'}}>{status === 'high' ? 'Cao' : 'Bình thường'}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </>
+      )}
+      {activeTab === 'medicine' && (
+        <>
+          <View style={styles.sectionCard}>
+            <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
+              <Feather name="calendar" size={18} color="#8b5cf6" />
+              <Text style={styles.sectionTitle}> Tuân thủ uống thuốc hàng ngày</Text>
+            </View>
+            {medicineComplianceData.map((item, idx) => (
+              <View key={idx} style={styles.medicineRow}>
+                <Text style={{fontWeight: 'bold'}}>{item.day}</Text>
+                <Text style={{color: '#10b981'}}>Đã uống: {item.taken}</Text>
+                <Text style={{color: '#ef4444'}}>Bỏ lỡ: {item.missed}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Tuân thủ theo loại thuốc</Text>
+            <View style={[styles.medicineRow, {backgroundColor: '#F3E8FF'}]}>
+              <View>
+                <Text style={{fontWeight: 'bold'}}>Amlodipine 5mg</Text>
+                <Text style={{fontSize: 13, color: '#64748B'}}>Sáng 7:00</Text>
+              </View>
+              <View style={{alignItems: 'flex-end'}}>
+                <Text style={{color: '#8b5cf6', fontWeight: 'bold'}}>95%</Text>
+                <Text style={{fontSize: 12, color: '#64748B'}}>6.5/7 ngày</Text>
+              </View>
+            </View>
+            <View style={[styles.medicineRow, {backgroundColor: '#ECFEFF'}]}>
+              <View>
+                <Text style={{fontWeight: 'bold'}}>Candesartan 8mg</Text>
+                <Text style={{fontSize: 13, color: '#64748B'}}>Tối 19:00</Text>
+              </View>
+              <View style={{alignItems: 'flex-end'}}>
+                <Text style={{color: '#06b6d4', fontWeight: 'bold'}}>86%</Text>
+                <Text style={{fontSize: 12, color: '#64748B'}}>6/7 ngày</Text>
+              </View>
+            </View>
+          </View>
+          <View style={[styles.sectionCard, {backgroundColor: '#DBEAFE'}]}>
+            <Text style={[styles.sectionTitle, {color: '#3B82F6'}]}>💡 Gợi ý cải thiện</Text>
+            <Text style={styles.suggestion}>• Đặt báo thức cho thuốc tối để không quên</Text>
+            <Text style={styles.suggestion}>• Candesartan bỏ lỡ 2 lần tuần này, cần chú ý hơn</Text>
+            <Text style={styles.suggestion}>• Huyết áp thứ 4 cao hơn bình thường, có thể do bỏ lỡ thuốc tối thứ 3</Text>
+          </View>
+        </>
+      )}
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F6F8FB', padding: 16 },
+  header: { marginTop: 30, marginBottom: 32 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#1E293B', marginLeft: 8 },
+  tabsRow: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, marginBottom: 16, borderWidth: 1, borderColor: '#E0E7EF', overflow: 'hidden', marginTop: 10 },
+  tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: '#fff' },
+  tabBtnActive: { backgroundColor: '#DBEAFE' },
+  tabText: { fontSize: 15, color: '#64748B', fontWeight: 'bold' },
+  tabTextActive: { color: '#2563eb' },
+  cardRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+  statCard: { flex: 1, marginHorizontal: 4, borderRadius: 14, padding: 18, alignItems: 'center' },
+  statValue: { fontSize: 22, fontWeight: 'bold', color: '#10b981' },
+  statLabel: { fontSize: 14, color: '#64748B', marginTop: 4 },
+  sectionCard: { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: '#E0E7EF' },
+  sectionTitle: { fontWeight: 'bold', fontSize: 16, color: '#1E293B' },
+  quickStatRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginVertical: 6 },
+  quickStatLabel: { marginLeft: 8, fontSize: 15, color: '#1E293B', flex: 1 },
+  bpRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderRadius: 8, marginBottom: 4, paddingHorizontal: 8 },
+  bpHigh: { backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: '#FCA5A5' },
+  bpNormal: { backgroundColor: '#D1FAE5', borderWidth: 1, borderColor: '#A7F3D0' },
+  bpValue: { fontWeight: 'bold', fontSize: 16 },
+  medicineRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderColor: '#E0E7EF' },
+  suggestion: { fontSize: 14, color: '#3B82F6', marginVertical: 2 },
+});
+
+export default HealthStatisticsScreen;
