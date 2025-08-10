@@ -1,24 +1,91 @@
 
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons, FontAwesome5, FontAwesome, Feather } from '@expo/vector-icons';
+import bloodPressureService, { BloodPressure } from '../api/bloodPressure';
+import { useRoute } from '@react-navigation/native';
 
 interface HomeScreenProps {
-  userType: 'patient' | 'family';
+  userType?: 'patient' | 'family';
   onLogout?: () => void;
 }
+
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout }) => {
   const [systolic, setSystolic] = useState('');
   const [diastolic, setDiastolic] = useState('');
   const [showNotification, setShowNotification] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [bpHistory, setBpHistory] = useState<BloodPressure[]>([]);
+  const route = useRoute();
+  // Lấy token và userId từ navigation params
+  // @ts-ignore
+  const token = route.params?.token || '';
+  // @ts-ignore
+  const userId = route.params?.userId || '';
+  // Debug log
+  React.useEffect(() => {
+    console.log('HomeScreen params:', route.params);
+    console.log('HomeScreen token:', token);
+    console.log('HomeScreen userId:', userId);
+  }, [route.params, token, userId]);
 
-  const handleSaveBloodPressure = () => {
+  // Lấy lịch sử huyết áp khi vào màn hình
+  useEffect(() => {
+    if (!token) return;
+    fetchBpHistory();
+  }, [token]);
+
+  const fetchBpHistory = async () => {
+    setLoading(true);
+    try {
+      const data = await bloodPressureService.getBloodPressureHistory(token);
+      setBpHistory(data || []);
+    } catch (e) {
+      Alert.alert('Lỗi', 'Không thể lấy dữ liệu huyết áp');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveBloodPressure = async () => {
     if (systolic && diastolic) {
-      Alert.alert('Đã lưu thành công', `Huyết áp ${systolic}/${diastolic} đã được ghi nhận`);
-      setSystolic('');
-      setDiastolic('');
+      const sys = Number(systolic);
+      const dia = Number(diastolic);
+      // Giới hạn hợp lý
+      if (isNaN(sys) || isNaN(dia)) {
+        Alert.alert('Lỗi', 'Vui lòng nhập số hợp lệ cho huyết áp.');
+        return;
+      }
+      if (sys < 70 || sys > 250) {
+        Alert.alert('Lỗi', 'Tâm thu (systolic) phải từ 70 đến 250 mmHg.');
+        return;
+      }
+      if (dia < 40 || dia > 150) {
+        Alert.alert('Lỗi', 'Tâm trương (diastolic) phải từ 40 đến 150 mmHg.');
+        return;
+      }
+      if (!userId) {
+        Alert.alert('Lỗi', 'Không tìm thấy userId. Vui lòng đăng nhập lại.');
+        return;
+      }
+      try {
+        setLoading(true);
+        await bloodPressureService.addBloodPressure({
+          userId: userId,
+          systolic: sys,
+          diastolic: dia,
+        }, token);
+        Alert.alert('Đã lưu thành công', `Huyết áp ${sys}/${dia} đã được ghi nhận`);
+        setSystolic('');
+        setDiastolic('');
+        fetchBpHistory();
+      } catch (e) {
+        Alert.alert('Lỗi', 'Không thể lưu huyết áp');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -163,18 +230,53 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
             {/* Recent readings */}
             <View style={{marginTop: 18, borderTopWidth: 1, borderTopColor: '#B6D5FA', paddingTop: 10}}>
               <Text style={{fontWeight: 'bold', color: '#3B82F6', marginBottom: 8}}>📊 Kết quả gần đây</Text>
-              <View style={{backgroundColor: '#fff', borderRadius: 10, padding: 10, marginBottom: 6, flexDirection: 'row', justifyContent: 'space-between', borderWidth: 1, borderColor: '#B6D5FA'}}>
-                <Text style={{color: '#64748B'}}>Hôm nay - 8:00 AM</Text>
-                <Text style={{fontWeight: 'bold', color: '#12B76A'}}>120/80</Text>
-              </View>
-              <View style={{backgroundColor: '#fff', borderRadius: 10, padding: 10, marginBottom: 6, flexDirection: 'row', justifyContent: 'space-between', borderWidth: 1, borderColor: '#B6D5FA'}}>
-                <Text style={{color: '#64748B'}}>Hôm qua - 7:30 AM</Text>
-                <Text style={{fontWeight: 'bold', color: '#3B82F6'}}>125/82</Text>
-              </View>
-              <View style={{backgroundColor: '#fff', borderRadius: 10, padding: 10, flexDirection: 'row', justifyContent: 'space-between', borderWidth: 1, borderColor: '#B6D5FA'}}>
-                <Text style={{color: '#64748B'}}>2 ngày trước - 8:15 AM</Text>
-                <Text style={{fontWeight: 'bold', color: '#F04438'}}>130/85</Text>
-              </View>
+              {loading ? (
+                <ActivityIndicator size="small" color="#3B82F6" />
+              ) : (
+                bpHistory && bpHistory.length > 0 ? (
+                  bpHistory.slice(0, 3).map((item, idx) => {
+                    // Format ngày giờ
+                    const date = item.measuredAt ? new Date(item.measuredAt) : null;
+                    let label = '';
+                    if (date) {
+                      const now = new Date();
+                      let diff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+                      if (diff < 0) diff = 0; // Nếu ngày đo là tương lai, coi như hôm nay
+                      if (diff === 0) label = `Hôm nay - ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                      else if (diff === 1) label = `Hôm qua - ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                      else label = `${diff} ngày trước - ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                    }
+                    // Đánh giá huyết áp
+                    let color = '#12B76A';
+                    let reason = '';
+                    const sys = item.systolic;
+                    const dia = item.diastolic;
+                    if (sys < 90 || dia < 60) {
+                      color = '#F04438';
+                      reason = 'Hạ huyết áp';
+                    } else if (sys >= 140 || dia >= 90) {
+                      color = '#F04438';
+                      reason = 'Tăng huyết áp';
+                    } else {
+                      color = '#12B76A';
+                      reason = 'Bình thường';
+                    }
+                    return (
+                      <View key={item._id || idx} style={{backgroundColor: '#fff', borderRadius: 10, padding: 10, marginBottom: 6, borderWidth: 1, borderColor: '#B6D5FA'}}>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                          <Text style={{color: '#64748B'}}>{label || '---'}</Text>
+                          <Text style={{fontWeight: 'bold', color, fontSize: 16}}>{item.systolic}/{item.diastolic}</Text>
+                        </View>
+                        <Text style={{color, fontSize: 13, marginTop: 2}}>
+                          {reason === 'Bình thường' ? 'Huyết áp bình thường' : reason === 'Tăng huyết áp' ? 'Tăng huyết áp - nên nghỉ ngơi, theo dõi hoặc hỏi ý kiến bác sĩ' : 'Hạ huyết áp - nên nghỉ ngơi, uống nước và theo dõi'}
+                        </Text>
+                      </View>
+                    );
+                  })
+                ) : (
+                  <Text style={{color: '#64748B'}}>Chưa có dữ liệu</Text>
+                )
+              )}
             </View>
           </View>
 

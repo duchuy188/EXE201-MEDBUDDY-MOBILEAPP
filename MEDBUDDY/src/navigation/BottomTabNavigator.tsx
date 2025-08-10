@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import HomeScreen from '../screen/HomeScreen';
@@ -6,16 +7,16 @@ import AddMedicineScreen from '../screen/AddMedicineScreen';
 import PhotoCaptureScreen from '../screen/PhotoCaptureScreen';
 import { Ionicons, MaterialIcons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import HealthStatisticsScreen from '../screen/HealthStatisticsScreen';
-
 import PersonalInfoScreen from '../screen/PersonalInfoScreen';
 
 const Tab = createBottomTabNavigator();
 
-interface BottomTabNavigatorProps {
-  userType: 'patient' | 'family';
-}
+export default function BottomTabNavigator({ route }: any) {
+  // Lấy params từ route (MainTab)
+  const userType = route?.params?.userType || 'patient';
+  const token = route?.params?.token || '';
+  const userId = route?.params?.userId || '';
 
-export default function BottomTabNavigator({ userType }: BottomTabNavigatorProps) {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -42,11 +43,8 @@ export default function BottomTabNavigator({ userType }: BottomTabNavigatorProps
     >
       <Tab.Screen
         name="Trang chủ"
-        children={(props) =>
-          userType === 'family'
-            ? <DashboardScreen {...props} userType={userType} />
-            : <HomeScreen {...props} userType={userType} />
-        }
+        component={HomeScreen}
+        initialParams={{ userType, token, userId }}
       />
       <Tab.Screen name="Thêm thuốc" component={AddMedicineScreen} />
       <Tab.Screen name="Chụp ảnh" component={PhotoCaptureScreen} />

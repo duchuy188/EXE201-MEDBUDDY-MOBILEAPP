@@ -50,4 +50,6 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Export API client và services
 export default apiClient;
+export { default as AuthService } from './authService';

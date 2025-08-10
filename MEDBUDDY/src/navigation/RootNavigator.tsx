@@ -16,9 +16,7 @@ export default function RootNavigator() {
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
         <Stack.Screen
           name="MainTab"
-          component={({ route, navigation }) => (
-            <BottomTabNavigator userType={route?.params?.userType || 'patient'} navigation={navigation} />
-          )}
+          component={BottomTabNavigator}
           options={{ headerShown: false }}
         />
         <Stack.Screen name="RegisterType" component={RegisterTypeScreen} options={{ headerShown: false }} />

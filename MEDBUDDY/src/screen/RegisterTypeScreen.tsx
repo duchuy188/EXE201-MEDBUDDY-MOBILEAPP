@@ -1,11 +1,11 @@
-// ...existing code...
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import AuthService from '../api/authService';
 
 const RegisterTypeScreen = ({ navigation }: any) => {
-  const [userType, setUserType] = useState<'patient' | 'family' | null>(null);
+  const [userType, setUserType] = useState<'patient' | 'relative' | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -58,10 +58,51 @@ const RegisterTypeScreen = ({ navigation }: any) => {
     }
   };
 
-  const handleSubmit = () => {
+  const [registerError, setRegisterError] = useState('');
+  const [registerSuccess, setRegisterSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+  // const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const handleSubmit = async () => {
+    setRegisterError('');
+    setRegisterSuccess('');
     if (userType && formData.password === formData.confirmPassword) {
-      // Xử lý đăng ký ở đây
-      // navigation.navigate('Login');
+      setLoading(true);
+      try {
+        const result = await AuthService.register({
+          fullName: formData.name,
+          email: formData.email,
+          phoneNumber: formData.phone,
+          password: formData.password,
+          role: userType,
+          dateOfBirth: formData.birthday, // thêm dòng này
+        });
+        console.log('Register result:', result);
+        // Kiểm tra message có chứa 'success' (không phân biệt hoa thường)
+        if (result.message && result.message.toLowerCase().includes('success')) {
+          setRegisterSuccess('');
+          setRegisterError('');
+          Alert.alert(
+            'Thông báo',
+            'Bạn đã đăng ký thành công!',
+            [
+              {
+                text: 'OK',
+                onPress: () => navigation.navigate('Login'),
+              },
+            ],
+            { cancelable: false }
+          );
+        } else {
+          setRegisterError(result.message || 'Đăng ký thất bại.');
+          setRegisterSuccess('');
+        }
+      } catch (err: any) {
+        setRegisterError(err.message || 'Đăng ký thất bại.');
+        setRegisterSuccess('');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -91,7 +132,7 @@ const RegisterTypeScreen = ({ navigation }: any) => {
           </TouchableOpacity>
 
           {/* Card Người thân */}
-          <TouchableOpacity style={styles.card} onPress={() => setUserType('family')}>
+          <TouchableOpacity style={styles.card} onPress={() => setUserType('relative')}>
             <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.cardIconWrap}>
               <MaterialCommunityIcons name="shield-account-outline" size={32} color="#fff" />
             </LinearGradient>
@@ -105,6 +146,7 @@ const RegisterTypeScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
+      {/* Modal thông báo đăng ký thành công đã bỏ, dùng Alert thay thế */}
       {/* Nút back về chọn loại tài khoản */}
       <TouchableOpacity style={styles.backBtn} onPress={() => setUserType(null)}>
         <MaterialCommunityIcons name="arrow-left" size={28} color="#4A90C2" />
@@ -201,13 +243,19 @@ const RegisterTypeScreen = ({ navigation }: any) => {
             )}
           </View>
           {/* Đã chuyển báo lỗi lên ngay dưới ô xác nhận mật khẩu */}
+          {registerError ? (
+            <Text style={{color: 'red', fontSize: 13, marginTop: 6, marginBottom: 2}}>{registerError}</Text>
+          ) : null}
+          {registerSuccess ? (
+            <Text style={{color: 'green', fontSize: 13, marginTop: 6, marginBottom: 2}}>{registerSuccess}</Text>
+          ) : null}
           <TouchableOpacity
-            style={[styles.loginBtn, {marginTop: 8, opacity: !formData.name || !formData.email || !formData.phone || !formData.birthday || !formData.password || formData.password !== formData.confirmPassword || !!emailError || !!phoneError || !!birthdayError ? 0.5 : 1}]}
-            disabled={!formData.name || !formData.email || !formData.phone || !formData.birthday || !formData.password || formData.password !== formData.confirmPassword || !!emailError || !!phoneError || !!birthdayError}
+            style={[styles.loginBtn, {marginTop: 8, opacity: loading || !formData.name || !formData.email || !formData.phone || !formData.birthday || !formData.password || formData.password !== formData.confirmPassword || !!emailError || !!phoneError || !!birthdayError ? 0.5 : 1}]}
+            disabled={loading || !formData.name || !formData.email || !formData.phone || !formData.birthday || !formData.password || formData.password !== formData.confirmPassword || !!emailError || !!phoneError || !!birthdayError}
             onPress={handleSubmit}
           >
             <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.loginBtnGradient}>
-              <Text style={styles.loginBtnText}>Tạo tài khoản</Text>
+              <Text style={styles.loginBtnText}>{loading ? 'Đang đăng ký...' : 'Tạo tài khoản'}</Text>
             </LinearGradient>
           </TouchableOpacity>
           <TouchableOpacity style={{alignSelf: 'center', marginTop: 10}} onPress={() => navigation.navigate('Login')}>
@@ -217,10 +265,26 @@ const RegisterTypeScreen = ({ navigation }: any) => {
       </View>
     </View>
   );
-// ...existing code...
 };
 
 const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 32,
+    paddingHorizontal: 36,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
   loginBtn: {
     width: '100%',
     borderRadius: 8,

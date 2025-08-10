@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AuthService from '../api/authService';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -18,17 +19,49 @@ const LoginScreen = ({ navigation }: any) => {
     setError('');
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       setError('Vui lòng nhập email và mật khẩu.');
       return;
     }
-    setError('');
-    setModalVisible(false);
-    if (accountType === 'patient') {
-      navigation.replace('MainTab', { userType: 'patient' });
-    } else if (accountType === 'relative') {
-      navigation.replace('MainTab', { userType: 'family' });
+    try {
+      const result = await AuthService.login({ email, password });
+      console.log('Login API result:', result);
+      console.log('API returned role:', result.user?.role);
+      // Kiểm tra token trả về
+      if (result.token) {
+        console.log('>>> Đăng nhập thành công, token:', result.token);
+      } else {
+        console.warn('>>> Đăng nhập KHÔNG có token!');
+      }
+      // Xử lý backend không trả về result.success, chỉ có message/token/user
+      const isLoginSuccess = !!(result.token && result.user && result.message && result.message.toLowerCase().includes('success'));
+      if (isLoginSuccess) {
+        const apiRole = result.user?.role;
+        if (!apiRole) {
+          setError('Không xác định được loại tài khoản từ máy chủ.');
+          return;
+        }
+        if (
+          (accountType === 'patient' && apiRole === 'patient') ||
+          (accountType === 'relative' && (apiRole === 'relative' || apiRole === 'family'))
+        ) {
+          setModalVisible(false);
+          setError('');
+          navigation.replace('MainTab', { userType: apiRole === 'family' ? 'relative' : apiRole, token: result.token, userId: result.user?._id });
+        } else {
+          setError('Tài khoản này không thuộc loại bạn đã chọn. Vui lòng chọn đúng loại tài khoản!');
+        }
+      } else {
+        // Nếu có message lỗi từ backend thì hiển thị, còn không thì báo thất bại chung
+        if (result.message && !result.message.toLowerCase().includes('success')) {
+          setError(result.message);
+        } else {
+          setError('Đăng nhập thất bại.');
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Đăng nhập thất bại.');
     }
   };
 
@@ -94,6 +127,7 @@ const LoginScreen = ({ navigation }: any) => {
               onChangeText={setPassword}
               secureTextEntry
             />
+            {/* Chỉ hiển thị error, không hiển thị thành công nếu không chuyển màn hình */}
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
               <Pressable style={styles.modalBtn} onPress={handleLogin}>
