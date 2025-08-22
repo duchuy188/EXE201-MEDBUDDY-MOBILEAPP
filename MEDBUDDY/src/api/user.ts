@@ -25,15 +25,35 @@ class UserService {
 
   // Cập nhật profile (không sửa role)
   async updateProfile(data: Partial<Omit<User, 'role' | '_id'>>, token: string) {
-    const res = await apiClient.put('/api/users/profile', data, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    let body: any = data;
+    let headers: any = { Authorization: `Bearer ${token}` };
+    // Nếu có avatar là file local (uri), gửi multipart/form-data
+    if (data.avatar && typeof data.avatar === 'string' && !data.avatar.startsWith('http')) {
+      body = new FormData();
+      Object.entries(data).forEach(([key, value]) => {
+        if (key === 'avatar' && value) {
+          body.append('avatar', {
+            uri: value,
+            type: 'image/jpeg',
+            name: 'avatar.jpg',
+          } as any);
+        } else if (value !== undefined) {
+          body.append(key, value);
+        }
+      });
+      headers['Content-Type'] = 'multipart/form-data';
+    }
+    const res = await apiClient.put('/api/users/profile', body, { headers });
     return res.data;
   }
 
   // Đổi mật khẩu
-  async changePassword(oldPassword: string, newPassword: string, token: string) {
-    const res = await apiClient.post('/api/users/change-password', { oldPassword, newPassword }, {
+  async changePassword(currentPassword: string, newPassword: string, confirmNewPassword: string, token: string) {
+    const res = await apiClient.post('/api/users/change-password', {
+      currentPassword,
+      newPassword,
+      confirmNewPassword,
+    }, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return res.data;

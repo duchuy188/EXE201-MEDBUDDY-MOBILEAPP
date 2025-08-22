@@ -1,11 +1,18 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Image, SafeAreaView, TouchableOpacity, TextInput, ScrollView, Alert, Modal } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { User } from '../api/user';
 import UserService from '../api/user';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import * as ImagePicker from 'expo-image-picker';
 
 const UserDetailScreen = ({ navigation, route }: any) => {
+  // State cho modal đổi mật khẩu
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const user = route.params?.user;
   const [firstName, setFirstName] = useState(user?.fullName?.split(' ')[0] || '');
   const [lastName, setLastName] = useState(user?.fullName?.split(' ').slice(1).join(' ') || '');
@@ -27,16 +34,18 @@ const UserDetailScreen = ({ navigation, route }: any) => {
       // Lấy token từ AsyncStorage
       const token = await AsyncStorage.getItem('token');
       if (!token) throw new Error('Không tìm thấy token');
+
       await UserService.updateProfile({
         fullName: `${firstName} ${lastName}`.trim(),
         email,
         phoneNumber,
         dateOfBirth: birth,
+        avatar: avatar,
       }, token);
       setIsEditing(false);
       Alert.alert('Thành công', 'Cập nhật thông tin thành công!');
-    } catch (e) {
-      console.log('Update profile error:', e?.response?.data || e?.message || e);
+    } catch (e: any) {
+      console.log('Update profile error:', e && (e.response?.data || e.message) || e);
       Alert.alert('Lỗi', 'Cập nhật thông tin thất bại!');
     } finally {
       setLoading(false);
@@ -58,7 +67,6 @@ const UserDetailScreen = ({ navigation, route }: any) => {
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.7 });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       setAvatar(result.assets[0].uri);
-      // TODO: upload avatar lên server nếu cần
     }
   };
 
@@ -73,35 +81,47 @@ const UserDetailScreen = ({ navigation, route }: any) => {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.7 });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       setAvatar(result.assets[0].uri);
-      // TODO: upload avatar lên server nếu cần
     }
   };
 
   // Xóa avatar
-  const handleRemoveAvatar = () => {
-    closeAvatarModal();
-    setAvatar('');
-    // TODO: gọi API xóa avatar nếu cần
+  const handleRemoveAvatar = async () => {
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem('token');
+      if (token) {
+        await UserService.removeAvatar(token);
+        setAvatar('');
+        closeAvatarModal();
+        Alert.alert('Thành công', 'Đã xóa ảnh đại diện!');
+      }
+    } catch (e) {
+      Alert.alert('Lỗi', 'Không thể xóa avatar!');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+      <TouchableOpacity style={styles.backArrow} onPress={() => navigation.goBack()}>
+        <Ionicons name="arrow-back" size={28} color="#222" />
+      </TouchableOpacity>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         <View style={{ height: 120, backgroundColor: '#e8eaf6', borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }} />
         <View style={{ alignItems: 'center', marginTop: -60 }}>
           <View style={{ position: 'relative' }}>
             <Image
-              source={avatar
-                ? { uri: avatar }
-                : { uri: `https://randomuser.me/api/portraits/men/${Math.floor(Math.random() * 100)}.jpg` }
-              }
+              source={avatar ? { uri: avatar } : require('../../assets/icon.png')}
               style={styles.avatar}
             />
-            <TouchableOpacity style={styles.editAvatarBtn} onPress={openAvatarModal}>
-              <View style={styles.editAvatarCircle}>
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>📷</Text>
-              </View>
-            </TouchableOpacity>
+            {isEditing && (
+              <TouchableOpacity style={styles.editAvatarBtn} onPress={openAvatarModal}>
+                <View style={styles.editAvatarCircle}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>📷</Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
         {/* Modal chỉnh ảnh cá nhân */}
@@ -168,17 +188,87 @@ const UserDetailScreen = ({ navigation, route }: any) => {
             onChangeText={setBirth}
             editable={isEditing}
           />
-          <TouchableOpacity style={styles.changePasswordBtn}>
-            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Change Password</Text>
-          </TouchableOpacity>
-          {isEditing ? (
-            <TouchableOpacity style={[styles.saveBtn, loading && { opacity: 0.7 }]} onPress={handleSave} disabled={loading}>
+          {!isEditing && (
+            <TouchableOpacity style={styles.changePasswordBtn} onPress={() => setPasswordModalVisible(true)}>
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Thay đổi mật khẩu</Text>
+            </TouchableOpacity>
+          )}
+      {/* Modal đổi mật khẩu */}
+      <Modal
+        visible={passwordModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setPasswordModalVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 24 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }}>Đổi mật khẩu</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Mật khẩu hiện tại"
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              secureTextEntry
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Mật khẩu mới"
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Xác nhận mật khẩu mới"
+              value={confirmNewPassword}
+              onChangeText={setConfirmNewPassword}
+              secureTextEntry
+            />
+            <TouchableOpacity
+              style={[styles.saveBtn, { width: '100%' }, loading && { opacity: 0.7 }]}
+              onPress={async () => {
+                if (newPassword !== confirmNewPassword) {
+                  Alert.alert('Lỗi', 'Mật khẩu mới và xác nhận mật khẩu mới không khớp!');
+                  return;
+                }
+                try {
+                  setLoading(true);
+                  const token = await AsyncStorage.getItem('token');
+                  if (!token) throw new Error('Không tìm thấy token');
+                  await UserService.changePassword(currentPassword, newPassword, confirmNewPassword, token);
+                  setPasswordModalVisible(false);
+                  setCurrentPassword('');
+                  setNewPassword('');
+                  setConfirmNewPassword('');
+                  Alert.alert('Thành công', 'Đổi mật khẩu thành công!');
+                } catch (e: any) {
+                  Alert.alert('Lỗi', e?.response?.data?.message || e?.message || 'Đổi mật khẩu thất bại!');
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading}
+            >
               <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Lưu</Text>
             </TouchableOpacity>
-          ) : null}
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.backText}>Quay lại</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.cancelBtn, { width: '100%', marginTop: 8 }]} onPress={() => setPasswordModalVisible(false)}>
+              <Text style={styles.cancelText}>Hủy</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+          {isEditing && (
+            <>
+              <TouchableOpacity style={[styles.saveBtn, loading && { opacity: 0.7 }]} onPress={handleSave} disabled={loading}>
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Lưu</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.cancelBtn, { width: '100%', marginTop: 8 }]} onPress={() => { setIsEditing(false); }}>
+                <Text style={styles.cancelText}>Hủy</Text>
+              </TouchableOpacity>
+            </>
+          )}
+          {/* Đã thay bằng icon arrow ở trên */}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -186,6 +276,28 @@ const UserDetailScreen = ({ navigation, route }: any) => {
 }
 
 const styles = StyleSheet.create({
+  cancelBtn: {
+    backgroundColor: '#e53935',
+    borderRadius: 8,
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginBottom: 8,
+  },
+  cancelText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  backArrow: {
+    position: 'absolute',
+    top: 60,
+    left: 12,
+    zIndex: 100,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 4,
+    elevation: 8,
+  },
   modalBtn: {
     backgroundColor: '#183153',
     borderRadius: 8,

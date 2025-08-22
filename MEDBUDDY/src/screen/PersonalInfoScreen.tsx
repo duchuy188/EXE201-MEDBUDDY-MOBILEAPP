@@ -1,6 +1,6 @@
 
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, SafeAreaView, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import UserService, { User } from '../api/user';
@@ -14,37 +14,46 @@ const PersonalInfoScreen = ({ navigation, route }: any) => {
   const [token, setToken] = useState<string>('');
 
 
-  useEffect(() => {
-    const getTokenAndFetchProfile = async () => {
-      try {
-        // Ưu tiên lấy token từ route.params nếu có
-        const navToken = route?.params?.token;
-        if (navToken) {
-          await AsyncStorage.setItem('token', navToken);
-          setToken(navToken);
-          const data = await UserService.getProfile(navToken);
-          setUser(data);
-          console.log('DEBUG: token from params, saved to AsyncStorage:', navToken);
-          return;
-        }
-        // Nếu không có, lấy từ AsyncStorage
-        const storedToken = await AsyncStorage.getItem('token');
-        console.log('DEBUG token:', storedToken);
-        if (storedToken) {
-          setToken(storedToken);
-          const data = await UserService.getProfile(storedToken);
-          setUser(data);
-        } else {
-          setUser(null);
-        }
-      } catch (error) {
-        console.log('DEBUG error:', error);
-      } finally {
-        setLoading(false);
+  const fetchProfile = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Ưu tiên lấy token từ route.params nếu có
+      const navToken = route?.params?.token;
+      if (navToken) {
+        await AsyncStorage.setItem('token', navToken);
+        setToken(navToken);
+        const data = await UserService.getProfile(navToken);
+        setUser(data);
+        console.log('DEBUG: token from params, saved to AsyncStorage:', navToken);
+        return;
       }
-    };
-    getTokenAndFetchProfile();
+      // Nếu không có, lấy từ AsyncStorage
+      const storedToken = await AsyncStorage.getItem('token');
+      console.log('DEBUG token:', storedToken);
+      if (storedToken) {
+        setToken(storedToken);
+        const data = await UserService.getProfile(storedToken);
+        setUser(data);
+      } else {
+        setUser(null);
+      }
+    } catch (error) {
+      console.log('DEBUG error:', error);
+    } finally {
+      setLoading(false);
+    }
   }, [route?.params?.token]);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchProfile();
+    });
+    return unsubscribe;
+  }, [navigation, fetchProfile]);
 
   const handleEditProfile = () => {
     if (user) {
