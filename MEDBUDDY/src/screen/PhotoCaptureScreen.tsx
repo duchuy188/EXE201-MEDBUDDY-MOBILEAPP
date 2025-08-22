@@ -1,34 +1,30 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import OrcService from '../api/orc';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
 
-const mockExtractedData = {
-  medicines: [
-    {
-      name: "Amlodipine",
-      dosage: "5mg",
-      quantity: 30,
-      price: "45.000 VNĐ",
-      instructions: "Uống 1 viên/ngày sau ăn"
-    },
-    {
-      name: "Metformin",
-      dosage: "500mg", 
-      quantity: 60,
-      price: "32.000 VNĐ",
-      instructions: "Uống 2 viên/ngày, sáng và tối"
-    }
-  ],
-  pharmacy: "Nhà thuốc ABC",
-  date: "15/06/2024",
-  totalAmount: "77.000 VNĐ"
-};
+
 
 const PhotoCaptureScreen: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<any>(null);
+
+  const processImage = async (uri: string) => {
+    setIsProcessing(true);
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const fileName = uri.split('/').pop() || 'image.jpg';
+      const file = new File([blob], fileName, { type: blob.type });
+      const ocrResult = await OrcService.recognizePrescription(file);
+      setExtractedData(ocrResult);
+    } catch (error) {
+      Alert.alert('Lỗi', 'Không thể nhận diện ảnh. Vui lòng thử lại.');
+    }
+    setIsProcessing(false);
+  };
 
   const pickImage = async () => {
     let result = await ImagePicker.launchCameraAsync({
@@ -36,8 +32,9 @@ const PhotoCaptureScreen: React.FC = () => {
       quality: 1,
     });
     if (!result.canceled && result.assets?.length) {
-      setCapturedImage(result.assets[0].uri);
-      processImage();
+      const uri = result.assets[0].uri;
+      setCapturedImage(uri);
+      await processImage(uri);
     }
   };
 
@@ -47,18 +44,13 @@ const PhotoCaptureScreen: React.FC = () => {
       quality: 1,
     });
     if (!result.canceled && result.assets?.length) {
-      setCapturedImage(result.assets[0].uri);
-      processImage();
+      const uri = result.assets[0].uri;
+      setCapturedImage(uri);
+      await processImage(uri);
     }
   };
 
-  const processImage = () => {
-    setIsProcessing(true);
-    setTimeout(() => {
-      setExtractedData(mockExtractedData);
-      setIsProcessing(false);
-    }, 3000);
-  };
+
 
   const handleAddToInventory = () => {
     Alert.alert('Thêm vào kho thành công!', 'Thông tin thuốc đã được thêm vào kho.');

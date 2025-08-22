@@ -235,16 +235,24 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
               ) : (
                 bpHistory && bpHistory.length > 0 ? (
                   bpHistory.slice(0, 3).map((item, idx) => {
-                    // Format ngày giờ
+                    // Format ngày giờ (so sánh theo ngày, không tính giờ)
                     const date = item.measuredAt ? new Date(item.measuredAt) : null;
                     let label = '';
                     if (date) {
                       const now = new Date();
-                      let diff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-                      if (diff < 0) diff = 0; // Nếu ngày đo là tương lai, coi như hôm nay
-                      if (diff === 0) label = `Hôm nay - ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-                      else if (diff === 1) label = `Hôm qua - ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-                      else label = `${diff} ngày trước - ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                      // Lấy yyyy-mm-dd cho cả hai ngày
+                      const getYMD = (d: Date) => d.getFullYear() + '-' + (d.getMonth()+1).toString().padStart(2, '0') + '-' + d.getDate().toString().padStart(2, '0');
+                      const getDMY = (d: Date) => d.getDate().toString().padStart(2, '0') + '/' + (d.getMonth()+1).toString().padStart(2, '0') + '/' + d.getFullYear();
+                      const ymdNow = getYMD(now);
+                      const ymdDate = getYMD(date);
+                      const dmyDate = getDMY(date);
+                      // Tính số ngày chênh lệch
+                      const dateOnlyNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                      const dateOnlyDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                      const diff = Math.round((dateOnlyNow.getTime() - dateOnlyDate.getTime()) / (1000 * 60 * 60 * 24));
+                      if (ymdNow === ymdDate) label = `Hôm nay - ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (${dmyDate})`;
+                      else if (diff === 1) label = `Hôm qua - ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (${dmyDate})`;
+                      else label = `${diff} ngày trước - ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (${dmyDate})`;
                     }
                     // Đánh giá huyết áp
                     let color = '#12B76A';

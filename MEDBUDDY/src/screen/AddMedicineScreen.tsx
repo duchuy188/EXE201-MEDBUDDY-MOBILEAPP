@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
 import { FontAwesome5, Feather } from '@expo/vector-icons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import MedicationService from '../api/Medication';
+import { useRoute } from '@react-navigation/native';
 
 const timeSlots = [
   { id: 'morning', label: 'Sáng', icon: '🌅' },
@@ -18,6 +20,12 @@ const AddMedicineScreen: React.FC = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedTimes, setSelectedTimes] = useState<string[]>([]);
 
+  const route = useRoute();
+  // @ts-ignore
+  const token = route.params?.token || '';
+  // @ts-ignore
+  const userId = route.params?.userId || '';
+
   const toggleTimeSlot = (timeId: string) => {
     setSelectedTimes(prev =>
       prev.includes(timeId)
@@ -26,18 +34,36 @@ const AddMedicineScreen: React.FC = () => {
     );
   };
 
-  const handleAddMedicine = () => {
+  const handleAddMedicine = async () => {
     if (!medicineName || !dosage || !quantity) {
       Alert.alert('Vui lòng nhập đầy đủ thông tin thuốc!');
       return;
     }
-    Alert.alert('Thêm thuốc thành công', `Tên: ${medicineName}\nLiều lượng: ${dosage}\nSố lượng: ${quantity}\nThời gian uống: ${selectedTimes.map(id => timeSlots.find(t => t.id === id)?.label).join(', ')}`);
-    setMedicineName('');
-    setDosage('');
-    setQuantity('');
-    setMinQuantity('');
-    setExpiryDate('');
-    setSelectedTimes([]);
+    if (!token || !userId) {
+      Alert.alert('Lỗi', 'Không tìm thấy thông tin đăng nhập. Vui lòng đăng nhập lại.');
+      return;
+    }
+    try {
+      const data = {
+        userId,
+        name: medicineName,
+        dosage,
+        // form, image, note có thể bổ sung nếu có UI
+        timeOfDay: selectedTimes.join(','),
+        expirationDate: expiryDate,
+        // quantity và minQuantity không có trong interface Medication, có thể cần bổ sung ở backend nếu muốn lưu
+      };
+      await MedicationService.addMedication(data, token);
+      Alert.alert('Thêm thuốc thành công', `Tên: ${medicineName}\nLiều lượng: ${dosage}\nSố lượng: ${quantity}\nThời gian uống: ${selectedTimes.map(id => timeSlots.find(t => t.id === id)?.label).join(', ')}`);
+      setMedicineName('');
+      setDosage('');
+      setQuantity('');
+      setMinQuantity('');
+      setExpiryDate('');
+      setSelectedTimes([]);
+    } catch (error: any) {
+      Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể thêm thuốc.');
+    }
   };
 
   return (

@@ -1,13 +1,55 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, SafeAreaView, ScrollView } from 'react-native';
+
+
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, SafeAreaView, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import UserService, { User } from '../api/user';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const userImage = { uri: 'https://randomuser.me/api/portraits/men/1.jpg' };
+const PersonalInfoScreen = ({ navigation, route }: any) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-const PersonalInfoScreen = ({ navigation }: any) => {
+
+  const [token, setToken] = useState<string>('');
+
+
+  useEffect(() => {
+    const getTokenAndFetchProfile = async () => {
+      try {
+        // Ưu tiên lấy token từ route.params nếu có
+        const navToken = route?.params?.token;
+        if (navToken) {
+          await AsyncStorage.setItem('token', navToken);
+          setToken(navToken);
+          const data = await UserService.getProfile(navToken);
+          setUser(data);
+          console.log('DEBUG: token from params, saved to AsyncStorage:', navToken);
+          return;
+        }
+        // Nếu không có, lấy từ AsyncStorage
+        const storedToken = await AsyncStorage.getItem('token');
+        console.log('DEBUG token:', storedToken);
+        if (storedToken) {
+          setToken(storedToken);
+          const data = await UserService.getProfile(storedToken);
+          setUser(data);
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.log('DEBUG error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    getTokenAndFetchProfile();
+  }, [route?.params?.token]);
+
   const handleEditProfile = () => {
-    // navigation.navigate('EditProfile');
-    alert('Chức năng chỉnh sửa thông tin cá nhân!');
+    if (user) {
+      navigation.navigate('UserDetail', { user });
+    }
   };
 
   const handleLogout = () => {
@@ -22,9 +64,21 @@ const PersonalInfoScreen = ({ navigation }: any) => {
       </View>
       <ScrollView style={styles.scrollContainer} contentContainerStyle={{ alignItems: 'center' }}>
         <View style={styles.profileSection}>
-          <Image source={userImage} style={styles.avatar} />
-          <Text style={styles.name}>Nguyễn Văn A</Text>
-          <Text style={styles.email}>nguyenvana@gmail.com</Text>
+          {loading ? (
+            <ActivityIndicator size="large" color="#4A90C2" style={{ marginVertical: 24 }} />
+          ) : (
+            <>
+              <Image
+                source={user?.avatar
+                  ? { uri: user.avatar }
+                  : { uri: `https://randomuser.me/api/portraits/men/${Math.floor(Math.random() * 100)}.jpg` }
+                }
+                style={styles.avatar}
+              />
+              <Text style={styles.name}>{user?.fullName || '---'}</Text>
+              <Text style={styles.email}>{user?.email || '---'}</Text>
+            </>
+          )}
         </View>
         <View style={styles.menuSection}>
           <MenuItem label="Thông tin cá nhân" onPress={handleEditProfile} />
