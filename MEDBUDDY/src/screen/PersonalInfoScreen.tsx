@@ -1,204 +1,378 @@
-
-
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, SafeAreaView, ScrollView, ActivityIndicator } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import UserService, { User } from '../api/user';
+import React, { useState, useEffect } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Image, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import UserService from '../api/user';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const PersonalInfoScreen = ({ navigation, route }: any) => {
-  const [user, setUser] = useState<User | null>(null);
+const ProfileSettingsScreen = ({ navigation }: any) => {
+  const [activeTab, setActiveTab] = useState('manage');
+  const [user, setUser] = useState<{ fullName?: string; avatar?: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
-
-  const [token, setToken] = useState<string>('');
-
-
-  const fetchProfile = useCallback(async () => {
+  const fetchProfile = async () => {
     setLoading(true);
     try {
-      // Ưu tiên lấy token từ route.params nếu có
-      const navToken = route?.params?.token;
-      if (navToken) {
-        await AsyncStorage.setItem('token', navToken);
-        setToken(navToken);
-        const data = await UserService.getProfile(navToken);
-        setUser(data);
-        console.log('DEBUG: token from params, saved to AsyncStorage:', navToken);
-        return;
-      }
-      // Nếu không có, lấy từ AsyncStorage
-      const storedToken = await AsyncStorage.getItem('token');
-      console.log('DEBUG token:', storedToken);
-      if (storedToken) {
-        setToken(storedToken);
-        const data = await UserService.getProfile(storedToken);
+      const token = await AsyncStorage.getItem('token');
+      console.log('DEBUG token:', token);
+      if (token) {
+        const data = await UserService.getProfile(token);
+        console.log('DEBUG user profile:', data);
         setUser(data);
       } else {
         setUser(null);
       }
-    } catch (error) {
-      console.log('DEBUG error:', error);
+    } catch (e) {
+      console.log('DEBUG fetchProfile error:', e);
+      setUser(null);
     } finally {
       setLoading(false);
     }
-  }, [route?.params?.token]);
+  };
 
   useEffect(() => {
     fetchProfile();
-  }, [fetchProfile]);
+  }, []);
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
+  useFocusEffect(
+    React.useCallback(() => {
       fetchProfile();
-    });
-    return unsubscribe;
-  }, [navigation, fetchProfile]);
+    }, [])
+  );
 
-  const handleEditProfile = () => {
-    if (user) {
-      navigation.navigate('UserDetail', { user });
+  // Create Account section
+  const CreateAccountSection = () => (
+    <TouchableOpacity style={styles.createAccountCard} onPress={() => navigation.navigate('UserDetail', { user })}>
+      <View style={styles.cardContent}>
+        <View style={styles.iconContainer}>
+          <Ionicons name="shield-checkmark" size={24} color="#fff" />
+        </View>
+        <View style={styles.textContainer}>
+          <Text style={styles.cardTitle}>Thông tin cá nhân</Text>
+          <Text style={styles.cardSubtitle}>Thay đổi thông tin cá nhân</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color="#999" />
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Essentials section items
+  const essentialsItems = [
+    {
+      id: 'medications',
+      title: 'Thuốc',
+      icon: 'medical',
+      bgColor: '#3B82F6',
+      customIcon: (
+        <View style={styles.pillsContainer}>
+          <View style={[styles.pill, { backgroundColor: '#60A5FA' }]} />
+          <View style={[styles.pill, { backgroundColor: '#3B82F6' }]} />
+          <View style={[styles.smallPill, { backgroundColor: '#FDE047' }]} />
+        </View>
+      )
+    },
+    {
+      id: 'report',
+      title: 'Báo cáo',
+      icon: 'document-text',
+      bgColor: '#9333EA'
+    },
+    {
+      id: 'health-trackers',
+      title: 'Theo dõi sức khỏe & Đo lường',
+      icon: 'pulse',
+      bgColor: '#16A34A'
+    },
+    {
+      id: 'appointments',
+      title: 'Cuộc hẹn',
+      icon: 'calendar',
+      bgColor: '#3B82F6'
+    },
+    {
+      id: 'diary-notes',
+      title: 'Nhật ký ghi chú',
+      icon: 'book',
+      bgColor: '#EA580C'
+    },
+    {
+      id: 'doctors',
+      title: 'Bác sĩ',
+      icon: 'medical',
+      bgColor: '#0D9488'
     }
-  };
+  ];
 
-  const handleLogout = () => {
-    alert('Đăng xuất thành công!');
-    navigation.replace('Login');
-  };
+  // Settings section items
+  const settingsItems = [
+    {
+      id: 'app-settings',
+      title: 'Cài đặt ứng dụng',
+      icon: 'settings',
+      bgColor: '#0D9488'
+    },
+    {
+      id: 'help-center',
+      title: 'Trung tâm trợ giúp',
+      icon: 'help-circle',
+      bgColor: '#3B82F6'
+    },
+    {
+      id: 'share-medisafe',
+      title: 'Chia sẻ ứng dụng',
+      icon: 'people',
+      bgColor: '#3B82F6'
+    }
+  ];
+
+  const MenuItem = ({ item }: any) => (
+    <TouchableOpacity style={styles.menuItem}>
+      <View style={[styles.menuIconContainer, { backgroundColor: item.bgColor }]}>
+        {item.customIcon ? item.customIcon : (
+          <Ionicons name={item.icon} size={20} color="#fff" />
+        )}
+      </View>
+      <View style={styles.menuTextContainer}>
+        <Text style={styles.menuTitle}>{item.title}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color="#999" />
+    </TouchableOpacity>
+  );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#4A90C2' }}>
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Cài đặt</Text>
+        <View style={styles.headerContent}>
+          <View style={styles.userInfo}>
+            {loading ? (
+              <View style={styles.avatar}><ActivityIndicator color="#666" /></View>
+            ) : user && user.avatar ? (
+              <Image source={{ uri: user.avatar }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatar}>
+                <Ionicons name="person" size={20} color="#666" />
+              </View>
+            )}
+            <Text style={styles.headerTitle}>{user && user.fullName ? user.fullName : 'Khách'}</Text>
+          </View>
+          <Ionicons name="add" size={24} color="#fff" />
+        </View>
       </View>
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={{ alignItems: 'center' }}>
-        <View style={styles.profileSection}>
-          {loading ? (
-            <ActivityIndicator size="large" color="#4A90C2" style={{ marginVertical: 24 }} />
-          ) : (
-            <>
-              <Image
-                source={user?.avatar
-                  ? { uri: user.avatar }
-                  : { uri: `https://randomuser.me/api/portraits/men/${Math.floor(Math.random() * 100)}.jpg` }
-                }
-                style={styles.avatar}
-              />
-              <Text style={styles.name}>{user?.fullName || '---'}</Text>
-              <Text style={styles.email}>{user?.email || '---'}</Text>
-            </>
-          )}
+
+      {/* Main Content */}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Create Account Section */}
+        <CreateAccountSection />
+
+        {/* Essentials Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Cần thiết</Text>
+          {essentialsItems.map((item) => (
+            <MenuItem key={item.id} item={item} />
+          ))}
         </View>
-        <View style={styles.menuSection}>
-          <MenuItem label="Thông tin cá nhân" onPress={handleEditProfile} />
-          <MenuItem label="Liên hệ" onPress={() => alert('Liên hệ!')} />
-          <MenuItem label="Chính sách bảo mật" onPress={() => alert('Chính sách bảo mật!')} />
-          <MenuItem label="Thông tin ứng dụng" onPress={() => alert('Thông tin ứng dụng!')} />
-          <MenuItem label="Chia sẻ ứng dụng" onPress={() => alert('Chia sẻ ứng dụng!')} />
+
+        {/* Settings Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Cài đặt</Text>
+          {settingsItems.map((item) => (
+            <MenuItem key={item.id} item={item} />
+          ))}
         </View>
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutText}>ĐĂNG XUẤT</Text>
+
+        {/* Logout Button */}
+        <TouchableOpacity style={styles.logoutBtn} onPress={async () => {
+          // Xóa token, điều hướng về màn hình đăng nhập
+          try {
+            const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+            await AsyncStorage.removeItem('token');
+            navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+          } catch (e) {
+            // fallback nếu lỗi
+            navigation.navigate('Login');
+          }
+        }}>
+          <Text style={styles.logoutText}>Đăng xuất</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
-};
-
-const MenuItem = ({ label, onPress }: { label: string; onPress: () => void }) => (
-  <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-    <Text style={styles.menuLabel}>{label}</Text>
-    <MaterialIcons name="keyboard-arrow-right" size={24} color="#A0A4A8" />
-  </TouchableOpacity>
-);
+}
 
 const styles = StyleSheet.create({
-  header: {
-    backgroundColor: '#4A90C2',
-    paddingTop: 30,
-    paddingBottom: 16,
-    alignItems: 'center',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  headerTitle: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-  scrollContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -16,
-  },
-  profileSection: {
-    alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 16,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
-    borderColor: '#fff',
-    marginBottom: 8,
-    backgroundColor: '#eee',
-  },
-  name: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#222',
-    marginBottom: 2,
-  },
-  email: {
-    fontSize: 14,
-    color: '#888',
-    marginBottom: 4,
-  },
-  menuSection: {
-    width: '90%',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    marginVertical: 10,
-    paddingVertical: 4,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 18,
-    paddingHorizontal: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  menuLabel: {
-    fontSize: 16,
-    color: '#222',
-  },
   logoutBtn: {
-    backgroundColor: '#4A90C2',
-    marginTop: 30,
-    marginBottom: 30,
+    backgroundColor: '#e53935',
     borderRadius: 8,
-    width: '90%',
     alignItems: 'center',
-    paddingVertical: 14,
-    elevation: 2,
+    paddingVertical: 16,
+    marginHorizontal: 16,
+    marginBottom: 32,
+    marginTop: 8,
   },
   logoutText: {
     color: '#fff',
-    fontSize: 18,
     fontWeight: 'bold',
-    letterSpacing: 1,
+    fontSize: 18,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  header: {
+    backgroundColor: '#4A7BA7',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingTop: 50, // Add extra top padding for status bar/notch
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#D1D5DB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  headerTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  createAccountCard: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 16,
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#EF4444',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  cardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconContainer: {
+    backgroundColor: '#10B981',
+    borderRadius: 8,
+    padding: 12,
+    marginRight: 16,
+  },
+  textContainer: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  section: {
+    marginBottom: 32,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#2563EB',
+    marginBottom: 16,
+  },
+  menuItem: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuIconContainer: {
+    borderRadius: 8,
+    padding: 12,
+    marginRight: 16,
+  },
+  menuTextContainer: {
+    flex: 1,
+  },
+  menuTitle: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  pillsContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  pill: {
+    width: 4,
+    height: 16,
+    borderRadius: 2,
+  },
+  smallPill: {
+    width: 4,
+    height: 12,
+    borderRadius: 2,
+  },
+  bottomNav: {
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  navContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 8,
+  },
+  navTab: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  navLabel: {
+    fontSize: 10,
+    marginTop: 4,
+  },
+  homeIndicator: {
+    alignItems: 'center',
+    paddingBottom: 8,
+  },
+  indicator: {
+    width: 128,
+    height: 4,
+    backgroundColor: '#9CA3AF',
+    borderRadius: 2,
+    opacity: 0.3,
   },
 });
 
-export default PersonalInfoScreen;
+export default ProfileSettingsScreen;

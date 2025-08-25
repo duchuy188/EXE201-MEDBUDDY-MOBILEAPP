@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import AuthService from '../api/authService';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,6 +32,8 @@ const LoginScreen = ({ navigation }: any) => {
       // Kiểm tra token trả về
       if (result.token) {
         console.log('>>> Đăng nhập thành công, token:', result.token);
+        // Lưu token vào AsyncStorage để các màn hình khác dùng được
+        await AsyncStorage.setItem('token', result.token);
       } else {
         console.warn('>>> Đăng nhập KHÔNG có token!');
       }
