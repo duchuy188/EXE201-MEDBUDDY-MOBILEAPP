@@ -10,6 +10,8 @@ import { Ionicons, MaterialIcons, FontAwesome5, AntDesign } from '@expo/vector-i
 import HealthStatisticsScreen from '../screen/HealthStatisticsScreen';
 import PersonalInfoScreen from '../screen/PersonalInfoScreen';
 import UserDetailScreen from '../screen/UserDetailScreen';
+import HelpCenterScreen from '../screen/HelpCenterScreen';
+import ArticleListScreen from '../screen/ArticleListScreen';
 
 
 const Tab = createBottomTabNavigator();
@@ -79,6 +81,8 @@ export default function BottomTabNavigator({ route }: any) {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainTabs" component={TabScreens} />
       <Stack.Screen name="UserDetail" component={UserDetailScreen} />
+      <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
+      <Stack.Screen name="ArticleList" component={ArticleListScreen} />
     </Stack.Navigator>
   );
 }

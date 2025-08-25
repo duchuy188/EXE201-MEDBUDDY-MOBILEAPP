@@ -126,8 +126,15 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
   ];
 
   const MenuItem = ({ item }: any) => (
-    <TouchableOpacity style={styles.menuItem}>
-      <View style={[styles.menuIconContainer, { backgroundColor: item.bgColor }]}>
+    <TouchableOpacity
+      style={styles.menuItem}
+      onPress={() => {
+        if (item.id === 'help-center') {
+          navigation.navigate('HelpCenter');
+        }
+      }}
+    >
+      <View style={[styles.menuIconContainer, { backgroundColor: item.bgColor }]}> 
         {item.customIcon ? item.customIcon : (
           <Ionicons name={item.icon} size={20} color="#fff" />
         )}
