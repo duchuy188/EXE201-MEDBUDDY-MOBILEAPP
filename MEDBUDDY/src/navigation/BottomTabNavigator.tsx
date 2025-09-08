@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -12,6 +11,7 @@ import PersonalInfoScreen from '../screen/PersonalInfoScreen';
 import UserDetailScreen from '../screen/UserDetailScreen';
 import HelpCenterScreen from '../screen/HelpCenterScreen';
 import ArticleListScreen from '../screen/ArticleListScreen';
+import MedicationsScreen from '../screen/MedicationsScreen';
 
 
 const Tab = createBottomTabNavigator();
@@ -83,6 +83,8 @@ export default function BottomTabNavigator({ route }: any) {
       <Stack.Screen name="UserDetail" component={UserDetailScreen} />
       <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
       <Stack.Screen name="ArticleList" component={ArticleListScreen} />
+      <Stack.Screen name="MedicationsScreen" component={MedicationsScreen} options={{ headerShown: true, title: 'Danh sách thuốc' }} />
+      <Stack.Screen name="AddMedicine" component={AddMedicineScreen} options={{ headerShown: true, title: 'Thêm thuốc' }} />
     </Stack.Navigator>
   );
 }

@@ -48,13 +48,11 @@ const AddMedicineScreen: React.FC = () => {
         userId,
         name: medicineName,
         dosage,
-        // form, image, note có thể bổ sung nếu có UI
         timeOfDay: selectedTimes.join(','),
-        expirationDate: expiryDate,
-        // quantity và minQuantity không có trong interface Medication, có thể cần bổ sung ở backend nếu muốn lưu
+        note: expiryDate, // Ghi chú được lưu từ trường expiryDate
       };
       await MedicationService.addMedication(data, token);
-      Alert.alert('Thêm thuốc thành công', `Tên: ${medicineName}\nLiều lượng: ${dosage}\nSố lượng: ${quantity}\nThời gian uống: ${selectedTimes.map(id => timeSlots.find(t => t.id === id)?.label).join(', ')}`);
+      Alert.alert('Thêm thuốc thành công', `Tên: ${medicineName}\nLiều lượng: ${dosage}\nSố lượng: ${quantity}\nThời gian uống: ${selectedTimes.map(id => timeSlots.find(t => t.id === id)?.label).join(', ')}\nGhi chú: ${expiryDate}`);
       setMedicineName('');
       setDosage('');
       setQuantity('');
@@ -101,28 +99,24 @@ const AddMedicineScreen: React.FC = () => {
               placeholder="30"
               keyboardType="numeric"
               value={quantity}
-              onChangeText={setQuantity}
-              placeholderTextColor="#B6D5FA"
-            />
-          </View>
-          <View style={[styles.inputGroup, {flex: 1}]}>  
-            <Text style={styles.label}>Số lượng tối thiểu</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="10"
-              keyboardType="numeric"
-              value={minQuantity}
-              onChangeText={setMinQuantity}
+              onChangeText={(text) => {
+                const numericValue = parseInt(text, 10);
+                if (!isNaN(numericValue) && numericValue >= 1) {
+                  setQuantity(text);
+                } else if (text === "") {
+                  setQuantity("");
+                }
+              }}
               placeholderTextColor="#B6D5FA"
             />
           </View>
         </View>
-        {/* Hạn sử dụng */}
+        {/* Ghi chú */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Hạn sử dụng</Text>
+          <Text style={styles.label}>Ghi chú</Text>
           <TextInput
             style={styles.input}
-            placeholder="mm/dd.yyyy"
+            placeholder="Nhập ghi chú"
             value={expiryDate}
             onChangeText={setExpiryDate}
             placeholderTextColor="#B6D5FA"

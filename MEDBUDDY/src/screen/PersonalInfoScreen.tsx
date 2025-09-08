@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import UserService from '../api/user';
+import MedicationService from '../api/Medication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ProfileSettingsScreen = ({ navigation }: any) => {
@@ -125,11 +126,28 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
     }
   ];
 
+  const fetchMedications = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (token) {
+        const medications = await MedicationService.getMedications(token);
+        console.log('DEBUG medications:', medications);
+        return medications;
+      }
+    } catch (error) {
+      console.error('Error fetching medications:', error);
+    }
+    return [];
+  };
+
   const MenuItem = ({ item }: any) => (
     <TouchableOpacity
       style={styles.menuItem}
-      onPress={() => {
-        if (item.id === 'help-center') {
+      onPress={async () => {
+        if (item.id === 'medications') {
+          const medications = await fetchMedications();
+          navigation.navigate('MedicationsScreen', { medications });
+        } else if (item.id === 'help-center') {
           navigation.navigate('HelpCenter');
         }
       }}

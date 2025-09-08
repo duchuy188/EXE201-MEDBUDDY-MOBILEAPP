@@ -32,8 +32,14 @@ const LoginScreen = ({ navigation }: any) => {
       // Kiểm tra token trả về
       if (result.token) {
         console.log('>>> Đăng nhập thành công, token:', result.token);
-        // Lưu token vào AsyncStorage để các màn hình khác dùng được
+        // Lưu token và userId vào AsyncStorage
         await AsyncStorage.setItem('token', result.token);
+        if (result.user?._id) {
+          await AsyncStorage.setItem('userId', result.user._id);
+          console.log('>>> Lưu userId thành công:', result.user._id);
+        } else {
+          console.warn('>>> Không tìm thấy userId để lưu!');
+        }
       } else {
         console.warn('>>> Đăng nhập KHÔNG có token!');
       }
