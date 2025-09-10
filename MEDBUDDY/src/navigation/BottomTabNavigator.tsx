@@ -12,6 +12,8 @@ import UserDetailScreen from '../screen/UserDetailScreen';
 import HelpCenterScreen from '../screen/HelpCenterScreen';
 import ArticleListScreen from '../screen/ArticleListScreen';
 import MedicationsScreen from '../screen/MedicationsScreen';
+import AppointmentsScreen from '../screen/AppointmentsScreen';
+import AddAppointmentScreen from '../screen/AddAppointmentScreen';
 
 
 const Tab = createBottomTabNavigator();
@@ -85,6 +87,8 @@ export default function BottomTabNavigator({ route }: any) {
       <Stack.Screen name="ArticleList" component={ArticleListScreen} />
       <Stack.Screen name="MedicationsScreen" component={MedicationsScreen} options={{ headerShown: true, title: 'Danh sách thuốc' }} />
       <Stack.Screen name="AddMedicine" component={AddMedicineScreen} options={{ headerShown: true, title: 'Thêm thuốc' }} />
+      <Stack.Screen name="Appointments" component={AppointmentsScreen} options={{ headerShown: true, title: 'Lịch hẹn' }} />
+      <Stack.Screen name="AddAppointment" component={AddAppointmentScreen} options={{ headerShown: true, title: 'Tạo cuộc hẹn' }} />
     </Stack.Navigator>
   );
 }

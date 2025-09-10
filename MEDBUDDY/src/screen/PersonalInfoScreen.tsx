@@ -149,6 +149,8 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
           navigation.navigate('MedicationsScreen', { medications });
         } else if (item.id === 'help-center') {
           navigation.navigate('HelpCenter');
+        } else if (item.id === 'appointments') {
+          navigation.navigate('Appointments');
         }
       }}
     >

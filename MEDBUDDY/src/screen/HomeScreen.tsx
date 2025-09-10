@@ -53,21 +53,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
     if (systolic && diastolic) {
       const sys = Number(systolic);
       const dia = Number(diastolic);
-      // Giới hạn hợp lý
+      // Kiểm tra giới hạn hợp lý
       if (isNaN(sys) || isNaN(dia)) {
         Alert.alert('Lỗi', 'Vui lòng nhập số hợp lệ cho huyết áp.');
         return;
       }
       if (sys < 70 || sys > 250) {
-        Alert.alert('Lỗi', 'Tâm thu (systolic) phải từ 70 đến 250 mmHg.');
+        Alert.alert('Lỗi', 'Huyết áp tâm thu (systolic) phải từ 70 đến 250 mmHg.');
         return;
       }
       if (dia < 40 || dia > 150) {
-        Alert.alert('Lỗi', 'Tâm trương (diastolic) phải từ 40 đến 150 mmHg.');
+        Alert.alert('Lỗi', 'Huyết áp tâm trương (diastolic) phải từ 40 đến 150 mmHg.');
         return;
       }
       if (!userId) {
-        Alert.alert('Lỗi', 'Không tìm thấy userId. Vui lòng đăng nhập lại.');
+        Alert.alert('Lỗi', 'Không tìm thấy mã người dùng. Vui lòng đăng nhập lại.');
         return;
       }
       try {
@@ -77,12 +77,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
           systolic: sys,
           diastolic: dia,
         }, token);
-        Alert.alert('Đã lưu thành công', `Huyết áp ${sys}/${dia} đã được ghi nhận`);
+        Alert.alert('Thành công', `Đã ghi nhận chỉ số huyết áp ${sys}/${dia}`);
         setSystolic('');
         setDiastolic('');
         fetchBpHistory();
       } catch (e) {
-        Alert.alert('Lỗi', 'Không thể lưu huyết áp');
+        Alert.alert('Lỗi', 'Không thể lưu chỉ số huyết áp');
       } finally {
         setLoading(false);
       }
@@ -90,12 +90,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
   };
 
   const handleBloodPressureMeasured = () => {
-    Alert.alert('Cảm ơn bạn!', 'Đã ghi nhận việc đo huyết áp. Hãy nhập kết quả bên dưới.');
+    Alert.alert('Cảm ơn bạn!', 'Đã ghi nhận việc đo huyết áp. Mời bạn nhập kết quả bên dưới.');
     setShowNotification(false);
   };
 
   const handleBloodPressureSnooze = () => {
-    Alert.alert('Đã lên lịch nhắc lại', 'Sẽ nhắc bạn đo huyết áp sau 10 phút nữa');
+    Alert.alert('Đã hẹn giờ nhắc lại', 'Hệ thống sẽ nhắc bạn đo huyết áp sau 10 phút');
     setShowNotification(false);
   };
 
@@ -288,7 +288,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
             </View>
           </View>
 
-          {/* Medication Card */}
+          {/* Thẻ thuốc */}
           <View style={[styles.section, {
             backgroundColor: '#F0F6FF',
             borderRadius: 18,
@@ -302,19 +302,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
             elevation: 1
           }]}> 
             <Text style={{fontWeight: 'bold', fontSize: 18, marginBottom: 10, color: '#1E293B', flexDirection: 'row', alignItems: 'center'}}>
-              <Ionicons name="notifications" size={18} color="#3B82F6" />  Thuốc hôm nay
+              <Ionicons name="notifications" size={18} color="#3B82F6" />  Lịch uống thuốc hôm nay
             </Text>
             <View style={{backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#B6D5FA'}}>
               <View>
                 <Text style={{fontWeight: 'bold', color: '#12B76A'}}>Amlodipine 5mg</Text>
-                <Text style={{color: '#64748B', fontSize: 13}}>7:00 AM - Sáng</Text>
+                <Text style={{color: '#64748B', fontSize: 13}}>7:00 - Buổi sáng</Text>
               </View>
               <Text style={{color: '#12B76A', fontSize: 22}}>✓</Text>
             </View>
             <View style={{backgroundColor: '#fff', borderRadius: 12, padding: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#B6D5FA'}}>
               <View>
                 <Text style={{fontWeight: 'bold', color: '#3B82F6'}}>Candesartan 8mg</Text>
-                <Text style={{color: '#64748B', fontSize: 13}}>7:00 PM - Tối</Text>
+                <Text style={{color: '#64748B', fontSize: 13}}>19:00 - Buổi tối</Text>
               </View>
               <TouchableOpacity style={{backgroundColor: '#B6D5FA', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8}}>
                 <Text style={{color: '#3B82F6', fontSize: 14, fontWeight: 'bold'}}>Uống ngay</Text>
@@ -322,7 +322,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
             </View>
           </View>
 
-          {/* Real-time Family Dashboard placeholder */}
+          {/* Bảng điều khiển gia đình */}
 <View style={{
   backgroundColor: '#fff',
   borderRadius: 16,
@@ -340,50 +340,50 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
   <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 6}}>
     <FontAwesome5 name="users" size={22} color="#3B82F6" style={{marginRight: 8}} />
     <Text style={{fontWeight: 'bold', fontSize: 17, color: '#1E293B'}}>
-      Dashboard gia đình (demo)
+      Bảng điều khiển gia đình (demo)
     </Text>
   </View>
   <Text style={{color: '#64748B', fontSize: 15}}>
-    Theo dõi sức khỏe người thân theo thời gian thực.
+    Theo dõi sức khỏe người thân trong thời gian thực.
   </Text>
 </View>
         </>
       ) : (
         <>
-          {/* Family UI - Weekly Report */}
+          {/* Giao diện người chăm sóc - Báo cáo tuần */}
           <View style={[styles.section, {backgroundColor: '#fff', borderRadius: 18, padding: 18, marginBottom: 18, borderWidth: 1, borderColor: '#A8E6CF'}]}>
             <Text style={{fontWeight: 'bold', fontSize: 18, marginBottom: 10, flexDirection: 'row', alignItems: 'center'}}>
-              <FontAwesome5 name="heartbeat" size={18} color="#4CB8C4" />  Báo cáo tuần này
+              <FontAwesome5 name="heartbeat" size={18} color="#4CB8C4" />  Tổng kết tuần
             </Text>
             <View style={{backgroundColor: '#A8E6CF', borderRadius: 12, padding: 12, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
               <View>
-                <Text style={{fontWeight: 'bold'}}>Uống thuốc đúng giờ</Text>
+                <Text style={{fontWeight: 'bold'}}>Tuân thủ lịch uống thuốc</Text>
                 <Text style={{color: '#666', fontSize: 13}}>6/7 ngày</Text>
               </View>
               <Text style={{color: '#388E3C', fontSize: 18, fontWeight: 'bold'}}>86%</Text>
             </View>
             <View style={{backgroundColor: '#E0F7FA', borderRadius: 12, padding: 12, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
               <View>
-                <Text style={{fontWeight: 'bold'}}>Đo huyết áp</Text>
+                <Text style={{fontWeight: 'bold'}}>Đo huyết áp đều đặn</Text>
                 <Text style={{color: '#666', fontSize: 13}}>7/7 ngày</Text>
               </View>
               <Text style={{color: '#009688', fontSize: 18, fontWeight: 'bold'}}>100%</Text>
             </View>
             <View style={{backgroundColor: '#F7B2B7', borderRadius: 12, padding: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
               <View>
-                <Text style={{fontWeight: 'bold'}}>Huyết áp trung bình</Text>
-                <Text style={{color: '#666', fontSize: 13}}>Tuần này</Text>
+                <Text style={{fontWeight: 'bold'}}>Chỉ số huyết áp trung bình</Text>
+                <Text style={{color: '#666', fontSize: 13}}>Trong tuần</Text>
               </View>
               <Text style={{color: '#E91E63', fontSize: 18, fontWeight: 'bold'}}>125/82</Text>
             </View>
           </View>
 
-          {/* Real-time Family Dashboard placeholder */}
+          {/* Bảng điều khiển gia đình */}
           <View style={[styles.section, {backgroundColor: '#fff', borderRadius: 18, padding: 18, marginBottom: 18, borderWidth: 1, borderColor: '#A0A4A8'}]}>
             <Text style={{fontWeight: 'bold', fontSize: 18, marginBottom: 10}}>
-              <FontAwesome5 name="users" size={18} color="#4CB8C4" />  Dashboard gia đình (demo)
+              <FontAwesome5 name="users" size={18} color="#4CB8C4" />  Bảng điều khiển gia đình (demo)
             </Text>
-            <Text style={{color: '#666'}}>Theo dõi sức khỏe người thân theo thời gian thực.</Text>
+            <Text style={{color: '#666'}}>Theo dõi sức khỏe người thân trong thời gian thực.</Text>
           </View>
         </>
       )}
