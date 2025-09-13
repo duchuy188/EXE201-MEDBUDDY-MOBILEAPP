@@ -1,77 +1,11 @@
-import React, { useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import AuthService from '../api/authService';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Pressable } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const LoginScreen = ({ navigation }: any) => {
-  const [modalVisible, setModalVisible] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [accountType, setAccountType] = useState<'patient' | 'relative' | null>(null);
-  const [error, setError] = useState('');
-
   const handleLoginPress = (type: 'patient' | 'relative') => {
-    setAccountType(type);
-    setModalVisible(true);
-    setEmail('');
-    setPassword('');
-    setError('');
-  };
-
-  const handleLogin = async () => {
-    if (!email || !password) {
-      setError('Vui lòng nhập email và mật khẩu.');
-      return;
-    }
-    try {
-      const result = await AuthService.login({ email, password });
-      console.log('Login API result:', result);
-      console.log('API returned role:', result.user?.role);
-      // Kiểm tra token trả về
-      if (result.token) {
-        console.log('>>> Đăng nhập thành công, token:', result.token);
-        // Lưu token và userId vào AsyncStorage
-        await AsyncStorage.setItem('token', result.token);
-        if (result.user?._id) {
-          await AsyncStorage.setItem('userId', result.user._id);
-          console.log('>>> Lưu userId thành công:', result.user._id);
-        } else {
-          console.warn('>>> Không tìm thấy userId để lưu!');
-        }
-      } else {
-        console.warn('>>> Đăng nhập KHÔNG có token!');
-      }
-      // Xử lý backend không trả về result.success, chỉ có message/token/user
-      const isLoginSuccess = !!(result.token && result.user && result.message && result.message.toLowerCase().includes('success'));
-      if (isLoginSuccess) {
-        const apiRole = result.user?.role;
-        if (!apiRole) {
-          setError('Không xác định được loại tài khoản từ máy chủ.');
-          return;
-        }
-        if (
-          (accountType === 'patient' && apiRole === 'patient') ||
-          (accountType === 'relative' && (apiRole === 'relative' || apiRole === 'family'))
-        ) {
-          setModalVisible(false);
-          setError('');
-          navigation.replace('MainTab', { userType: apiRole === 'family' ? 'relative' : apiRole, token: result.token, userId: result.user?._id });
-        } else {
-          setError('Tài khoản này không thuộc loại bạn đã chọn. Vui lòng chọn đúng loại tài khoản!');
-        }
-      } else {
-        // Nếu có message lỗi từ backend thì hiển thị, còn không thì báo thất bại chung
-        if (result.message && !result.message.toLowerCase().includes('success')) {
-          setError(result.message);
-        } else {
-          setError('Đăng nhập thất bại.');
-        }
-      }
-    } catch (err: any) {
-      setError(err.message || 'Đăng nhập thất bại.');
-    }
+    navigation.navigate('LoginForm', { accountType: type });
   };
 
   return (
@@ -111,45 +45,6 @@ const LoginScreen = ({ navigation }: any) => {
           </LinearGradient>
         </TouchableOpacity>
       </View>
-      {/* Modal đăng nhập */}
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Đăng nhập {accountType === 'patient' ? 'Người bệnh' : accountType === 'relative' ? 'Người thân' : ''}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Mật khẩu"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-            {/* Chỉ hiển thị error, không hiển thị thành công nếu không chuyển màn hình */}
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
-              <Pressable style={styles.modalBtn} onPress={handleLogin}>
-                <Text style={styles.modalBtnText}>Đăng nhập</Text>
-              </Pressable>
-              <Pressable style={[styles.modalBtn, { backgroundColor: '#ccc' }]} onPress={() => setModalVisible(false)}>
-                <Text style={[styles.modalBtnText, { color: '#333' }]}>Đóng</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
       {/* Đăng ký */}
       <View style={styles.registerWrap}>
         <Text style={styles.registerText}>Chưa có tài khoản?</Text>
@@ -162,57 +57,6 @@ const LoginScreen = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: '85%',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 22,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 16,
-    color: '#1E3A5F',
-  },
-  input: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#D6E6F5',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 12,
-    fontSize: 15,
-    backgroundColor: '#F7FAFC',
-  },
-  errorText: {
-    color: 'red',
-    marginBottom: 8,
-    fontSize: 13,
-  },
-  modalBtn: {
-    backgroundColor: '#4A90C2',
-    paddingVertical: 10,
-    paddingHorizontal: 22,
-    borderRadius: 8,
-    marginTop: 8,
-    marginHorizontal: 4,
-  },
-  modalBtnText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
   container: {
     flex: 1,
     backgroundColor: '#F0F8FF',

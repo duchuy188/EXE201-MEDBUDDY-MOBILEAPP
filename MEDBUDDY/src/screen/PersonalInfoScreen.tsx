@@ -92,14 +92,14 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
     },
     {
       id: 'diary-notes',
-      title: 'Nhật ký ghi chú',
-      icon: 'book',
+      title: 'Nhắc uống thuốc',
+      icon: 'alarm-outline',
       bgColor: '#EA580C'
     },
     {
       id: 'doctors',
-      title: 'Bác sĩ',
-      icon: 'medical',
+      title: 'Người thân',
+      icon: 'people-outline',
       bgColor: '#0D9488'
     }
   ];

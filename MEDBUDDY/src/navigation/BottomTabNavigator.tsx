@@ -14,6 +14,8 @@ import ArticleListScreen from '../screen/ArticleListScreen';
 import MedicationsScreen from '../screen/MedicationsScreen';
 import AppointmentsScreen from '../screen/AppointmentsScreen';
 import AddAppointmentScreen from '../screen/AddAppointmentScreen';
+import MedicationScheduleScreen from '../screen/MedicationScheduleScreen';
+import AddReminderScreen from '../screen/AddReminderScreen';
 
 
 const Tab = createBottomTabNavigator();
@@ -45,6 +47,8 @@ export default function BottomTabNavigator({ route }: any) {
               return <Ionicons name="stats-chart-outline" size={size} color={color} />;
             } else if (route.name === 'Thông tin cá nhân') {
               return <AntDesign name="user" size={size} color={color} />;
+            } else if (route.name === 'Lịch uống thuốc') {
+              return <MaterialIcons name="schedule" size={size} color={color} />;
             }
             return null;
           },
@@ -61,10 +65,15 @@ export default function BottomTabNavigator({ route }: any) {
           initialParams={{ userType, token, userId }}
         />
         <Tab.Screen
+          name="Lịch uống thuốc"
+          component={MedicationScheduleScreen}
+          initialParams={{ userType, token, userId }}
+        />
+        {/* <Tab.Screen
           name="Chụp ảnh"
           component={PhotoCaptureScreen}
           initialParams={{ userType, token, userId }}
-        />
+        /> */}
         <Tab.Screen
           name="Thống kê"
           component={HealthStatisticsScreen}
@@ -89,6 +98,7 @@ export default function BottomTabNavigator({ route }: any) {
       <Stack.Screen name="AddMedicine" component={AddMedicineScreen} options={{ headerShown: true, title: 'Thêm thuốc' }} />
       <Stack.Screen name="Appointments" component={AppointmentsScreen} options={{ headerShown: true, title: 'Lịch hẹn' }} />
       <Stack.Screen name="AddAppointment" component={AddAppointmentScreen} options={{ headerShown: true, title: 'Tạo cuộc hẹn' }} />
+      <Stack.Screen name="AddReminder" component={AddReminderScreen} options={{ headerShown: true, title: 'Thêm lịch nhắc' }} />
     </Stack.Navigator>
   );
 }
