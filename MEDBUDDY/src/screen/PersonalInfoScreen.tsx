@@ -86,7 +86,7 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
     },
     {
       id: 'appointments',
-      title: 'Cuộc hẹn',
+      title: 'Lịch tái khám',
       icon: 'calendar',
       bgColor: '#3B82F6'
     },

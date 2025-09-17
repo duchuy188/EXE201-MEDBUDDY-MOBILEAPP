@@ -16,6 +16,7 @@ import AppointmentsScreen from '../screen/AppointmentsScreen';
 import AddAppointmentScreen from '../screen/AddAppointmentScreen';
 import MedicationScheduleScreen from '../screen/MedicationScheduleScreen';
 import AddReminderScreen from '../screen/AddReminderScreen';
+import EditAppointmentScreen from '../screen/EditAppointmentScreen';
 
 
 const Tab = createBottomTabNavigator();
@@ -96,9 +97,10 @@ export default function BottomTabNavigator({ route }: any) {
       <Stack.Screen name="ArticleList" component={ArticleListScreen} />
       <Stack.Screen name="MedicationsScreen" component={MedicationsScreen} options={{ headerShown: true, title: 'Danh sách thuốc' }} />
       <Stack.Screen name="AddMedicine" component={AddMedicineScreen} options={{ headerShown: true, title: 'Thêm thuốc' }} />
-      <Stack.Screen name="Appointments" component={AppointmentsScreen} options={{ headerShown: true, title: 'Lịch hẹn' }} />
-      <Stack.Screen name="AddAppointment" component={AddAppointmentScreen} options={{ headerShown: true, title: 'Tạo cuộc hẹn' }} />
-      <Stack.Screen name="AddReminder" component={AddReminderScreen} options={{ headerShown: true, title: 'Thêm lịch nhắc' }} />
+      <Stack.Screen name="Appointments" component={AppointmentsScreen} options={{ headerShown: true, title: 'Lịch tái khám' }} />
+      <Stack.Screen name="AddAppointment" component={AddAppointmentScreen} options={{ headerShown: true, title: 'Tạo tái khám' }} />
+  <Stack.Screen name="AddReminder" component={AddReminderScreen} options={{ headerShown: true, title: 'Thêm lịch nhắc' }} />
+  <Stack.Screen name="EditAppointment" component={EditAppointmentScreen} options={{ headerShown: true, title: 'Chỉnh sửa lịch hẹn tái khám' }} />
     </Stack.Navigator>
   );
 }

@@ -1,7 +1,8 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 
 // Base URL của API backend
-const BASE_URL = 'https://exe201-medbuddy-backend.onrender.com';
+// const BASE_URL = 'https://exe201-medbuddy-backend.onrender.com'; //rendren
+const BASE_URL = 'http://10.0.2.2:5000';  //loaclhost android
 
 // Tạo instance axios với cấu hình cơ bản
 const apiClient: AxiosInstance = axios.create({
