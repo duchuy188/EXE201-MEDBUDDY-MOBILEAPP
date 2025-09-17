@@ -17,6 +17,7 @@ import AddAppointmentScreen from '../screen/AddAppointmentScreen';
 import MedicationScheduleScreen from '../screen/MedicationScheduleScreen';
 import AddReminderScreen from '../screen/AddReminderScreen';
 import EditAppointmentScreen from '../screen/EditAppointmentScreen';
+import EditMedicineScreen from '../screen/EditMedicineScreen';
 
 
 const Tab = createBottomTabNavigator();
@@ -101,6 +102,7 @@ export default function BottomTabNavigator({ route }: any) {
       <Stack.Screen name="AddAppointment" component={AddAppointmentScreen} options={{ headerShown: true, title: 'Tạo tái khám' }} />
   <Stack.Screen name="AddReminder" component={AddReminderScreen} options={{ headerShown: true, title: 'Thêm lịch nhắc' }} />
   <Stack.Screen name="EditAppointment" component={EditAppointmentScreen} options={{ headerShown: true, title: 'Chỉnh sửa lịch hẹn tái khám' }} />
+  <Stack.Screen name="EditMedicine" component={EditMedicineScreen} options={{ headerShown: true, title: 'Chỉnh sửa thuốc' }} />
     </Stack.Navigator>
   );
 }

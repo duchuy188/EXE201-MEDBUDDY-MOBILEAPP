@@ -17,9 +17,21 @@ interface ReminderData {
 const AddReminderScreen = () => {
   const route = useRoute();
   // @ts-ignore
-  const { token, userId } = route.params;
+  const { token: paramToken, userId, medication } = route.params || {};
 
-  const [medicationName, setMedicationName] = useState('');
+  const [token, setToken] = useState(paramToken || '');
+  // Nếu có medication truyền vào thì lấy tên thuốc, không thì để trống
+  const [medicationName, setMedicationName] = useState(medication?.name || '');
+
+  React.useEffect(() => {
+    // Nếu token truyền vào không có hoặc không hợp lệ, lấy lại từ AsyncStorage
+    if (!token || token === 'undefined' || token === null) {
+      (async () => {
+        const storedToken = await (await import('@react-native-async-storage/async-storage')).default.getItem('token');
+        if (storedToken) setToken(storedToken);
+      })();
+    }
+  }, [token]);
   const [selectedTime, setSelectedTime] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [note, setNote] = useState('');
@@ -68,22 +80,30 @@ const AddReminderScreen = () => {
     }
 
     try {
-      const reminderData: ReminderData = {
-        userId,
-        medicationId: '', // Sẽ được tạo sau khi tạo medication
-        time: selectedTime,
-        date: selectedDate.toISOString().split('T')[0],
-        repeat: repeatType,
-        note: note,
-      };
+      // Map các ngày sang số (0=CN, 1=T2, ... 6=T7)
+      const weekDayMap: Record<string, number> = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
+      const repeatDays = repeatType === 'custom' ? selectedDays.map(d => weekDayMap[d]) : undefined;
 
-      if (repeatType === 'custom') {
-        reminderData.customDays = selectedDays;
-      }
+      // Lấy medicationId từ medication nếu có
+      const medicationId = medication?._id || '';
+
+      const reminderData = {
+        userId,
+        medicationId,
+        time: selectedTime,
+        startDate: selectedDate.toISOString().split('T')[0],
+        endDate: selectedDate.toISOString().split('T')[0], // Nếu có input riêng thì thay bằng giá trị kết thúc
+        reminderType: 'normal', // hoặc cho chọn kiểu voice
+        repeat: repeatType,
+        repeatDays,
+        note,
+        voice: 'banmai', // hoặc cho chọn
+        speed: 0,
+        isActive: true,
+      };
 
       await ReminderService.addReminder(reminderData, token);
       Alert.alert('Thành công', 'Đã thêm lịch nhắc uống thuốc');
-      
       // Reset form
       setSelectedTime('');
       setNote('');

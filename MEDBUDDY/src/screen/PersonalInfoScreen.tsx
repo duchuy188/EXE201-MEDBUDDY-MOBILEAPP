@@ -73,12 +73,6 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
       )
     },
     {
-      id: 'report',
-      title: 'Báo cáo',
-      icon: 'document-text',
-      bgColor: '#9333EA'
-    },
-    {
       id: 'health-trackers',
       title: 'Theo dõi sức khỏe & Đo lường',
       icon: 'pulse',
@@ -89,12 +83,6 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
       title: 'Lịch tái khám',
       icon: 'calendar',
       bgColor: '#3B82F6'
-    },
-    {
-      id: 'diary-notes',
-      title: 'Nhắc uống thuốc',
-      icon: 'alarm-outline',
-      bgColor: '#EA580C'
     },
     {
       id: 'doctors',

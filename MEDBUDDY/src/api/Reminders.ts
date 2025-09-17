@@ -5,9 +5,16 @@ export interface Reminder {
   userId: string;
   medicationId: string;
   time: string; // HH:mm hoặc ISO nếu cần
-  date?: string; // Ngày nhắc nhở (YYYY-MM-DD)
+  startDate?: string; // Ngày bắt đầu (YYYY-MM-DD)
+  endDate?: string; // Ngày kết thúc (YYYY-MM-DD)
+  reminderType?: 'normal' | 'voice';
   repeat?: 'daily' | 'weekly' | 'custom';
+  repeatDays?: number[]; // Các ngày lặp lại trong tuần (0-6)
+  repeatTimes?: { time: string; taken?: boolean }[];
   note?: string;
+  voice?: 'banmai' | 'lannhi' | 'leminh' | 'myan' | 'thuminh' | 'giahuy' | 'linhsan';
+  speed?: -3 | -2 | -1 | 0 | 1 | 2 | 3;
+  audioUrl?: string;
   isActive?: boolean;
   createdAt?: string;
   status?: 'pending' | 'completed' | 'snoozed';
@@ -25,7 +32,23 @@ class ReminderService {
 
   // Thêm nhắc nhở mới
   async addReminder(data: Omit<Reminder, '_id' | 'createdAt'>, token: string) {
-    const res = await apiClient.post('/reminders', data, {
+    // Đảm bảo truyền đủ các trường backend yêu cầu
+    const res = await apiClient.post('/reminders', {
+      ...data,
+      medicationId: data.medicationId,
+      time: data.time,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      reminderType: data.reminderType,
+      repeat: data.repeat,
+      repeatDays: data.repeatDays,
+      repeatTimes: data.repeatTimes,
+      note: data.note,
+      voice: data.voice,
+      speed: data.speed,
+      audioUrl: data.audioUrl,
+      isActive: data.isActive,
+    }, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return res.data;
