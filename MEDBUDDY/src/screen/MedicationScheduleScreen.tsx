@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -19,6 +19,7 @@ const MedicationScheduleScreen = () => {
   const { token, userId } = route.params;
   const [selectedDate, setSelectedDate] = React.useState(new Date());
   const [weekOffset, setWeekOffset] = React.useState(0);
+  const [activeTab, setActiveTab] = useState('medication'); // 'medication' or 'appointment'
 
   const getWeekDates = () => {
     const today = new Date();
@@ -55,12 +56,26 @@ const MedicationScheduleScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerContainer}>
-        <Text style={styles.title}>Lịch uống thuốc hôm nay</Text>
+        <Text style={styles.title}>Lịch nhắc nhở</Text>
         <TouchableOpacity 
           style={styles.todayButton}
           onPress={scrollToToday}
         >
           <Text style={styles.todayButtonText}>Hôm nay</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.tabContainer}>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'medication' && styles.activeTab]} 
+          onPress={() => setActiveTab('medication')}
+        >
+          <Text style={[styles.tabText, activeTab === 'medication' && styles.activeTabText]}>Lịch uống thuốc</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'appointment' && styles.activeTab]}
+          onPress={() => setActiveTab('appointment')}
+        >
+          <Text style={[styles.tabText, activeTab === 'appointment' && styles.activeTabText]}>Lịch tái khám</Text>
         </TouchableOpacity>
       </View>
       <ScrollView 
@@ -106,16 +121,35 @@ const MedicationScheduleScreen = () => {
             style={styles.emptyStateImage}
           />
           <View style={styles.textContainer}>
-            <Text style={styles.monitorText}>Theo dõi lịch uống thuốc của bạn</Text>
-            <Text style={styles.subText}>Xem lịch trình hàng ngày và đánh dấu khi bạn đã uống thuốc</Text>
+            <Text style={styles.monitorText}>
+              {activeTab === 'medication' 
+                ? 'Theo dõi lịch uống thuốc của bạn'
+                : 'Theo dõi lịch tái khám của bạn'}
+            </Text>
+            <Text style={styles.subText}>
+              {activeTab === 'medication'
+                ? 'Xem lịch trình hàng ngày và đánh dấu khi bạn đã uống thuốc'
+                : 'Xem và quản lý các lịch hẹn tái khám của bạn'}
+            </Text>
           </View>
         </View>
         <View style={styles.bottomButtonContainer}>
           <TouchableOpacity 
             style={styles.addButton}
-            onPress={() => navigation.navigate('AddReminder', { token, userId })}
+            onPress={() => {
+              if (activeTab === 'medication') {
+                console.log('Navigating to MedicationsScreen with:', { token, userId });
+                navigation.navigate('MedicationsScreen', { token, userId });
+              } else {
+                navigation.navigate('AddAppointment', { token, userId });
+              }
+            }}
           >
-            <Text style={styles.addButtonText}>+ Thêm lịch nhắc uống thuốc</Text>
+            <Text style={styles.addButtonText}>
+              {activeTab === 'medication'
+                ? '+ Thêm lịch nhắc uống thuốc'
+                : '+ Thêm lịch tái khám'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -199,6 +233,32 @@ const styles = StyleSheet.create({
   scheduleContainer: {
     flex: 1,
     position: 'relative',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f8f8f8',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 8,
+    marginHorizontal: 4,
+  },
+  activeTab: {
+    backgroundColor: '#00A3FF',
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '600',
+  },
+  activeTabText: {
+    color: '#fff',
   },
   emptyStateContainer: {
     position: 'absolute',

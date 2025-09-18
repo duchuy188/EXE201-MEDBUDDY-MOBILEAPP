@@ -17,12 +17,46 @@ interface Medication {
 }
 
 const MedicationsScreen = ({ route, navigation }: any) => {
-  const { medications, token, userId } = route.params;
+  const [token, setToken] = React.useState<string | null>(null);
+  const [userId, setUserId] = React.useState<string | null>(null);
+  const medications = route.params?.medications;
 
-  console.log('MedicationsScreen received token:', token);
-  console.log('MedicationsScreen received userId:', userId);
+  // Lấy token và userId từ route.params hoặc AsyncStorage
+  React.useEffect(() => {
+    const loadAuthData = async () => {
+      try {
+        // Thử lấy từ route.params trước
+        let currentToken = route.params?.token;
+        let currentUserId = route.params?.userId;
 
-  const [medicationsList, setMedicationsList] = useState<Medication[]>(medications);
+        // Nếu không có trong route.params, lấy từ AsyncStorage
+        if (!currentToken) {
+          currentToken = await AsyncStorage.getItem('token');
+        }
+        if (!currentUserId) {
+          currentUserId = await AsyncStorage.getItem('userId');
+        }
+
+        console.log('Token loaded:', currentToken);
+        console.log('UserId loaded:', currentUserId);
+
+        if (currentToken) setToken(currentToken);
+        if (currentUserId) setUserId(currentUserId);
+
+        if (!currentToken || !currentUserId) {
+          Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.');
+          navigation.navigate('Login');
+        }
+      } catch (error) {
+        console.error('Error loading auth data:', error);
+        Alert.alert('Lỗi', 'Không thể tải thông tin người dùng');
+      }
+    };
+
+    loadAuthData();
+  }, [route.params]);
+
+  const [medicationsList, setMedicationsList] = useState<Medication[]>([]);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
 
   // Modal state for editing/viewing medication
@@ -104,24 +138,28 @@ const MedicationsScreen = ({ route, navigation }: any) => {
     </TouchableOpacity>
 );
 
-  const fetchMedications = async () => {
+  const fetchMedications = React.useCallback(async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) throw new Error('Không tìm thấy token');
+      if (!token) {
+        console.error('Token not found in state');
+        return;
+      }
 
       const updatedMedications = await MedicationService.getMedications(token);
       setMedicationsList(updatedMedications);
     } catch (error) {
       console.error('Error fetching medications:', error);
-      alert('Không thể lấy danh sách thuốc mới!');
+      Alert.alert('Lỗi', 'Không thể lấy danh sách thuốc mới!');
     }
-  };
+  }, [token]);
 
   useFocusEffect(
     React.useCallback(() => {
-        console.log('Screen focused, fetching medications...');
-        fetchMedications();
-    }, [])
+        console.log('Screen focused, fetching medications with token:', token);
+        if (token) {
+            fetchMedications();
+        }
+    }, [token])
 );
 
   return (
@@ -158,27 +196,12 @@ const MedicationsScreen = ({ route, navigation }: any) => {
       )}
       <TouchableOpacity
         style={styles.addButton}
-        onPress={async () => {
-          try {
-            console.log('Attempting to retrieve token and userId from AsyncStorage...');
-
-            const token = await AsyncStorage.getItem('token');
-            const userId = await AsyncStorage.getItem('userId');
-
-            console.log('Token retrieved:', token);
-            console.log('UserId retrieved:', userId);
-
-            if (!token || !userId) {
-              console.error('Token or userId is missing.');
-              throw new Error('Không tìm thấy thông tin đăng nhập');
-            }
-
-            console.log('Navigating to AddMedicine with token and userId:', token, userId);
-            navigation.navigate('AddMedicine', { token, userId });
-          } catch (error) {
-            console.error('Error retrieving token or userId:', error);
-            alert('Không tìm thấy thông tin đăng nhập. Vui lòng đăng nhập lại.');
+        onPress={() => {
+          if (!token || !userId) {
+            Alert.alert('Lỗi', 'Không tìm thấy thông tin đăng nhập. Vui lòng đăng nhập lại.');
+            return;
           }
+          navigation.navigate('AddMedicine', { token, userId });
         }}
       >
         <Text style={styles.addButtonText}>+ Thêm thuốc</Text>
@@ -274,6 +297,10 @@ const MedicationsScreen = ({ route, navigation }: any) => {
               </TouchableOpacity>
               <TouchableOpacity style={{ alignItems: 'center' }}>
                 <TouchableOpacity style={{ alignItems: 'center' }} onPress={() => {
+                  if (!token || !userId) {
+                    Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng');
+                    return;
+                  }
                   setModalVisible(false);
                   navigation.navigate('AddReminder', {
                     token,

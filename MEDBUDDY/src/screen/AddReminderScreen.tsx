@@ -3,21 +3,39 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, TextInput 
 import { useRoute } from '@react-navigation/native';
 import ReminderService from '../api/Reminders';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import { Audio } from 'expo-av';
+import { Picker } from '@react-native-picker/picker';
 
 interface ReminderData {
   userId: string;
   medicationId: string;
   time: string;
-  date: string;
+  startDate: string;
+  endDate: string;
+  reminderType: 'normal' | 'voice';
   repeat: 'daily' | 'weekly' | 'custom';
+  repeatDays?: number[];
   note: string;
-  customDays?: string[];
+  voice?: 'banmai' | 'thuminh' | 'giahuy' | 'lannhi' | 'leminh' | 'myan' | 'linhsan';
+  speed?: -3 | -2 | -1 | 0 | 1 | 2 | 3;
+  isActive: boolean;
 }
+
+// Đường dẫn tương đối từ vị trí hiện tại (src/screen)
+const voiceFiles: { [key: string]: any } = {
+  banmai: require('../../voice/banmai.mp3'),
+  thuminh: require('../../voice/thuminh.mp3'),
+  giahuy: require('../../voice/giahuy.mp3'),
+  lannhi: require('../../voice/lannhi.mp3'),
+  leminh: require('../../voice/leminh.mp3'),
+  myan: require('../../voice/myan.mp3'),
+  linhsan: require('../../voice/linhsan.mp3'),
+};
 
 const AddReminderScreen = () => {
   const route = useRoute();
-  // @ts-ignore
-  const { token: paramToken, userId, medication } = route.params || {};
+  const routeParams = route.params as { token?: string; userId?: string; medication?: any } || {};
+  const { token: paramToken, userId, medication } = routeParams;
 
   const [token, setToken] = useState(paramToken || '');
   // Nếu có medication truyền vào thì lấy tên thuốc, không thì để trống
@@ -38,7 +56,31 @@ const AddReminderScreen = () => {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [repeatType, setRepeatType] = useState<'daily' | 'weekly' | 'custom'>('daily');
+  const [reminderType, setReminderType] = useState<'normal' | 'voice'>('normal');
+  const [voiceType, setVoiceType] = useState('banmai');
+  const [speed, setSpeed] = useState<-3 | -2 | -1 | 0 | 1 | 2 | 3>(0);
   const [time, setTime] = useState(new Date());
+
+  const reminderTypeOptions = [
+    { label: 'Thông thường', value: 'normal' },
+    { label: 'Giọng nói', value: 'voice' },
+  ];
+
+  const voiceOptions = [
+    { label: 'Ban Mai (Nữ miền Bắc)', value: 'banmai' },
+    { label: 'Thu Minh (Nữ miền Bắc)', value: 'thuminh' },
+    { label: 'Gia Huy (Nam miền Trung)', value: 'giahuy' },
+    { label: 'Lan Nhi (Nữ miền Nam)', value: 'lannhi' },
+    { label: 'Lê Minh (Nam miền Bắc)', value: 'leminh' },
+    { label: 'Mỹ An (Nữ miền Trung)', value: 'myan' },
+    { label: 'Linh San (Nữ miền Nam)', value: 'linhsan' },
+  ];
+
+  const speedOptions: Array<{label: string, value: -3 | -2 | -1 | 0 | 1 | 2 | 3}> = [
+    { label: 'Chậm', value: -1 },
+    { label: 'Thường', value: 0 },
+    { label: 'Nhanh', value: 1 },
+  ];
 
   const repeatOptions = [
     { label: 'Hàng ngày', value: 'daily' },
@@ -87,18 +129,25 @@ const AddReminderScreen = () => {
       // Lấy medicationId từ medication nếu có
       const medicationId = medication?._id || '';
 
-      const reminderData = {
+      if (!userId) {
+        Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng');
+        return;
+      }
+
+      const reminderData: ReminderData = {
         userId,
         medicationId,
         time: selectedTime,
         startDate: selectedDate.toISOString().split('T')[0],
         endDate: selectedDate.toISOString().split('T')[0], // Nếu có input riêng thì thay bằng giá trị kết thúc
-        reminderType: 'normal', // hoặc cho chọn kiểu voice
+        reminderType: reminderType,
         repeat: repeatType,
         repeatDays,
         note,
-        voice: 'banmai', // hoặc cho chọn
-        speed: 0,
+        ...(reminderType === 'voice' && {
+          voice: voiceType as 'banmai' | 'thuminh' | 'giahuy' | 'lannhi' | 'leminh' | 'myan' | 'linhsan',
+          speed: speed
+        }),
         isActive: true,
       };
 
@@ -118,6 +167,51 @@ const AddReminderScreen = () => {
   const handleDateConfirm = (date: Date) => {
     setSelectedDate(date);
     setShowDatePicker(false);
+  };
+
+  const playVoiceTest = async () => {
+    try {
+      console.log('Starting to play voice for type:', voiceType);
+      
+      // Configure audio mode
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        staysActiveInBackground: false,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
+
+      const soundObject = new Audio.Sound();
+      
+      // Load sound file
+      console.log('Loading sound file...');
+      const soundFile = voiceFiles[voiceType as keyof typeof voiceFiles];
+      console.log('Sound file:', soundFile);
+      await soundObject.loadAsync(soundFile, { shouldPlay: true });
+      console.log('Sound loaded successfully');
+
+      // Play sound
+      console.log('Starting playback...');
+      await soundObject.playAsync();
+      console.log('Playback started');
+
+      // Set volume to maximum
+      await soundObject.setVolumeAsync(1.0);
+
+      // Unload sound when finished
+      soundObject.setOnPlaybackStatusUpdate(async (status) => {
+        console.log('Playback status:', status);
+        if (!status.isLoaded) return;
+        if (status.isPlaying === false && status.positionMillis === status.durationMillis) {
+          console.log('Playback finished, unloading sound');
+          await soundObject.unloadAsync();
+        }
+      });
+    } catch (error) {
+      console.error('Error playing sound:', error);
+      Alert.alert('Lỗi', 'Không thể phát âm thanh: ' + (error as Error).message);
+    }
   };
 
   return (
@@ -228,12 +322,87 @@ const AddReminderScreen = () => {
           )}
         </View>
 
-        {/* Ghi chú */}
+        {/* Loại nhắc nhở */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Ghi chú (không bắt buộc)</Text>
+          <Text style={styles.label}>Loại nhắc nhở</Text>
+          <View style={styles.repeatContainer}>
+            {reminderTypeOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.repeatOption,
+                  reminderType === option.value && styles.selectedRepeatOption
+                ]}
+                onPress={() => setReminderType(option.value as 'normal' | 'voice')}
+              >
+                <Text style={[
+                  styles.repeatOptionText,
+                  reminderType === option.value && styles.selectedRepeatOptionText
+                ]}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Voice settings khi chọn voice */}
+        {reminderType === 'voice' && (
+          <>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Giọng đọc</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={voiceType}
+                    onValueChange={(itemValue) => setVoiceType(itemValue)}
+                    style={styles.picker}
+                    dropdownIconColor="#1E293B"
+                  >
+                    {voiceOptions.map((option) => (
+                      <Picker.Item 
+                        key={option.value} 
+                        label={option.label} 
+                        value={option.value}
+                        color="#1E293B"
+                      />
+                    ))}
+                  </Picker>
+                </View>
+                <TouchableOpacity
+                  style={styles.testVoiceButton}
+                  onPress={playVoiceTest}
+                >
+                  <Text style={styles.testVoiceText}>Nghe thử giọng đọc</Text>
+                </TouchableOpacity>
+              </View>            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Tốc độ đọc</Text>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={speed}
+                  onValueChange={(itemValue) => setSpeed(itemValue)}
+                  style={styles.picker}
+                  dropdownIconColor="#1E293B"
+                >
+                  {speedOptions.map((option) => (
+                    <Picker.Item 
+                      key={option.value} 
+                      label={option.label} 
+                      value={option.value}
+                      color="#1E293B"
+                    />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* Lời nhắc */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Lời nhắc (không bắt buộc)</Text>
           <TextInput
             style={styles.input}
-            placeholder="Nhập ghi chú"
+            placeholder="Nhập lời nhắc"
             value={note}
             onChangeText={setNote}
             multiline
@@ -270,6 +439,32 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F6F8FB',
+  },
+  testVoiceButton: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 10,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#B6D5FA',
+  },
+  testVoiceText: {
+    color: '#2563EB',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  pickerContainer: {
+    backgroundColor: '#F0F6FF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#B6D5FA',
+    overflow: 'hidden',
+  },
+  picker: {
+    backgroundColor: '#F0F6FF',
+    color: '#1E293B',
+    height: 50,
   },
   weekDaysContainer: {
     flexDirection: 'row',

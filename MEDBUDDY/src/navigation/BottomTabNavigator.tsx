@@ -96,13 +96,48 @@ export default function BottomTabNavigator({ route }: any) {
       <Stack.Screen name="UserDetail" component={UserDetailScreen} />
       <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
       <Stack.Screen name="ArticleList" component={ArticleListScreen} />
-      <Stack.Screen name="MedicationsScreen" component={MedicationsScreen} options={{ headerShown: true, title: 'Danh sách thuốc' }} />
-      <Stack.Screen name="AddMedicine" component={AddMedicineScreen} options={{ headerShown: true, title: 'Thêm thuốc' }} />
-      <Stack.Screen name="Appointments" component={AppointmentsScreen} options={{ headerShown: true, title: 'Lịch tái khám' }} />
-      <Stack.Screen name="AddAppointment" component={AddAppointmentScreen} options={{ headerShown: true, title: 'Tạo tái khám' }} />
-  <Stack.Screen name="AddReminder" component={AddReminderScreen} options={{ headerShown: true, title: 'Thêm lịch nhắc' }} />
-  <Stack.Screen name="EditAppointment" component={EditAppointmentScreen} options={{ headerShown: true, title: 'Chỉnh sửa lịch hẹn tái khám' }} />
-  <Stack.Screen name="EditMedicine" component={EditMedicineScreen} options={{ headerShown: true, title: 'Chỉnh sửa thuốc' }} />
+      <Stack.Screen 
+        name="MedicationsScreen" 
+        component={MedicationsScreen} 
+        initialParams={{ token, userId }}
+        options={{ headerShown: true, title: 'Danh sách thuốc' }} 
+      />
+      <Stack.Screen 
+        name="AddMedicine" 
+        component={AddMedicineScreen} 
+        initialParams={{ token, userId }}
+        options={{ headerShown: true, title: 'Thêm thuốc' }} 
+      />
+      <Stack.Screen 
+        name="Appointments" 
+        component={AppointmentsScreen} 
+        initialParams={{ token, userId }}
+        options={{ headerShown: true, title: 'Lịch tái khám' }} 
+      />
+      <Stack.Screen 
+        name="AddAppointment" 
+        component={AddAppointmentScreen} 
+        initialParams={{ token, userId }}
+        options={{ headerShown: true, title: 'Tạo tái khám' }} 
+      />
+      <Stack.Screen 
+        name="AddReminder" 
+        component={AddReminderScreen} 
+        initialParams={{ token, userId }}
+        options={{ headerShown: true, title: 'Thêm lịch nhắc' }} 
+      />
+      <Stack.Screen 
+        name="EditAppointment" 
+        component={EditAppointmentScreen} 
+        initialParams={{ token, userId }}
+        options={{ headerShown: true, title: 'Chỉnh sửa lịch hẹn tái khám' }} 
+      />
+      <Stack.Screen 
+        name="EditMedicine" 
+        component={EditMedicineScreen} 
+        initialParams={{ token, userId }}
+        options={{ headerShown: true, title: 'Chỉnh sửa thuốc' }} 
+      />
     </Stack.Navigator>
   );
 }
