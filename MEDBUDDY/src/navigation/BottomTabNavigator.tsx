@@ -71,11 +71,11 @@ export default function BottomTabNavigator({ route }: any) {
           component={MedicationScheduleScreen}
           initialParams={{ userType, token, userId }}
         />
-        {/* <Tab.Screen
+        <Tab.Screen
           name="Chụp ảnh"
           component={PhotoCaptureScreen}
           initialParams={{ userType, token, userId }}
-        /> */}
+        />
         <Tab.Screen
           name="Thống kê"
           component={HealthStatisticsScreen}

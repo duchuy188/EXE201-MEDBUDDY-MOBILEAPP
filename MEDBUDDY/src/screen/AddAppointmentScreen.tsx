@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Modal, ScrollView, Alert } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import { useRoute, useNavigation } from '@react-navigation/native';
+import AppointmentService from '../api/Appointments';
 
 const AddAppointmentScreen = () => {
+  const route = useRoute();
+  const navigation = useNavigation();
+  const { token, userId } = route.params as { token: string; userId: string };
   const [appointmentTitle, setAppointmentTitle] = useState('');
   const [hospital, setHospital] = useState('');
   const [location, setLocation] = useState('');
@@ -27,14 +32,45 @@ const AddAppointmentScreen = () => {
     setShowDatePicker(false);
   };
 
-  const handleAddAppointment = () => {
+  const handleAddAppointment = async () => {
     if (!appointmentTitle || !hospital || !location || !selectedTime) {
       Alert.alert('Thông báo', 'Vui lòng điền đầy đủ thông tin');
       return;
     }
 
-    // TODO: Add appointment to database
-    Alert.alert('Thành công', 'Đã thêm lịch hẹn mới');
+    try {
+      const appointmentData = {
+        title: appointmentTitle,
+        hospital,
+        location,
+        date: selectedDate.toISOString(),
+        time: selectedTime,
+        notes: note,
+        userId: userId,
+        status: 'pending' as 'pending'
+      };
+
+      const response = await AppointmentService.addAppointment(appointmentData, token);
+      
+      if (response) {
+        Alert.alert(
+          'Thành công',
+          'Đã thêm lịch hẹn mới',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack()
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Error adding appointment:', error);
+      Alert.alert(
+        'Lỗi',
+        'Không thể thêm lịch hẹn. Vui lòng thử lại sau.'
+      );
+    }
   };
 
   return (

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { Modal } from 'react-native';
+import { Modal, RefreshControl } from 'react-native';
 import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AppointmentsService from '../api/Appointments';
@@ -24,20 +24,59 @@ const AppointmentsScreen = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchAppointments().then(() => setRefreshing(false));
+  }, []);
 
   const fetchAppointments = async () => {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('token');
+      console.log('Current token:', token);
+      
       if (token) {
-        const data = await AppointmentsService.getAppointments(token);
-        console.log('Appointments API response:', data);
-  setAppointments(data.data);
+        console.log('Fetching appointments...');
+        const response = await AppointmentsService.getAppointments(token);
+        console.log('Full API response:', JSON.stringify(response, null, 2));
+        
+        // Kiểm tra cấu trúc response
+        if (response) {
+          if (Array.isArray(response)) {
+            console.log('Response is an array, setting directly');
+            setAppointments(response);
+          } else if (response.data && Array.isArray(response.data)) {
+            console.log('Response has data array, setting from data');
+            setAppointments(response.data);
+          } else if (response.appointments && Array.isArray(response.appointments)) {
+            console.log('Response has appointments array, setting from appointments');
+            setAppointments(response.appointments);
+          } else {
+            console.log('Invalid response structure:', response);
+            setAppointments([]);
+          }
+        } else {
+          console.log('No response data');
+          setAppointments([]);
+        }
       } else {
+        console.log('No token found');
         setAppointments([]);
       }
     } catch (error) {
       console.error('Error fetching appointments:', error);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        // @ts-ignore
+        if (error.response) {
+          // @ts-ignore
+          console.error('Error response:', error.response.data);
+          // @ts-ignore
+          console.error('Error status:', error.response.status);
+        }
+      }
       setAppointments([]);
     } finally {
       setLoading(false);
@@ -88,6 +127,13 @@ const AppointmentsScreen = ({ navigation }: any) => {
           data={appointments}
           renderItem={renderAppointment}
           keyExtractor={(item) => item._id}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#2563EB']}
+            />
+          }
         />
       ) : (
         <View style={styles.emptyContainer}>
@@ -100,7 +146,8 @@ const AppointmentsScreen = ({ navigation }: any) => {
         const userId = await AsyncStorage.getItem('userId');
         navigation.navigate('AddAppointment', { token, userId });
       }}>
-        <Text style={styles.addButtonText}>+ Tạo lịch tái khám</Text>
+        <Ionicons name="add-circle-outline" size={24} color="#fff" />
+        <Text style={styles.addButtonText}>Thêm lịch tái khám</Text>
       </TouchableOpacity>
 
       {/* Modal chi tiết cuộc hẹn */}
@@ -296,22 +343,25 @@ const styles = StyleSheet.create({
   },
   addButton: {
     position: 'absolute',
-    bottom: 40, // Adjusted from 20 to 40 to move the button slightly up
+    bottom: 40,
     alignSelf: 'center',
     backgroundColor: '#2563EB',
     borderRadius: 25,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   addButtonText: {
-    color: '#fff',
+    color: '#fff', 
     fontSize: 16,
     fontWeight: '600',
+    marginLeft: 8,
   },
   modalRow: {
     flexDirection: 'row',
@@ -320,6 +370,23 @@ const styles = StyleSheet.create({
   },
   modalIcon: {
     marginRight: 8,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  emptyImageContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  emptyDescription: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    maxWidth: '80%',
   },
 });
 
