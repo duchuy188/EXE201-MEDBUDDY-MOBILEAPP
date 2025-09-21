@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, NativeSyntheticEvent, NativeScrollEvent, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -54,6 +54,8 @@ const MedicationScheduleScreen = () => {
   const [weekOffset, setWeekOffset] = React.useState(0);
   const [activeTab, setActiveTab] = useState('medication'); // 'medication' or 'appointment'
   const [reminders, setReminders] = useState<DetailedReminder[]>([]);
+  const [selectedReminder, setSelectedReminder] = useState<DetailedReminder | null>(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   const fetchAppointments = async () => {
@@ -277,7 +279,14 @@ const MedicationScheduleScreen = () => {
             <View key={time} style={styles.timeSection}>
               <Text style={styles.timeHeader}>{time}</Text>
               {remindersForTime.map((reminder, index) => (
-                <View key={reminder._id || index} style={styles.medicationItem}>
+                <TouchableOpacity 
+                  key={reminder._id || index} 
+                  style={styles.medicationItem}
+                  onPress={() => {
+                    setSelectedReminder(reminder);
+                    setIsModalVisible(true);
+                  }}
+                >
                   <View style={styles.medicationCircle} />
                   <View style={styles.medicationInfo}>
                     <Text style={styles.medicationName}>
@@ -290,7 +299,7 @@ const MedicationScheduleScreen = () => {
                       {reminder.note || 'Không có ghi chú'}
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           ))}
@@ -394,6 +403,62 @@ const MedicationScheduleScreen = () => {
           </Text>
         </TouchableOpacity>
       </View>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isModalVisible}
+        onRequestClose={() => setIsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chi tiết thuốc</Text>
+              <TouchableOpacity 
+                onPress={() => setIsModalVisible(false)}
+                style={styles.closeButton}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {selectedReminder && (
+              <View style={styles.modalBody}>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Tên thuốc:</Text>
+                  <Text style={styles.detailValue}>{selectedReminder.medicationId?.name || 'Không có tên'}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Liều lượng:</Text>
+                  <Text style={styles.detailValue}>{selectedReminder.medicationId?.dosage || 'Không có'}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Dạng thuốc:</Text>
+                  <Text style={styles.detailValue}>{selectedReminder.medicationId?.form || 'Không có'}</Text>
+                </View>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Thời gian:</Text>
+                  <Text style={styles.detailValue}>{selectedReminder.time}</Text>
+                </View>
+                {selectedReminder.repeat && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Lặp lại:</Text>
+                    <Text style={styles.detailValue}>
+                      {selectedReminder.repeat === 'daily' ? 'Hàng ngày' : 'Một lần'}
+                    </Text>
+                  </View>
+                )}
+                {selectedReminder.note && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Ghi chú:</Text>
+                    <Text style={styles.detailValue}>{selectedReminder.note}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -402,6 +467,56 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    width: '90%',
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  closeButton: {
+    padding: 8,
+  },
+  closeButtonText: {
+    fontSize: 20,
+    color: '#666',
+  },
+  modalBody: {
+    paddingBottom: 20,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    alignItems: 'flex-start',
+  },
+  detailLabel: {
+    width: 100,
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '600',
+  },
+  detailValue: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
   },
   calendarContainer: {
     flexDirection: 'row',

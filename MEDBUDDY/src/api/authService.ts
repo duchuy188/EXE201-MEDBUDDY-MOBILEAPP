@@ -54,6 +54,48 @@ class AuthService {
       };
     }
   }
+
+  // Gửi OTP đến email
+  async sendOtp(email: string): Promise<AuthResponse> {
+    try {
+      const response = await apiClient.post('/api/auth/send-otp', { email });
+      return response.data;
+    } catch (error: any) {
+      throw {
+        success: false,
+        message: error.response?.data?.message || 'Gửi OTP thất bại',
+        error: error.response?.data || error.message
+      };
+    }
+  }
+
+  // Xác thực OTP
+  async verifyOtp(email: string, otp: string): Promise<AuthResponse> {
+    try {
+      const response = await apiClient.post('/api/auth/verify-otp', { email, otp });
+      return response.data;
+    } catch (error: any) {
+      throw {
+        success: false,
+        message: error.response?.data?.message || 'Xác thực OTP thất bại',
+        error: error.response?.data || error.message
+      };
+    }
+  }
+
+  // Đổi mật khẩu với OTP đã xác thực
+  async resetPasswordWithOtp(email: string, newPassword: string): Promise<AuthResponse> {
+    try {
+      const response = await apiClient.post('/api/auth/reset-password', { email, newPassword });
+      return response.data;
+    } catch (error: any) {
+      throw {
+        success: false,
+        message: error.response?.data?.message || 'Đổi mật khẩu thất bại',
+        error: error.response?.data || error.message
+      };
+    }
+  }
 }
 
 // Export singleton instance

@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Keyboard, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import AuthService from '../api/authService';
 
 const OTPVerificationScreen = ({ route, navigation }: any) => {
   const { email } = route.params;
@@ -37,8 +38,7 @@ const OTPVerificationScreen = ({ route, navigation }: any) => {
     }
 
     try {
-      // TODO: Implement OTP verification API call here
-      // const result = await AuthService.verifyOTP(email, otpString);
+      await AuthService.verifyOtp(email, otpString);
       setMessage('Xác thực thành công!');
       setIsSuccess(true);
       // Navigate to reset password screen after successful verification
@@ -50,13 +50,18 @@ const OTPVerificationScreen = ({ route, navigation }: any) => {
   };
 
   const handleResendOTP = async () => {
+    if (!email) {
+      setMessage('Không có email để gửi lại mã OTP');
+      setIsSuccess(false);
+      return;
+    }
+
     try {
-      // TODO: Implement resend OTP API call here
-      // await AuthService.resendOTP(email);
-      setMessage('Đã gửi lại mã OTP mới');
+      await AuthService.sendOtp(email);
+      setMessage('Đã gửi lại mã OTP mới đến email của bạn');
       setIsSuccess(true);
     } catch (err: any) {
-      setMessage('Không thể gửi lại mã OTP');
+      setMessage(err.message || 'Không thể gửi lại mã OTP');
       setIsSuccess(false);
     }
   };
@@ -77,7 +82,9 @@ const OTPVerificationScreen = ({ route, navigation }: any) => {
           {otp.map((digit, index) => (
             <TextInput
               key={index}
-              ref={ref => inputRefs.current[index] = ref}
+              ref={(ref) => {
+                inputRefs.current[index] = ref;
+              }}
               style={styles.otpInput}
               value={digit}
               onChangeText={(value) => handleOtpChange(value, index)}

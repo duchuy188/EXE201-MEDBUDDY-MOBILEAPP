@@ -18,6 +18,10 @@ import MedicationScheduleScreen from '../screen/MedicationScheduleScreen';
 import AddReminderScreen from '../screen/AddReminderScreen';
 import EditAppointmentScreen from '../screen/EditAppointmentScreen';
 import EditMedicineScreen from '../screen/EditMedicineScreen';
+import AppSettingsScreen from '../screen/AppSettingsScreen';
+import AddRelativeScreen from '../screen/AddRelativeScreen';
+import ConfirmRelativeOTPScreen from '../screen/ConfirmRelativeOTPScreen';
+import HealthTrackingScreen from '../screen/HealthTrackingScreen';
 
 
 const Tab = createBottomTabNavigator();
@@ -71,11 +75,11 @@ export default function BottomTabNavigator({ route }: any) {
           component={MedicationScheduleScreen}
           initialParams={{ userType, token, userId }}
         />
-        <Tab.Screen
+        {/* <Tab.Screen
           name="Chụp ảnh"
           component={PhotoCaptureScreen}
           initialParams={{ userType, token, userId }}
-        />
+        /> */}
         <Tab.Screen
           name="Thống kê"
           component={HealthStatisticsScreen}
@@ -133,10 +137,37 @@ export default function BottomTabNavigator({ route }: any) {
         options={{ headerShown: true, title: 'Chỉnh sửa lịch hẹn tái khám' }} 
       />
       <Stack.Screen 
+        name="PhotoCapture" 
+        component={PhotoCaptureScreen} 
+        initialParams={{ token, userId }}
+        options={{ headerShown: true, title: 'Chụp ảnh thuốc' }} 
+      />
+      <Stack.Screen 
         name="EditMedicine" 
         component={EditMedicineScreen} 
         initialParams={{ token, userId }}
         options={{ headerShown: true, title: 'Chỉnh sửa thuốc' }} 
+      />
+      <Stack.Screen 
+        name="AppSettings" 
+        component={AppSettingsScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="AddRelative" 
+        component={AddRelativeScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="ConfirmRelativeOTP" 
+        component={ConfirmRelativeOTPScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="HealthTracking" 
+        component={HealthTrackingScreen}
+        initialParams={{ token, userId }}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

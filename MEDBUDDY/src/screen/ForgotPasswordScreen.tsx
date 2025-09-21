@@ -1,29 +1,37 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import AuthService from '../api/authService';
 
 const ForgotPasswordScreen = ({ route, navigation }: any) => {
   const { accountType } = route.params;
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isButtonDisabled, setIsButtonDisabled] = useState(false);
 
   const handleResetPassword = async () => {
+    if (isButtonDisabled) return;
+
+    setIsButtonDisabled(true);
+
     if (!email) {
       setMessage('Vui lòng nhập email.');
       setIsSuccess(false);
+      setIsButtonDisabled(false);
       return;
     }
+
     // Simple email regex
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setMessage('Vui lòng nhập đúng định dạng email.');
       setIsSuccess(false);
+      setIsButtonDisabled(false);
       return;
     }
     try {
-      // TODO: Implement password reset API call here
-      // const result = await AuthService.resetPassword(email);
+      await AuthService.sendOtp(email);
       setMessage('Mã OTP đặt lại mật khẩu đã được gửi đến email của bạn.');
       setIsSuccess(true);
       // Navigate to OTP verification screen after successful OTP send
@@ -33,6 +41,8 @@ const ForgotPasswordScreen = ({ route, navigation }: any) => {
     } catch (err: any) {
       setMessage(err.message || 'Không thể gửi yêu cầu đặt lại mật khẩu.');
       setIsSuccess(false);
+    } finally {
+      setIsButtonDisabled(false);
     }
   };
 
@@ -65,9 +75,11 @@ const ForgotPasswordScreen = ({ route, navigation }: any) => {
           </Text>
         ) : null}
 
-        <TouchableOpacity style={styles.resetBtn} onPress={handleResetPassword}>
-          <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.resetBtnGradient}>
-            <Text style={styles.resetBtnText}>Gửi yêu cầu</Text>
+        <TouchableOpacity style={styles.resetBtn} onPress={handleResetPassword} disabled={isButtonDisabled}>
+          <LinearGradient colors={['#4A90C2', '#7ED6F5']} style={styles.resetBtnGradient}>
+            <Text style={styles.resetBtnText}>
+              {isButtonDisabled ? 'Đang gửi yêu cầu...' : 'Gửi yêu cầu'}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
 

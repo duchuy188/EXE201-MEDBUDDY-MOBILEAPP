@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import AuthService from '../api/authService';
 
 const ResetPasswordScreen = ({ route, navigation }: any) => {
   const { email, otp } = route.params;
@@ -32,13 +33,15 @@ const ResetPasswordScreen = ({ route, navigation }: any) => {
     }
 
     try {
-      // TODO: Implement reset password API call here
-      // const result = await AuthService.resetPassword(email, otp, newPassword);
-      setMessage('Đặt lại mật khẩu thành công!');
-      setIsSuccess(true);
-      setTimeout(() => {
-        navigation.navigate('LoginForm');
-      }, 1500);
+      const response = await AuthService.resetPasswordWithOtp(email, newPassword);
+      if (response.success) {
+        setMessage('Đặt lại mật khẩu thành công!');
+        setIsSuccess(true);
+        navigation.navigate('Login');
+      } else {
+        setMessage(response.message || 'Không thể đặt lại mật khẩu');
+        setIsSuccess(false);
+      }
     } catch (err: any) {
       setMessage(err.message || 'Không thể đặt lại mật khẩu');
       setIsSuccess(false);
@@ -112,9 +115,9 @@ const ResetPasswordScreen = ({ route, navigation }: any) => {
 
         <TouchableOpacity 
           style={styles.backButton} 
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate('Login')}
         >
-          <Text style={styles.backButtonText}>Quay lại</Text>
+          <Text style={styles.backButtonText}>Quay lại trang đăng nhập</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Image, ActivityIndicator, Share, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import UserService from '../api/user';
 import MedicationService from '../api/Medication';
@@ -139,6 +139,21 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
           navigation.navigate('HelpCenter');
         } else if (item.id === 'appointments') {
           navigation.navigate('Appointments');
+        } else if (item.id === 'app-settings') {
+          navigation.navigate('AppSettings');
+        } else if (item.id === 'health-trackers') {
+          navigation.navigate('MainTabs', { screen: 'Thống kê' });
+        } else if (item.id === 'doctors') {
+          navigation.navigate('HealthTracking');
+        } else if (item.id === 'share-medisafe') {
+          try {
+            await Share.share({
+              message: 'Hãy thử MedBuddy - Ứng dụng nhắc nhở uống thuốc và quản lý sức khỏe của bạn! \nhttps://play.google.com/store/apps/medbuddy',
+              title: 'Chia sẻ MedBuddy'
+            });
+          } catch (error) {
+            console.error('Error sharing app:', error);
+          }
         }
       }}
     >

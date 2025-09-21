@@ -1,17 +1,10 @@
-import React, { useState } from "react";
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator, Alert } from "react-native";
 import { FontAwesome5, Feather } from "@expo/vector-icons";
 import { PieChart, LineChart } from 'react-native-chart-kit';
-
-const bloodPressureData = [
-  { day: "T2", systolic: 125, diastolic: 82, time: "7:30" },
-  { day: "T3", systolic: 120, diastolic: 80, time: "7:45" },
-  { day: "T4", systolic: 130, diastolic: 85, time: "8:00" },
-  { day: "T5", systolic: 118, diastolic: 78, time: "7:20" },
-  { day: "T6", systolic: 122, diastolic: 81, time: "7:35" },
-  { day: "T7", systolic: 128, diastolic: 84, time: "8:10" },
-  { day: "CN", systolic: 124, diastolic: 80, time: "8:30" }
-];
+import BloodPressureService from '../api/bloodPressure';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRoute } from '@react-navigation/native';
 
 const medicineComplianceData = [
   { day: "T2", taken: 2, missed: 0, total: 2 },
@@ -37,6 +30,34 @@ const TABS = [
 
 const HealthStatisticsScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
+  const [bloodPressureData, setBloodPressureData] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const route = useRoute();
+
+  // Retrieve token and userId from navigation params
+  // @ts-ignore
+  const token = route.params?.token || '';
+
+  useEffect(() => {
+    if (!token) return;
+    fetchBloodPressureData();
+  }, [token]);
+
+  const fetchBloodPressureData = async () => {
+    setLoading(true);
+    try {
+      const data = await BloodPressureService.getBloodPressureHistory(token);
+      // Lấy 7 bản ghi gần nhất
+      const recentData = (data || []).slice(0, 7);
+      setBloodPressureData(recentData);
+    } catch (error) {
+      console.error('Failed to fetch blood pressure data:', error);
+      Alert.alert('Lỗi', 'Không thể lấy dữ liệu huyết áp.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -127,69 +148,98 @@ const HealthStatisticsScreen: React.FC = () => {
       )}
       {activeTab === 'bloodpressure' && (
         <>
-          <View style={styles.sectionCard}>
-            <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
-              <Feather name="activity" size={18} color="#ef4444" />
-              <Text style={styles.sectionTitle}> Biến động huyết áp 7 ngày</Text>
-            </View>
-            <View style={{alignItems: 'center'}}>
-              <LineChart
-                data={{
-                  labels: bloodPressureData.map(item => item.day),
-                  datasets: [
-                    {
-                      data: bloodPressureData.map(item => item.systolic),
-                      color: () => '#ef4444',
-                      strokeWidth: 2,
-                    },
-                    {
-                      data: bloodPressureData.map(item => item.diastolic),
-                      color: () => '#3B82F6',
-                      strokeWidth: 2,
-                    },
-                  ],
-                  legend: ['Tâm thu', 'Tâm trương'],
-                }}
-                width={Dimensions.get('window').width * 0.85}
-                height={180}
-                chartConfig={{
-                  backgroundGradientFrom: '#fff',
-                  backgroundGradientTo: '#fff',
-                  decimalPlaces: 0,
-                  color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
-                  labelColor: (opacity = 1) => `rgba(30, 41, 59, ${opacity})`,
-                  propsForDots: {
-                    r: '4',
-                    strokeWidth: '2',
-                    stroke: '#fff',
-                  },
-                  propsForBackgroundLines: {
-                    stroke: '#E0E7EF',
-                  },
-                }}
-                bezier
-                style={{marginVertical: 8, borderRadius: 12}}
-              />
-            </View>
-          </View>
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Chi tiết 7 ngày qua</Text>
-            {bloodPressureData.map((record, idx) => {
-              const status = record.systolic > 130 || record.diastolic > 85 ? 'high' : 'normal';
-              return (
-                <View key={idx} style={[styles.bpRow, status === 'high' ? styles.bpHigh : styles.bpNormal]}>
-                  <View>
-                    <Text style={{fontWeight: 'bold'}}>{record.day}</Text>
-                    <Text style={{fontSize: 12, color: '#64748B'}}>{record.time}</Text>
-                  </View>
-                  <View style={{alignItems: 'flex-end'}}>
-                    <Text style={[styles.bpValue, status === 'high' ? {color: '#ef4444'} : {color: '#10b981'}]}>{record.systolic}/{record.diastolic}</Text>
-                    <Text style={{fontSize: 12, color: status === 'high' ? '#ef4444' : '#10b981'}}>{status === 'high' ? 'Cao' : 'Bình thường'}</Text>
-                  </View>
+          {loading ? (
+            <ActivityIndicator size="large" color="#3B82F6" />
+          ) : (
+            <>
+              <View style={styles.sectionCard}>
+                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
+                  <Feather name="activity" size={18} color="#ef4444" />
+                  <Text style={styles.sectionTitle}> Biến động huyết áp 7 ngày</Text>
                 </View>
-              );
-            })}
-          </View>
+                <View style={{alignItems: 'center'}}>
+                  <LineChart
+                    data={{
+                      labels: bloodPressureData.map(item => item.day),
+                      datasets: [
+                        {
+                          data: bloodPressureData.map(item => item.systolic),
+                          color: () => '#ef4444',
+                          strokeWidth: 2,
+                        },
+                        {
+                          data: bloodPressureData.map(item => item.diastolic),
+                          color: () => '#3B82F6',
+                          strokeWidth: 2,
+                        },
+                      ],
+                      legend: ['Tâm thu', 'Tâm trương'],
+                    }}
+                    width={Dimensions.get('window').width * 0.85}
+                    height={180}
+                    chartConfig={{
+                      backgroundGradientFrom: '#fff',
+                      backgroundGradientTo: '#fff',
+                      decimalPlaces: 0,
+                      color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
+                      labelColor: (opacity = 1) => `rgba(30, 41, 59, ${opacity})`,
+                      propsForDots: {
+                        r: '4',
+                        strokeWidth: '2',
+                        stroke: '#fff',
+                      },
+                      propsForBackgroundLines: {
+                        stroke: '#E0E7EF',
+                      },
+                    }}
+                    bezier
+                    style={{marginVertical: 8, borderRadius: 12}}
+                  />
+                </View>
+              </View>
+              <View style={styles.sectionCard}>
+                <Text style={styles.sectionTitle}>Chi tiết 7 ngày gần nhất</Text>
+                {bloodPressureData.map((record, idx) => {
+                  const status = record.systolic > 130 || record.diastolic > 85 ? 'high' : 'normal';
+                  // Format date and time
+                  const date = record.measuredAt ? new Date(record.measuredAt) : null;
+                  let displayDate = '';
+                  if (date) {
+                    const now = new Date();
+                    const diffTime = Math.abs(now.getTime() - date.getTime());
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    
+                    if (diffDays === 0) {
+                      displayDate = `Hôm nay - ${timeStr}`;
+                    } else if (diffDays === 1) {
+                      displayDate = `Hôm qua - ${timeStr}`;
+                    } else {
+                      displayDate = `${diffDays} ngày trước - ${timeStr}`;
+                    }
+                  }
+                  return (
+                    <View key={record._id || idx} style={[styles.bpRow, status === 'high' ? styles.bpHigh : styles.bpNormal]}>
+                      <View>
+                        <Text style={{fontWeight: 'bold'}}>{displayDate}</Text>
+                        {record.note && (
+                          <Text style={{fontSize: 12, color: '#64748B'}}>{record.note}</Text>
+                        )}
+                      </View>
+                      <View style={{alignItems: 'flex-end'}}>
+                        <Text style={[styles.bpValue, status === 'high' ? {color: '#ef4444'} : {color: '#10b981'}]}>
+                          {record.systolic}/{record.diastolic}
+                        </Text>
+                        <Text style={{fontSize: 12, color: status === 'high' ? '#ef4444' : '#10b981'}}>
+                          {status === 'high' ? 'Cao' : 'Bình thường'}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </>
+          )}
         </>
       )}
       {activeTab === 'medicine' && (
@@ -246,6 +296,22 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F6F8FB', padding: 16 },
   header: { marginTop: 30, marginBottom: 32 },
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#1E293B', marginLeft: 8 },
+  pagination: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingVertical: 10,
+  },
+  pageButton: {
+    padding: 8,
+    marginHorizontal: 4,
+    borderRadius: 4,
+    backgroundColor: '#3B82F6',
+  },
+  pageButtonDisabled: {
+    backgroundColor: '#B6D5FA',
+  },
   tabsRow: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, marginBottom: 16, borderWidth: 1, borderColor: '#E0E7EF', overflow: 'hidden', marginTop: 10 },
   tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: '#fff' },
   tabBtnActive: { backgroundColor: '#DBEAFE' },

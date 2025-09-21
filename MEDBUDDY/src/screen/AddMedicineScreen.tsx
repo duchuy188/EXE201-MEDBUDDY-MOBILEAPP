@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Platform } from 'react-native';
-import { FontAwesome5, Feather } from '@expo/vector-icons';
+import { FontAwesome5, Feather, MaterialIcons } from '@expo/vector-icons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import MedicationService from '../api/Medication';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 
 const timeSlots = [
   { id: 'morning', label: 'Sáng', icon: '🌅' },
@@ -12,6 +12,7 @@ const timeSlots = [
 ];
 
 const AddMedicineScreen: React.FC = () => {
+  const navigation = useNavigation();
   const [medicineName, setMedicineName] = useState('');
   const [dosage, setDosage] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -19,6 +20,11 @@ const AddMedicineScreen: React.FC = () => {
   const [expiryDate, setExpiryDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedTimes, setSelectedTimes] = useState<string[]>([]);
+
+  const handleCaptureMedicine = () => {
+    // @ts-ignore
+    navigation.navigate('PhotoCapture', { token, userId });
+  };
 
   const route = useRoute();
   // @ts-ignore
@@ -139,7 +145,7 @@ const AddMedicineScreen: React.FC = () => {
             ))}
           </View>
         </View>
-        {/* Nút thêm thuốc */}
+              {/* Nút thêm thuốc */}
         <TouchableOpacity
           style={[styles.addBtn, !(medicineName && dosage && quantity) && {backgroundColor: '#B6D5FA'}]}
           onPress={handleAddMedicine}
@@ -148,6 +154,16 @@ const AddMedicineScreen: React.FC = () => {
           <Feather name="plus" size={20} color={medicineName && dosage && quantity ? '#fff' : '#3B82F6'} />
           <Text style={{color: medicineName && dosage && quantity ? '#fff' : '#3B82F6', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Thêm thuốc</Text>
         </TouchableOpacity>
+      
+        {/* Nút chụp ảnh thuốc */}
+        <TouchableOpacity
+          style={styles.captureBtn}
+          onPress={handleCaptureMedicine}
+        >
+          <MaterialIcons name="photo-camera" size={20} color="#3B82F6" />
+          <Text style={{color: '#3B82F6', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Chụp ảnh thuốc</Text>
+        </TouchableOpacity>
+
       </View>
     </ScrollView>
   );
@@ -158,6 +174,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F6F8FB',
     paddingTop: 48,
+  },
+  captureBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0F6FF',
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginTop: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#B6D5FA',
   },
   card: {
     backgroundColor: '#fff',
