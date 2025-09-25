@@ -116,7 +116,7 @@ const MedicationsScreen = ({ route, navigation }: any) => {
         <Text style={styles.itemName}>Tên thuốc: {item.name}</Text>
         <Text style={styles.itemDetail}>Liều lượng: {item.dosage}</Text>
         <Text style={styles.itemDetail}>Thời gian: {
-          item.timeOfDay
+          (item.timeOfDay || '')
             .split(',')
             .map((time: string) => {
               switch (time) {
@@ -232,7 +232,7 @@ const MedicationsScreen = ({ route, navigation }: any) => {
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                 <MaterialIcons name="schedule" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
                 <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Thời gian:</Text>
-                <Text style={{ color: '#1E293B' }}>{modalTimeOfDay
+                <Text style={{ color: '#1E293B' }}>{(modalTimeOfDay || '')
                   .split(',')
                   .map((time) => {
                     switch (time.trim()) {

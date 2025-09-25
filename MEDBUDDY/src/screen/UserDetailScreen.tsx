@@ -64,7 +64,7 @@ const UserDetailScreen = ({ navigation, route }: any) => {
       Alert.alert('Lỗi', 'Bạn cần cấp quyền truy cập camera.');
       return;
     }
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.7 });
+  const result = await ImagePicker.launchCameraAsync({ mediaTypes: 'images', allowsEditing: true, aspect: [1, 1], quality: 0.7 });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       setAvatar(result.assets[0].uri);
     }
@@ -78,7 +78,7 @@ const UserDetailScreen = ({ navigation, route }: any) => {
       Alert.alert('Lỗi', 'Bạn cần cấp quyền truy cập thư viện ảnh.');
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.7 });
+  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', allowsEditing: true, aspect: [1, 1], quality: 0.7 });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       setAvatar(result.assets[0].uri);
     }

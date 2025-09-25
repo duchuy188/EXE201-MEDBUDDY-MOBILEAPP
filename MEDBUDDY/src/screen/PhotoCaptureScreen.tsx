@@ -1,25 +1,53 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import OrcService from '../api/orc';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
-
-
+import { useRoute } from '@react-navigation/native';
 
 const PhotoCaptureScreen: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<any>(null);
+  const [editableMedicines, setEditableMedicines] = useState<any[]>([]);
+  const [token, setToken] = useState<string | null>(null);
+  const route = useRoute();
+
+  React.useEffect(() => {
+    // Ưu tiên lấy token từ route.params, fallback AsyncStorage nếu không có
+    const getToken = async () => {
+      // @ts-ignore
+      const paramToken = route.params?.token;
+      if (paramToken) {
+        setToken(paramToken);
+      } else {
+        const storedToken = await (await import('@react-native-async-storage/async-storage')).default.getItem('token');
+        if (storedToken) setToken(storedToken);
+      }
+    };
+    getToken();
+  }, [route.params]);
 
   const processImage = async (uri: string) => {
     setIsProcessing(true);
     try {
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      if (!token) {
+        Alert.alert('Lỗi', 'Không tìm thấy token xác thực. Vui lòng đăng nhập lại.');
+        setIsProcessing(false);
+        return;
+      }
       const fileName = uri.split('/').pop() || 'image.jpg';
-      const file = new File([blob], fileName, { type: blob.type });
-      const ocrResult = await OrcService.recognizePrescription(file);
+      const image = {
+        uri: uri,
+        name: fileName,
+        type: 'image/jpeg',
+      };
+      const ocrResult = await OrcService.recognizePrescription(image, token);
       setExtractedData(ocrResult);
+      if (ocrResult?.medicines) {
+        setEditableMedicines(ocrResult.medicines.map((med: any) => ({ ...med })));
+      }
     } catch (error) {
       Alert.alert('Lỗi', 'Không thể nhận diện ảnh. Vui lòng thử lại.');
     }
@@ -27,8 +55,13 @@ const PhotoCaptureScreen: React.FC = () => {
   };
 
   const pickImage = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Bạn cần cấp quyền camera để sử dụng chức năng này.');
+      return;
+    }
     let result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images',
       quality: 1,
     });
     if (!result.canceled && result.assets?.length) {
@@ -39,8 +72,13 @@ const PhotoCaptureScreen: React.FC = () => {
   };
 
   const chooseFromLibrary = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Bạn cần cấp quyền truy cập thư viện ảnh để sử dụng chức năng này.');
+      return;
+    }
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images',
       quality: 1,
     });
     if (!result.canceled && result.assets?.length) {
@@ -105,20 +143,69 @@ const PhotoCaptureScreen: React.FC = () => {
           {extractedData && (
             <View style={styles.resultCard}>
               <Text style={styles.successTitle}>✅ Nhận diện thành công!</Text>
-              <Text style={styles.resultText}>Nhà thuốc: {extractedData.pharmacy}</Text>
-              <Text style={styles.resultText}>Ngày: {extractedData.date}</Text>
-              <Text style={styles.resultText}>Tổng tiền: {extractedData.totalAmount}</Text>
-              <Text style={styles.resultText}>Danh sách thuốc:</Text>
-              {extractedData.medicines.map((med: any, idx: number) => (
-                <View key={idx} style={styles.medicineItem}>
-                  <Text style={{fontWeight: 'bold'}}>{med.name}</Text>
-                  <Text>{med.dosage} - SL: {med.quantity}</Text>
-                  <Text style={{fontSize: 12, color: '#64748B'}}>{med.instructions}</Text>
-                  <Text style={{color: '#16a34a', fontWeight: 'bold'}}>{med.price}</Text>
-                </View>
-              ))}
+              <Text style={styles.resultText}>Danh sách thuốc (có thể sửa):</Text>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={80}
+                style={{flex: 0}}
+                keyboardShouldPersistTaps="handled"
+              >
+                <ScrollView
+                  style={{maxHeight: 220}}
+                  contentContainerStyle={{paddingBottom: 100}}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {editableMedicines.map((med: any, idx: number) => (
+                    <View key={idx} style={styles.medicineItem}>
+                      <TextInput
+                        style={[styles.input, {fontWeight: 'bold', marginBottom: 4}]}
+                        value={med.name}
+                        onChangeText={text => {
+                          const newMeds = [...editableMedicines];
+                          newMeds[idx].name = text;
+                          setEditableMedicines(newMeds);
+                        }}
+                        placeholder="Tên thuốc"
+                      />
+                      <TextInput
+                        style={styles.input}
+                        value={med.quantity}
+                        onChangeText={text => {
+                          const newMeds = [...editableMedicines];
+                          newMeds[idx].quantity = text;
+                          setEditableMedicines(newMeds);
+                        }}
+                        placeholder="Số lượng"
+                      />
+                      <TextInput
+                        style={styles.input}
+                        value={med.usage || ''}
+                        onChangeText={text => {
+                          const newMeds = [...editableMedicines];
+                          newMeds[idx].usage = text;
+                          setEditableMedicines(newMeds);
+                        }}
+                        placeholder="HDSD"
+                      />
+                      <TextInput
+                        style={styles.input}
+                        value={med.note || ''}
+                        onChangeText={text => {
+                          const newMeds = [...editableMedicines];
+                          newMeds[idx].note = text;
+                          setEditableMedicines(newMeds);
+                        }}
+                        placeholder="Ghi chú"
+                      />
+                    </View>
+                  ))}
+                </ScrollView>
+              </KeyboardAvoidingView>
               <View style={{flexDirection: 'row', marginTop: 12}}>
-                <TouchableOpacity style={[styles.btn, {flex: 1}]} onPress={handleAddToInventory}>
+                <TouchableOpacity style={[styles.btn, {flex: 1}]} onPress={() => {
+                  setExtractedData({ ...extractedData, medicines: editableMedicines });
+                  handleAddToInventory();
+                }}>
                   <Feather name="check-circle" size={18} color="#fff" />
                   <Text style={styles.btnText}>Thêm vào kho</Text>
                 </TouchableOpacity>
@@ -142,6 +229,15 @@ const PhotoCaptureScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 16,
+    marginBottom: 8,
+    backgroundColor: '#f8f8f8',
+  },
   container: { flex: 1, backgroundColor: '#F6F8FB', padding: 20 },
   title: { fontSize: 20, fontWeight: 'bold', color: '#1E293B', marginBottom: 18, textAlign: 'center' },
   card: { backgroundColor: '#fff', borderRadius: 18, padding: 22, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: '#B6D5FA' },
@@ -157,7 +253,18 @@ const styles = StyleSheet.create({
   resultCard: { backgroundColor: '#F0FDF4', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#BBF7D0', marginTop: 10 },
   successTitle: { fontWeight: 'bold', color: '#16a34a', marginBottom: 8, fontSize: 16 },
   resultText: { color: '#1E293B', fontSize: 14, marginBottom: 4 },
-  medicineItem: { backgroundColor: '#fff', borderRadius: 8, padding: 8, marginVertical: 4, borderWidth: 1, borderColor: '#B6D5FA' },
+  medicineItem: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    marginVertical: 6,
+    borderWidth: 1,
+    borderColor: '#B6D5FA',
+    shadowColor: '#F0F6FF',
+    shadowOpacity: 0.10,
+    shadowRadius: 4,
+    elevation: 1,
+  },
 });
 
 export default PhotoCaptureScreen;
