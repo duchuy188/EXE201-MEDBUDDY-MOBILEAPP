@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, NativeSyntheticEvent, NativeScrollEvent, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, NativeSyntheticEvent, NativeScrollEvent, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types/navigation';
 import ReminderService, { Reminder } from '../api/Reminders';
 import AppointmentsService from '../api/Appointments';
+import * as Notifications from 'expo-notifications';
 
 interface Appointment {
   _id: string;
@@ -56,13 +57,34 @@ const MedicationScheduleScreen = () => {
   const [reminders, setReminders] = useState<DetailedReminder[]>([]);
   const [selectedReminder, setSelectedReminder] = useState<DetailedReminder | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
-    const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  // ...existing code...
+  // Khai báo fetchReminders sau khi đã có token, setReminders
+  // Xin quyền notification khi app khởi động
+  const fetchReminders = async () => {
+    try {
+      // First get all reminder IDs
+      const remindersData = await ReminderService.getReminders(token);
+      // Then fetch full details for each reminder
+      const detailedReminders = await Promise.all(
+        remindersData.map((reminder: any) => 
+          ReminderService.getReminderById(reminder._id, token)
+        )
+      );
+      console.log('Fetched reminders:', detailedReminders);
+      setReminders(detailedReminders);
+    } catch (error) {
+      console.error('Error fetching reminders:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchReminders();
+  }, [token]);
 
   const fetchAppointments = async () => {
     try {
-      console.log('Fetching appointments with token:', token);
       const response = await AppointmentsService.getAppointments(token);
-      console.log('Appointments response:', response);
       if (response && response.data) {
         setAppointments(response.data);
       }
@@ -77,6 +99,8 @@ const MedicationScheduleScreen = () => {
       if (activeTab === 'appointment') {
         fetchAppointments();
       }
+      // Luôn reload reminders khi vào lại trang
+      fetchReminders();
     });
 
     return unsubscribe;
@@ -90,27 +114,61 @@ const MedicationScheduleScreen = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    const fetchReminders = async () => {
-      try {
-        // First get all reminder IDs
-        const remindersData = await ReminderService.getReminders(token);
-        
-        // Then fetch full details for each reminder
-        const detailedReminders = await Promise.all(
-          remindersData.map((reminder: any) => 
-            ReminderService.getReminderById(reminder._id, token)
-          )
-        );
-        
-        console.log('Fetched reminders:', detailedReminders);
-        setReminders(detailedReminders);
-      } catch (error) {
-        console.error('Error fetching reminders:', error);
-      }
-    };
-
     fetchReminders();
   }, [token]);
+
+  // Tự động lên lịch notification cho các lịch uống thuốc
+  useEffect(() => {
+    reminders.forEach(reminder => {
+      if (reminder.isActive !== false && reminder.time) {
+        // Chỉ lên lịch cho ngày đang hiển thị trên UI (selectedDate)
+        const date = new Date(selectedDate);
+        const [hour, minute] = reminder.time.split(':').map(Number);
+        date.setHours(hour, minute, 0, 0);
+        // Kiểm tra nếu reminder thuộc ngày này (theo logic lọc UI)
+        let shouldSchedule = false;
+        if (reminder.repeat === 'daily' && reminder.startDate && reminder.endDate) {
+          const startDate = new Date(reminder.startDate);
+          const endDate = new Date(reminder.endDate);
+          startDate.setHours(0,0,0,0);
+          endDate.setHours(0,0,0,0);
+          const current = new Date(selectedDate);
+          current.setHours(0,0,0,0);
+          shouldSchedule = current >= startDate && current <= endDate;
+        } else if (reminder.startDate) {
+          const reminderDate = new Date(reminder.startDate);
+          reminderDate.setHours(0,0,0,0);
+          const current = new Date(selectedDate);
+          current.setHours(0,0,0,0);
+          shouldSchedule = reminderDate.getTime() === current.getTime();
+        }
+        if (shouldSchedule && date > new Date()) {
+          Notifications.scheduleNotificationAsync({
+            content: {
+              title: `Nhắc uống thuốc`,
+              body: reminder.note || 'Đã đến giờ uống thuốc!'
+            },
+            trigger: {
+              type: 'calendar',
+              year: date.getFullYear(),
+              month: date.getMonth() + 1,
+              day: date.getDate(),
+              hour,
+              minute,
+              repeats: false
+            },
+          });
+          console.log('Đã lên lịch notification thuốc cho:', {
+            year: date.getFullYear(),
+            month: date.getMonth() + 1,
+            day: date.getDate(),
+            hour,
+            minute
+          }, reminder);
+        }
+      }
+    });
+  }, [reminders, selectedDate]);
 
   const getWeekDates = () => {
     const today = new Date();
@@ -143,6 +201,45 @@ const MedicationScheduleScreen = () => {
     setWeekOffset(0);
     scrollViewRef.current?.scrollTo({ x: 0, animated: true });
   };
+
+  const scheduleLocalNotification = async (title: string, body: string, date: Date, time: string) => {
+    const [hour, minute] = time.split(':').map(Number);
+    const triggerDate = new Date(date);
+    triggerDate.setHours(hour, minute, 0, 0);
+    if (triggerDate > new Date()) {
+      await Notifications.scheduleNotificationAsync({
+        content: { title, body },
+        trigger: {
+          type: 'calendar',
+          year: triggerDate.getFullYear(),
+          month: triggerDate.getMonth() + 1,
+          day: triggerDate.getDate(),
+          hour: triggerDate.getHours(),
+          minute: triggerDate.getMinutes(),
+          repeats: false
+        },
+      });
+    }
+  };
+
+  useEffect(() => {
+    appointments.forEach(appointment => {
+      if (appointment.date && appointment.time) {
+        const title = 'Lịch tái khám';
+        const body = `${appointment.title} tại ${appointment.hospital} - ${appointment.location} lúc ${appointment.time}`;
+        const date = new Date(appointment.date);
+        scheduleLocalNotification(title, body, date, appointment.time);
+      }
+    });
+  }, [appointments]);
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener(notification => {
+      Alert.alert('Nhận notification', JSON.stringify(notification));
+      console.log('Notification nhận được (foreground/background):', notification);
+    });
+    return () => subscription.remove();
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -401,6 +498,26 @@ const MedicationScheduleScreen = () => {
               ? '+ Thêm lịch nhắc uống thuốc'
               : '+ Thêm lịch tái khám'}
           </Text>
+        </TouchableOpacity>
+        {/* Nút test notification */}
+        <TouchableOpacity
+          style={{marginTop: 12, padding: 10, backgroundColor: '#00A3FF', borderRadius: 8}}
+          onPress={async () => {
+            console.log('Đã nhấn nút Test thông báo');
+            const { status } = await Notifications.getPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Thông báo', 'Bạn chưa cấp quyền notification cho ứng dụng!');
+              return;
+            }
+            Alert.alert('Đã nhấn nút Test thông báo', 'Nếu notification hoạt động, bạn sẽ nhận được thông báo sau 2 giây.');
+            const notificationId = await Notifications.scheduleNotificationAsync({
+              content: { title: 'Test', body: 'Thông báo test!' },
+        trigger: { seconds: 2, repeats: false, type: 'timeInterval' },
+            });
+            console.log('Đã lên lịch notification với ID:', notificationId);
+          }}
+        >
+          <Text style={{color: '#fff', textAlign: 'center'}}>Test thông báo</Text>
         </TouchableOpacity>
       </View>
 
