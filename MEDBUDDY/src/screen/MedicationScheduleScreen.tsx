@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Audio } from 'expo-av';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, NativeSyntheticEvent, NativeScrollEvent, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -512,9 +513,27 @@ const MedicationScheduleScreen = () => {
             Alert.alert('Đã nhấn nút Test thông báo', 'Nếu notification hoạt động, bạn sẽ nhận được thông báo sau 2 giây.');
             const notificationId = await Notifications.scheduleNotificationAsync({
               content: { title: 'Test', body: 'Thông báo test!' },
-        trigger: { seconds: 2, repeats: false, type: 'timeInterval' },
+              trigger: { seconds: 5, repeats: false, type: 'timeInterval' },
             });
             console.log('Đã lên lịch notification với ID:', notificationId);
+
+              // Phát thử file mp3 custom sau 5 giây
+              setTimeout(async () => {
+                try {
+                  const soundObject = new Audio.Sound();
+                  await soundObject.loadAsync(require('../../assets/ngoclan.mp3'));
+                  await soundObject.playAsync();
+                  // Tự động unload sau khi phát xong
+                  soundObject.setOnPlaybackStatusUpdate(status => {
+                    if (status.didJustFinish) {
+                      soundObject.unloadAsync();
+                    }
+                  });
+                } catch (error) {
+                  console.log('Lỗi phát âm thanh:', error);
+                  Alert.alert('Lỗi', 'Không phát được file âm thanh custom!');
+                }
+              }, 5000);
           }}
         >
           <Text style={{color: '#fff', textAlign: 'center'}}>Test thông báo</Text>

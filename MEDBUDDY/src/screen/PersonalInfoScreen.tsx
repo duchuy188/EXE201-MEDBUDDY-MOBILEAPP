@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import UserService from '../api/user';
 import MedicationService from '../api/Medication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NotificationService from '../api/Notifications';
 
 const ProfileSettingsScreen = ({ navigation }: any) => {
   const [activeTab, setActiveTab] = useState('manage');
@@ -213,10 +214,18 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
 
         {/* Logout Button */}
         <TouchableOpacity style={styles.logoutBtn} onPress={async () => {
-          // Xóa token, điều hướng về màn hình đăng nhập
+          // Xóa token, xóa deviceToken, điều hướng về màn hình đăng nhập
           try {
             const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+            const token = await AsyncStorage.getItem('token');
+            const deviceToken = await AsyncStorage.getItem('deviceToken');
+            const userId = await AsyncStorage.getItem('userId');
+            if (token && deviceToken && userId) {
+              await NotificationService.deleteToken({ userId, deviceToken }, token);
+            }
             await AsyncStorage.removeItem('token');
+            await AsyncStorage.removeItem('deviceToken');
+            await AsyncStorage.removeItem('userId');
             navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
           } catch (e) {
             // fallback nếu lỗi

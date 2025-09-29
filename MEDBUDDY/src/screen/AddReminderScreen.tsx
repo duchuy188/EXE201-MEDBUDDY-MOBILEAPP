@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, TextInput } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import ReminderService from '../api/Reminders';
+import NotificationService, { SendNotificationRequest } from '../api/Notifications';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Audio } from 'expo-av';
 import { Picker } from '@react-native-picker/picker';
@@ -10,7 +11,6 @@ interface ReminderData {
   userId: string;
   medicationId: string;
   time: string;
-  timeOfDay?: string;
   startDate: string;
   endDate: string;
   reminderType: 'normal' | 'voice';
@@ -35,27 +35,12 @@ const voiceFiles: { [key: string]: any } = {
 
 const AddReminderScreen = () => {
   const route = useRoute();
-  const routeParams = route.params as { token?: string; userId?: string; medication?: any } || {};
-  const { token: paramToken, userId, medication } = routeParams;
+  const routeParams = route.params as { token?: string; userId?: string; medication?: any; deviceToken?: string } || {};
+  const { token: paramToken, userId, medication, deviceToken } = routeParams;
 
   const [token, setToken] = useState(paramToken || '');
   // Nếu có medication truyền vào thì lấy tên thuốc, không thì để trống
   const [medicationName, setMedicationName] = useState(medication?.name || '');
-
-  // Lưu giờ cho từng mốc Sáng, Trưa, Tối
-  const [selectedTimes, setSelectedTimes] = useState<{[key: string]: string}>(() => {
-    if (medication?.timeOfDay) {
-      const timeArr = (medication.timeOfDay || '').split(',').map((t: string) => t.trim());
-      const newSelectedTimes: {[key: string]: string} = { Sáng: '', Trưa: '', Tối: '' };
-      timeArr.forEach((t: string) => {
-        if (t === 'morning') newSelectedTimes['Sáng'] = 'Chọn giờ';
-        if (t === 'afternoon') newSelectedTimes['Trưa'] = 'Chọn giờ';
-        if (t === 'evening') newSelectedTimes['Tối'] = 'Chọn giờ';
-      });
-      return newSelectedTimes;
-    }
-    return { Sáng: '', Trưa: '', Tối: '' };
-  });
 
   React.useEffect(() => {
     // Nếu token truyền vào không có hoặc không hợp lệ, lấy lại từ AsyncStorage
@@ -66,28 +51,19 @@ const AddReminderScreen = () => {
       })();
     }
   }, [token]);
-  // Trả về mảng các mốc đã chọn (không rỗng)
-  const getSelectedTimeOfDay = () => {
-    return Object.entries(selectedTimes)
-      .filter(([_, value]) => value)
-      .map(([key]) => {
-        if (key === 'Sáng') return 'morning';
-        if (key === 'Trưa') return 'afternoon';
-        if (key === 'Tối') return 'evening';
-        return key;
-      })
-      .join(',');
-  };
-  const [activeTimeLabel, setActiveTimeLabel] = useState<string | null>(null);
-  const [startDate, setStartDate] = useState(new Date());
-  const [endDate, setEndDate] = useState(new Date());
+  const [selectedTime, setSelectedTime] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [note, setNote] = useState('');
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [repeatType, setRepeatType] = useState<'daily' | 'weekly' | 'custom'>('daily');
   const [reminderType, setReminderType] = useState<'normal' | 'voice'>('normal');
   const [voiceType, setVoiceType] = useState('banmai');
+
+  // Gửi thông báo khi chọn giọng nói
+  const handleVoiceChange = (itemValue: string) => {
+    setVoiceType(itemValue);
+  };
   const [speed, setSpeed] = useState<-3 | -2 | -1 | 0 | 1 | 2 | 3>(0);
   const [time, setTime] = useState(new Date());
 
@@ -99,10 +75,10 @@ const AddReminderScreen = () => {
   const voiceOptions = [
     { label: 'Ban Mai (Nữ miền Bắc)', value: 'banmai' },
     { label: 'Thu Minh (Nữ miền Bắc)', value: 'thuminh' },
-    { label: 'Lê Minh (Nam miền Bắc)', value: 'leminh' },
     { label: 'Gia Huy (Nam miền Trung)', value: 'giahuy' },
-    { label: 'Mỹ An (Nữ miền Trung)', value: 'myan' },
     { label: 'Lan Nhi (Nữ miền Nam)', value: 'lannhi' },
+    { label: 'Lê Minh (Nam miền Bắc)', value: 'leminh' },
+    { label: 'Mỹ An (Nữ miền Trung)', value: 'myan' },
     { label: 'Linh San (Nữ miền Nam)', value: 'linhsan' },
   ];
 
@@ -131,21 +107,18 @@ const AddReminderScreen = () => {
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
 
   const handleTimeConfirm = (date: Date) => {
-  if (activeTimeLabel) {
-    const hour = date.getHours();
-    const minute = date.getMinutes();
-    setSelectedTimes({
-      ...selectedTimes,
-      [activeTimeLabel]: `${hour.toString().padStart(2,'0')}:${minute.toString().padStart(2,'0')}`
+    const formattedTime = date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
     });
-    setActiveTimeLabel(null);
+    setSelectedTime(formattedTime);
     setShowTimePicker(false);
-  }
   };
 
   const handleAddReminder = async () => {
-    if (!medicationName || Object.values(selectedTimes).every(v => !v)) {
-      Alert.alert('Thông báo', 'Vui lòng nhập tên thuốc và chọn ít nhất một thời gian nhắc nhở');
+    if (!medicationName || !selectedTime) {
+      Alert.alert('Thông báo', 'Vui lòng nhập tên thuốc và chọn thời gian nhắc nhở');
       return;
     }
 
@@ -167,31 +140,46 @@ const AddReminderScreen = () => {
         return;
       }
 
+      const packageName = 'com.medbuddy.app'; // Thay bằng package name thật nếu cần
       const reminderData: ReminderData = {
         userId,
         medicationId,
-        time: Object.entries(selectedTimes)
-          .filter(([label, time]) => time)
-          .map(([label, time]) => `${label} ${time}`)
-          .join(','),
-        timeOfDay: getSelectedTimeOfDay(),
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0],
+        time: selectedTime,
+        startDate: selectedDate.toISOString().split('T')[0],
+        endDate: selectedDate.toISOString().split('T')[0], // Nếu có input riêng thì thay bằng giá trị kết thúc
         reminderType: reminderType,
         repeat: repeatType,
         repeatDays,
         note,
         ...(reminderType === 'voice' && {
           voice: voiceType as 'banmai' | 'thuminh' | 'giahuy' | 'lannhi' | 'leminh' | 'myan' | 'linhsan',
-          speed: speed
+          speed: speed,
+          audioUrl: `android.resource://${packageName}/raw/${voiceType}.mp3`
         }),
         isActive: true,
       };
 
       await ReminderService.addReminder(reminderData, token);
+
+      // Gửi thông báo khi thêm lịch nhắc nếu là voice
+      if (reminderType === 'voice' && userId && token && deviceToken) {
+        const notificationData: any = {
+          userId,
+          title: 'Nhắc uống thuốc',
+          body: 'Đã đến giờ uống thuốc!',
+          sound: voiceType ? `${voiceType}.mp3` : undefined,
+          token: deviceToken,
+        };
+        try {
+          await NotificationService.sendNotification(notificationData, token);
+        } catch (error) {
+          console.error('Gửi thông báo thất bại:', error);
+        }
+      }
+
       Alert.alert('Thành công', 'Đã thêm lịch nhắc uống thuốc');
       // Reset form
-  setSelectedTimes({ Sáng: '', Trưa: '', Tối: '' });
+      setSelectedTime('');
       setNote('');
       if (repeatType === 'custom') {
         setSelectedDays([]);
@@ -202,7 +190,8 @@ const AddReminderScreen = () => {
   };
 
   const handleDateConfirm = (date: Date) => {
-  // Không dùng nữa
+    setSelectedDate(date);
+    setShowDatePicker(false);
   };
 
   const playVoiceTest = async () => {
@@ -258,12 +247,12 @@ const AddReminderScreen = () => {
         {/* Tên thuốc */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Tên thuốc</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Nhập tên thuốc"
-              value={medicationName}
-              editable={false}
-            />
+          <TextInput
+            style={styles.input}
+            placeholder="Nhập tên thuốc"
+            value={medicationName}
+            onChangeText={setMedicationName}
+          />
         </View>
 
         {/* Ngày bắt đầu */}
@@ -271,10 +260,10 @@ const AddReminderScreen = () => {
           <Text style={styles.label}>Ngày bắt đầu</Text>
           <TouchableOpacity 
             style={styles.timeInput}
-            onPress={() => setShowStartDatePicker(true)}
+            onPress={() => setShowDatePicker(true)}
           >
             <Text style={styles.timeText}>
-              {startDate.toLocaleDateString('vi-VN')}
+              {selectedDate.toLocaleDateString('vi-VN')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -284,54 +273,79 @@ const AddReminderScreen = () => {
           <Text style={styles.label}>Ngày kết thúc</Text>
           <TouchableOpacity 
             style={styles.timeInput}
-            onPress={() => setShowEndDatePicker(true)}
+            onPress={() => setShowDatePicker(true)}
           >
             <Text style={styles.timeText}>
-              {endDate.toLocaleDateString('vi-VN')}
+              {selectedDate.toLocaleDateString('vi-VN')}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Thời gian nhắc: mỗi mốc một dòng riêng biệt */}
+        {/* Thời gian */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Thời gian nhắc:</Text>
-          {Object.entries(selectedTimes).filter(([_, value]) => value).length === 0 ? (
-            <Text style={{ color: '#64748B', fontStyle: 'italic', marginBottom: 12 }}>
-              Vui lòng chọn ít nhất một khung giờ nhắc!
+          <Text style={styles.label}>Thời gian nhắc</Text>
+          <TouchableOpacity 
+            style={styles.timeInput}
+            onPress={() => setShowTimePicker(true)}
+          >
+            <Text style={styles.timeText}>
+              {selectedTime || 'Chọn thời gian'}
             </Text>
-          ) : (
-            Object.entries(selectedTimes)
-              .filter(([_, value]) => value)
-              .map(([label]) => (
-                <View key={label} style={{ marginBottom: 12 }}>
-                  <Text style={styles.timeLabel}>{label}</Text>
-                  <TouchableOpacity
-                    style={styles.singleTimeInput}
-                    onPress={() => {
-                      setActiveTimeLabel(label);
-                      setShowTimePicker(true);
-                    }}
-                  >
-                    <Text style={styles.timeText}>
-                      {selectedTimes[label] ? selectedTimes[label] : `Chọn buổi ${label.toLowerCase()}`}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ))
+          </TouchableOpacity>
+        </View>
+
+        {/* Lặp lại */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Lặp lại</Text>
+          <View style={styles.repeatContainer}>
+            {repeatOptions.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.repeatOption,
+                  repeatType === option.value && styles.selectedRepeatOption
+                ]}
+                onPress={() => setRepeatType(option.value as 'daily' | 'weekly' | 'custom')}
+              >
+                <Text style={[
+                  styles.repeatOptionText,
+                  repeatType === option.value && styles.selectedRepeatOptionText
+                ]}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Hiển thị các ngày trong tuần khi chọn Tùy chỉnh */}
+          {repeatType === 'custom' && (
+            <View style={styles.weekDaysContainer}>
+              {weekDays.map((day) => (
+                <TouchableOpacity
+                  key={day.value}
+                  style={[
+                    styles.dayOption,
+                    selectedDays.includes(day.value) && styles.selectedDayOption
+                  ]}
+                  onPress={() => {
+                    if (selectedDays.includes(day.value)) {
+                      setSelectedDays(selectedDays.filter(d => d !== day.value));
+                    } else {
+                      setSelectedDays([...selectedDays, day.value]);
+                    }
+                  }}
+                >
+                  <Text style={[
+                    styles.dayOptionText,
+                    selectedDays.includes(day.value) && styles.selectedDayOptionText
+                  ]}>
+                    {day.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           )}
         </View>
-        {/* DateTimePickerModal cho chọn giờ từng mốc */}
-        <DateTimePickerModal
-          isVisible={showTimePicker}
-          mode="time"
-          locale="vi"
-          onConfirm={handleTimeConfirm}
-          onCancel={() => {
-            setShowTimePicker(false);
-            setActiveTimeLabel(null);
-          }}
-        />
-
 
         {/* Loại nhắc nhở */}
         <View style={styles.inputGroup}>
@@ -360,33 +374,32 @@ const AddReminderScreen = () => {
         {/* Voice settings khi chọn voice */}
         {reminderType === 'voice' && (
           <>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Giọng đọc</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={voiceType}
-                  onValueChange={(itemValue) => setVoiceType(itemValue)}
-                  style={styles.picker}
-                  dropdownIconColor="#1E293B"
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Giọng đọc</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={voiceType}
+                    onValueChange={handleVoiceChange}
+                    style={styles.picker}
+                    dropdownIconColor="#1E293B"
+                  >
+                    {voiceOptions.map((option) => (
+                      <Picker.Item 
+                        key={option.value} 
+                        label={option.label} 
+                        value={option.value}
+                        color="#1E293B"
+                      />
+                    ))}
+                  </Picker>
+                </View>
+                <TouchableOpacity
+                  style={styles.testVoiceButton}
+                  onPress={playVoiceTest}
                 >
-                  {voiceOptions.map((option) => (
-                    <Picker.Item
-                      key={option.value}
-                      label={option.label}
-                      value={option.value}
-                      color="#1E293B"
-                    />
-                  ))}
-                </Picker>
-              </View>
-              <TouchableOpacity
-                style={styles.testVoiceButton}
-                onPress={playVoiceTest}
-              >
-                <Text style={styles.testVoiceText}>Nghe thử giọng đọc</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.inputGroup}>
+                  <Text style={styles.testVoiceText}>Nghe thử giọng đọc</Text>
+                </TouchableOpacity>
+              </View>            <View style={styles.inputGroup}>
               <Text style={styles.label}>Tốc độ đọc</Text>
               <View style={styles.pickerContainer}>
                 <Picker
@@ -396,9 +409,9 @@ const AddReminderScreen = () => {
                   dropdownIconColor="#1E293B"
                 >
                   {speedOptions.map((option) => (
-                    <Picker.Item
-                      key={option.value}
-                      label={option.label}
+                    <Picker.Item 
+                      key={option.value} 
+                      label={option.label} 
                       value={option.value}
                       color="#1E293B"
                     />
@@ -422,36 +435,25 @@ const AddReminderScreen = () => {
         </View>
 
         <TouchableOpacity
-          style={[
-            styles.addButton,
-            !selectedTimes.Sáng && !selectedTimes.Trưa && !selectedTimes.Tối && styles.disabledButton
-          ]}
+          style={[styles.addButton, !selectedTime && styles.disabledButton]}
           onPress={handleAddReminder}
-          disabled={!selectedTimes.Sáng && !selectedTimes.Trưa && !selectedTimes.Tối}
+          disabled={!selectedTime}
         >
           <Text style={styles.buttonText}>Thêm lịch nhắc</Text>
         </TouchableOpacity>
 
-  {/* Không dùng DateTimePickerModal cho thời gian nhắc nữa */}
         <DateTimePickerModal
-          isVisible={showStartDatePicker}
-          mode="date"
-          onConfirm={(date) => {
-            setStartDate(date);
-            setShowStartDatePicker(false);
-          }}
-          onCancel={() => setShowStartDatePicker(false)}
-          minimumDate={new Date()}
+          isVisible={showTimePicker}
+          mode="time"
+          onConfirm={handleTimeConfirm}
+          onCancel={() => setShowTimePicker(false)}
         />
         <DateTimePickerModal
-          isVisible={showEndDatePicker}
+          isVisible={showDatePicker}
           mode="date"
-          onConfirm={(date) => {
-            setEndDate(date);
-            setShowEndDatePicker(false);
-          }}
-          onCancel={() => setShowEndDatePicker(false)}
-          minimumDate={startDate}
+          onConfirm={handleDateConfirm}
+          onCancel={() => setShowDatePicker(false)}
+          minimumDate={new Date()}
         />
       </View>
     </ScrollView>
@@ -459,86 +461,6 @@ const AddReminderScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  timeLabel: {
-    fontSize: 15,
-    color: '#64748B',
-    fontWeight: '500',
-    marginBottom: 4,
-    marginLeft: 2,
-  },
-  singleTimeInput: {
-    backgroundColor: '#F0F6FF',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#B6D5FA',
-    padding: 12,
-    height: 48,
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  timeCol: {
-    flex: 1,
-    alignItems: 'center',
-    marginHorizontal: 4,
-  },
-  timeButton: {
-    backgroundColor: '#F0F6FF',
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#B6D5FA',
-    paddingVertical: 10,
-    paddingHorizontal: 0,
-    minWidth: 80,
-    alignItems: 'center',
-    marginBottom: 6,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  timeButtonActive: {
-    backgroundColor: '#3B82F6',
-    borderColor: '#2563EB',
-    shadowOpacity: 0.15,
-  },
-  timeButtonText: {
-    color: '#2563EB',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  timeButtonTextActive: {
-    color: '#fff',
-  },
-  timeCard: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#B6D5FA',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    marginTop: 2,
-    minWidth: 90,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.10,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  timeCardText: {
-    color: '#2563EB',
-    fontWeight: 'bold',
-    fontSize: 15,
-    textAlign: 'center',
-  },
   container: {
     flex: 1,
     backgroundColor: '#F6F8FB',
