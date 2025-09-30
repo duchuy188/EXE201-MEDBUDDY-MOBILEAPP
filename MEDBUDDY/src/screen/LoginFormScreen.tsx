@@ -37,8 +37,8 @@ const LoginFormScreen = ({ route, navigation }: any) => {
       const result = await AuthService.login({ email, password });
       console.log('Login API result:', result);
 
-      if (result.token) {
-        await AsyncStorage.setItem('token', result.token);
+      if (result.accessToken) {
+        await AsyncStorage.setItem('token', result.accessToken);
 
         if (result.user?._id) {
           await AsyncStorage.setItem('userId', result.user._id);
@@ -56,7 +56,7 @@ const LoginFormScreen = ({ route, navigation }: any) => {
                 userId: result.user._id,
                 deviceToken,
               };
-              const response = await NotificationService.saveToken(saveTokenData, result.token);
+              const response = await NotificationService.saveToken(saveTokenData, result.accessToken);
               console.log('>>> Gửi deviceToken thành công:', deviceToken, response);
             } else {
               console.warn('>>> Không lấy được deviceToken!');
@@ -69,7 +69,7 @@ const LoginFormScreen = ({ route, navigation }: any) => {
 
       // ✅ Kiểm tra login thành công
       const isLoginSuccess = !!(
-        result.token &&
+        result.accessToken &&
         result.user &&
         result.message &&
         result.message.toLowerCase().includes('success')
@@ -84,7 +84,7 @@ const LoginFormScreen = ({ route, navigation }: any) => {
           setError('');
           navigation.replace('MainTab', {
             userType: apiRole === 'family' ? 'relative' : apiRole,
-            token: result.token,
+            token: result.accessToken,
             userId: result.user?._id,
           });
         } else {

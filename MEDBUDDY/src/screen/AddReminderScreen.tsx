@@ -46,7 +46,7 @@ const AddReminderScreen = () => {
     // Nếu token truyền vào không có hoặc không hợp lệ, lấy lại từ AsyncStorage
     if (!token || token === 'undefined' || token === null) {
       (async () => {
-        const storedToken = await (await import('@react-native-async-storage/async-storage')).default.getItem('token');
+        // const storedToken = await (await import('@react-native-async-storage/async-storage')).default.getItem('token');
         if (storedToken) setToken(storedToken);
       })();
     }

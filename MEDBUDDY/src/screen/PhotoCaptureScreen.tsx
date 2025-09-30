@@ -22,7 +22,7 @@ const PhotoCaptureScreen: React.FC = () => {
       if (paramToken) {
         setToken(paramToken);
       } else {
-        const storedToken = await (await import('@react-native-async-storage/async-storage')).default.getItem('token');
+        // const storedToken = await (await import('@react-native-async-storage/async-storage')).default.getItem('token');
         if (storedToken) setToken(storedToken);
       }
     };

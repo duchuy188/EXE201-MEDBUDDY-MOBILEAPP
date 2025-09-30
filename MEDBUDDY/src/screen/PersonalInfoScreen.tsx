@@ -216,7 +216,7 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
         <TouchableOpacity style={styles.logoutBtn} onPress={async () => {
           // Xóa token, xóa deviceToken, điều hướng về màn hình đăng nhập
           try {
-            const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+            // const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
             const token = await AsyncStorage.getItem('token');
             const deviceToken = await AsyncStorage.getItem('deviceToken');
             const userId = await AsyncStorage.getItem('userId');

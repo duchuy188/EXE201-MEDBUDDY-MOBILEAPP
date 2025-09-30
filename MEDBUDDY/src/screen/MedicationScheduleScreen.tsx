@@ -500,44 +500,6 @@ const MedicationScheduleScreen = () => {
               : '+ Thêm lịch tái khám'}
           </Text>
         </TouchableOpacity>
-        {/* Nút test notification */}
-        <TouchableOpacity
-          style={{marginTop: 12, padding: 10, backgroundColor: '#00A3FF', borderRadius: 8}}
-          onPress={async () => {
-            console.log('Đã nhấn nút Test thông báo');
-            const { status } = await Notifications.getPermissionsAsync();
-            if (status !== 'granted') {
-              Alert.alert('Thông báo', 'Bạn chưa cấp quyền notification cho ứng dụng!');
-              return;
-            }
-            Alert.alert('Đã nhấn nút Test thông báo', 'Nếu notification hoạt động, bạn sẽ nhận được thông báo sau 2 giây.');
-            const notificationId = await Notifications.scheduleNotificationAsync({
-              content: { title: 'Test', body: 'Thông báo test!' },
-              trigger: { seconds: 5, repeats: false, type: 'timeInterval' },
-            });
-            console.log('Đã lên lịch notification với ID:', notificationId);
-
-              // Phát thử file mp3 custom sau 5 giây
-              setTimeout(async () => {
-                try {
-                  const soundObject = new Audio.Sound();
-                  await soundObject.loadAsync(require('../../assets/ngoclan.mp3'));
-                  await soundObject.playAsync();
-                  // Tự động unload sau khi phát xong
-                  soundObject.setOnPlaybackStatusUpdate(status => {
-                    if (status.didJustFinish) {
-                      soundObject.unloadAsync();
-                    }
-                  });
-                } catch (error) {
-                  console.log('Lỗi phát âm thanh:', error);
-                  Alert.alert('Lỗi', 'Không phát được file âm thanh custom!');
-                }
-              }, 5000);
-          }}
-        >
-          <Text style={{color: '#fff', textAlign: 'center'}}>Test thông báo</Text>
-        </TouchableOpacity>
       </View>
 
       <Modal
@@ -673,11 +635,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
-  calendar: {
+    calendar: {
     flexDirection: 'row',
-    paddingVertical: 12,
+    paddingVertical: 0,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
+    minHeight: 80,
   },
   dateContainer: {
     alignItems: 'center',
