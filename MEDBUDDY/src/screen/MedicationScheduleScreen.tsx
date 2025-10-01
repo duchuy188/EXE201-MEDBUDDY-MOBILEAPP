@@ -8,6 +8,7 @@ import { RootStackParamList } from '../types/navigation';
 import ReminderService, { Reminder } from '../api/Reminders';
 import AppointmentsService from '../api/Appointments';
 import * as Notifications from 'expo-notifications';
+import { MaterialIcons } from '@expo/vector-icons';
 
 interface Appointment {
   _id: string;
@@ -23,29 +24,49 @@ interface Appointment {
 interface DetailedReminder {
   _id: string;
   userId: string;
-  time: string;
-  startDate?: string;
-  endDate?: string;
-  repeat?: string;
-  repeatDays?: number[];
-  note?: string;
-  isActive?: boolean;
-  status?: string;
-  createdAt?: string;
   medicationId?: {
     _id: string;
     name?: string;
     dosage?: string;
     form?: string;
   };
+  times: { time: string; _id?: string }[];
+  startDate: string;
+  endDate: string;
+  reminderType: 'normal' | 'voice';
+  repeatTimes?: { time: string; taken?: boolean; _id?: string }[];
+  note?: string;
+  voice?: 'banmai' | 'lannhi' | 'leminh' | 'myan' | 'thuminh' | 'giahuy' | 'linhsan';
+  isActive?: boolean;
+  createdAt?: string;
+  status?: 'pending' | 'completed' | 'snoozed';
+  snoozeTime?: string;
+}
+
+interface FlattenedReminder {
+  _id: string;
+  userId: string;
+  time: string;
+  timeLabel: string;
+  startDate: string;
+  endDate: string;
+  note?: string;
+  isActive?: boolean;
+  status?: string;
+  medicationId?: {
+    _id: string;
+    name?: string;
+    dosage?: string;
+    form?: string;
+  };
+  taken?: boolean;
 }
 
 const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 const getDayLabel = (date: Date): string => {
   const day = date.getDay();
-  return days[day === 0 ? 6 : day - 1]; // Chuyển đổi 0 (CN) thành index 6, các ngày khác trừ 1
+  return days[day === 0 ? 6 : day - 1];
 };
-const currentDate = new Date();
 
 const MedicationScheduleScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -54,19 +75,15 @@ const MedicationScheduleScreen = () => {
   const { token, userId } = route.params;
   const [selectedDate, setSelectedDate] = React.useState(new Date());
   const [weekOffset, setWeekOffset] = React.useState(0);
-  const [activeTab, setActiveTab] = useState('medication'); // 'medication' or 'appointment'
+  const [activeTab, setActiveTab] = useState('medication');
   const [reminders, setReminders] = useState<DetailedReminder[]>([]);
-  const [selectedReminder, setSelectedReminder] = useState<DetailedReminder | null>(null);
+  const [selectedReminder, setSelectedReminder] = useState<FlattenedReminder | Appointment | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  // ...existing code...
-  // Khai báo fetchReminders sau khi đã có token, setReminders
-  // Xin quyền notification khi app khởi động
+
   const fetchReminders = async () => {
     try {
-      // First get all reminder IDs
       const remindersData = await ReminderService.getReminders(token);
-      // Then fetch full details for each reminder
       const detailedReminders = await Promise.all(
         remindersData.map((reminder: any) => 
           ReminderService.getReminderById(reminder._id, token)
@@ -94,60 +111,102 @@ const MedicationScheduleScreen = () => {
     }
   };
 
-  // Focus listener để load lại dữ liệu khi quay lại màn hình
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       if (activeTab === 'appointment') {
         fetchAppointments();
       }
-      // Luôn reload reminders khi vào lại trang
       fetchReminders();
     });
-
     return unsubscribe;
   }, [navigation, activeTab]);
 
-  // Load dữ liệu khi chuyển tab hoặc component mount
   useEffect(() => {
     if (activeTab === 'appointment') {
       fetchAppointments();
     }
   }, [activeTab]);
 
-  useEffect(() => {
-    fetchReminders();
-  }, [token]);
-
-  // Tự động lên lịch notification cho các lịch uống thuốc
-  useEffect(() => {
+  const flattenReminders = (reminders: DetailedReminder[]): FlattenedReminder[] => {
+    const flattened: FlattenedReminder[] = [];
+    
     reminders.forEach(reminder => {
-      if (reminder.isActive !== false && reminder.time) {
-        // Chỉ lên lịch cho ngày đang hiển thị trên UI (selectedDate)
+      console.log('Processing reminder:', reminder);
+      console.log('repeatTimes:', reminder.repeatTimes);
+      console.log('times:', reminder.times);
+      
+      if (reminder.repeatTimes && reminder.repeatTimes.length > 0) {
+        reminder.repeatTimes.forEach((repeatTime, index) => {
+          const timeLabel = reminder.times[index]?.time || 'Không xác định';
+          
+          flattened.push({
+            _id: `${reminder._id}-${index}-${repeatTime.time || 'none'}`,
+            userId: reminder.userId,
+            time: repeatTime.time || 'Chưa đặt giờ',
+            timeLabel: timeLabel,
+            startDate: reminder.startDate,
+            endDate: reminder.endDate,
+            note: reminder.note,
+            isActive: reminder.isActive,
+            status: reminder.status,
+            medicationId: reminder.medicationId,
+            taken: repeatTime.taken
+          });
+        });
+      } 
+      else if (reminder.times && reminder.times.length > 0) {
+        reminder.times.forEach((timeItem, index) => {
+          flattened.push({
+            _id: `${reminder._id}-${index}-${timeItem.time}`,
+            userId: reminder.userId,
+            time: 'Chưa đặt giờ cụ thể',
+            timeLabel: timeItem.time,
+            startDate: reminder.startDate,
+            endDate: reminder.endDate,
+            note: reminder.note,
+            isActive: reminder.isActive,
+            status: reminder.status,
+            medicationId: reminder.medicationId,
+            taken: false
+          });
+        });
+      }
+    });
+    
+    console.log('Flattened reminders:', flattened);
+    return flattened;
+  };
+
+  const getRemindersForSelectedDate = (): FlattenedReminder[] => {
+    const flattenedReminders = flattenReminders(reminders);
+    
+    return flattenedReminders.filter(reminder => {
+      const startDate = new Date(reminder.startDate);
+      const endDate = new Date(reminder.endDate);
+      const current = new Date(selectedDate);
+      
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(0, 0, 0, 0);
+      current.setHours(0, 0, 0, 0);
+      
+      return current >= startDate && current <= endDate && reminder.isActive !== false;
+    });
+  };
+
+  useEffect(() => {
+    const remindersForDate = getRemindersForSelectedDate();
+    
+    remindersForDate.forEach(reminder => {
+      if (reminder.time) {
         const date = new Date(selectedDate);
         const [hour, minute] = reminder.time.split(':').map(Number);
         date.setHours(hour, minute, 0, 0);
-        // Kiểm tra nếu reminder thuộc ngày này (theo logic lọc UI)
-        let shouldSchedule = false;
-        if (reminder.repeat === 'daily' && reminder.startDate && reminder.endDate) {
-          const startDate = new Date(reminder.startDate);
-          const endDate = new Date(reminder.endDate);
-          startDate.setHours(0,0,0,0);
-          endDate.setHours(0,0,0,0);
-          const current = new Date(selectedDate);
-          current.setHours(0,0,0,0);
-          shouldSchedule = current >= startDate && current <= endDate;
-        } else if (reminder.startDate) {
-          const reminderDate = new Date(reminder.startDate);
-          reminderDate.setHours(0,0,0,0);
-          const current = new Date(selectedDate);
-          current.setHours(0,0,0,0);
-          shouldSchedule = reminderDate.getTime() === current.getTime();
-        }
-        if (shouldSchedule && date > new Date()) {
+        
+        if (date > new Date()) {
           Notifications.scheduleNotificationAsync({
             content: {
-              title: `Nhắc uống thuốc`,
-              body: reminder.note || 'Đã đến giờ uống thuốc!'
+              title: `Nhắc uống thuốc - ${reminder.timeLabel}`,
+              body: reminder.note || `${reminder.medicationId?.name || 'Thuốc'} - ${reminder.medicationId?.dosage || ''}`
             },
             trigger: {
               type: 'calendar',
@@ -159,13 +218,6 @@ const MedicationScheduleScreen = () => {
               repeats: false
             },
           });
-          console.log('Đã lên lịch notification thuốc cho:', {
-            year: date.getFullYear(),
-            month: date.getMonth() + 1,
-            day: date.getDate(),
-            hour,
-            minute
-          }, reminder);
         }
       }
     });
@@ -175,14 +227,10 @@ const MedicationScheduleScreen = () => {
     const today = new Date();
     const monday = new Date(today);
     const dayOfWeek = today.getDay();
-    // Điều chỉnh về thứ 2 của tuần hiện tại
     monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-    
-    // Thêm offset tuần
     monday.setDate(monday.getDate() + (weekOffset * 7));
     
     const dates = [];
-    // Tạo mảng 7 ngày bắt đầu từ thứ 2
     for (let i = 0; i < 7; i++) {
       const date = new Date(monday);
       date.setDate(monday.getDate() + i);
@@ -236,11 +284,21 @@ const MedicationScheduleScreen = () => {
 
   useEffect(() => {
     const subscription = Notifications.addNotificationReceivedListener(notification => {
-      Alert.alert('Nhận notification', JSON.stringify(notification));
-      console.log('Notification nhận được (foreground/background):', notification);
+      console.log('Notification nhận được:', notification);
     });
     return () => subscription.remove();
   }, []);
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    return `${date.getDate().toString().padStart(2, '0')}/${
+      (date.getMonth() + 1).toString().padStart(2, '0')
+    }/${date.getFullYear()}`;
+  };
+
+  const remindersForSelectedDate = getRemindersForSelectedDate();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -290,135 +348,96 @@ const MedicationScheduleScreen = () => {
             key={index}
             style={[
               styles.dateContainer,
-              date.getDate() === selectedDate.getDate() && styles.selectedDate
+              date.getDate() === selectedDate.getDate() && 
+              date.getMonth() === selectedDate.getMonth() && 
+              date.getFullYear() === selectedDate.getFullYear() && 
+              styles.selectedDate
             ]}
             onPress={() => setSelectedDate(date)}
           >
             <Text style={styles.dayText}>{getDayLabel(date)}</Text>
             <Text style={[
               styles.dateText,
-              date.getDate() === selectedDate.getDate() && styles.selectedDateText
+              date.getDate() === selectedDate.getDate() && 
+              date.getMonth() === selectedDate.getMonth() && 
+              date.getFullYear() === selectedDate.getFullYear() && 
+              styles.selectedDateText
             ]}>
               {date.getDate()}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
-      
       {activeTab === 'medication' ? (
-        // Lọc reminders cho ngày đã chọn
-        reminders.filter(reminder => {
-          if (reminder.repeat === 'daily') {
-            const startDate = new Date(reminder.startDate || '');
-            const endDate = new Date(reminder.endDate || '');
-            const current = new Date(selectedDate);
-            startDate.setHours(0, 0, 0, 0);
-            endDate.setHours(0, 0, 0, 0);
-            current.setHours(0, 0, 0, 0);
-            return current >= startDate && current <= endDate;
-          } else {
-            const reminderDate = new Date(reminder.startDate || '');
-            const current = new Date(selectedDate);
-            reminderDate.setHours(0, 0, 0, 0);
-            current.setHours(0, 0, 0, 0);
-            return reminderDate.getTime() === current.getTime();
-          }
-        }).length > 0 ? (
+        remindersForSelectedDate.length > 0 ? (
           <ScrollView style={styles.medicationList} contentContainerStyle={styles.medicationListContent}>
             {Object.entries(
-              reminders
-                .filter(reminder => {
-                console.log('Checking reminder:', reminder);
-                console.log('Selected date:', selectedDate);
-
-                // Đối với nhắc nhở hàng ngày
-                if (reminder.repeat === 'daily') {
-                  const startDate = new Date(reminder.startDate || '');
-                  const endDate = new Date(reminder.endDate || '');
-                  const current = new Date(selectedDate);
-                  
-                  // Reset time part để so sánh chỉ ngày tháng năm
-                  startDate.setHours(0, 0, 0, 0);
-                  endDate.setHours(0, 0, 0, 0);
-                  current.setHours(0, 0, 0, 0);
-
-                  const isInRange = current >= startDate && current <= endDate;
-                  console.log('Daily reminder in range:', isInRange);
-                  return isInRange;
-                } 
-                // Đối với nhắc nhở một lần
-                else {
-                  const reminderDate = new Date(reminder.startDate || '');
-                  const current = new Date(selectedDate);
-                  
-                  // Reset time part để so sánh chỉ ngày tháng năm
-                  reminderDate.setHours(0, 0, 0, 0);
-                  current.setHours(0, 0, 0, 0);
-
-                  const isSameDay = reminderDate.getTime() === current.getTime();
-                  console.log('One-time reminder matches:', isSameDay);
-                  return isSameDay;
-                }
-              })
-              .sort((a, b) => {
-                const timeA = new Date(`1970/01/01 ${a.time}`).getTime();
-                const timeB = new Date(`1970/01/01 ${b.time}`).getTime();
-                return timeA - timeB;
-              })
-              .reduce((sections: { [key: string]: DetailedReminder[] }, reminder) => {
-                const time = reminder.time;
-                if (!sections[time]) {
-                  sections[time] = [];
-                }
-                sections[time].push(reminder);
-                return sections;
-              }, {})
-          ).map(([time, remindersForTime]) => (
-            <View key={time} style={styles.timeSection}>
-              <Text style={styles.timeHeader}>{time}</Text>
-              {remindersForTime.map((reminder, index) => (
-                <TouchableOpacity 
-                  key={reminder._id || index} 
-                  style={styles.medicationItem}
-                  onPress={() => {
-                    setSelectedReminder(reminder);
-                    setIsModalVisible(true);
-                  }}
-                >
-                  <View style={styles.medicationCircle} />
-                  <View style={styles.medicationInfo}>
-                    <Text style={styles.medicationName}>
-                      {reminder.medicationId?.name || 'Thuốc'}
-                    </Text>
-                    <Text style={styles.medicationDose}>
-                      {reminder.medicationId?.dosage}
-                    </Text>
-                    <Text style={styles.medicationNote}>
-                      {reminder.note || 'Không có ghi chú'}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+              remindersForSelectedDate
+                .sort((a, b) => {
+                  const timeA = new Date(`1970/01/01 ${a.time}`).getTime();
+                  const timeB = new Date(`1970/01/01 ${b.time}`).getTime();
+                  return timeA - timeB;
+                })
+                .reduce((sections: { [key: string]: FlattenedReminder[] }, reminder) => {
+                  const time = reminder.time;
+                  if (!sections[time]) {
+                    sections[time] = [];
+                  }
+                  sections[time].push(reminder);
+                  return sections;
+                }, {})
+            ).map(([time, remindersForTime]) => (
+              <View key={`time-${time}`} style={styles.timeSection}>
+                <Text style={styles.timeHeader}>{time}</Text>
+                {remindersForTime.map((reminder, index) => (
+                  <TouchableOpacity 
+                    key={`${reminder._id}-${index}`}
+                    style={styles.medicationItem}
+                    onPress={() => {
+                      setSelectedReminder(reminder);
+                      setIsModalVisible(true);
+                    }}
+                  >
+                    <View style={[
+                      styles.medicationCircle,
+                      reminder.taken && styles.medicationCircleTaken
+                    ]} />
+                    <View style={styles.medicationInfo}>
+                      <Text style={styles.medicationName}>
+                        {reminder.medicationId?.name || 'Thuốc'} - {reminder.timeLabel}
+                      </Text>
+                      <Text style={styles.medicationDose}>
+                        {reminder.medicationId?.dosage}
+                      </Text>
+                      <Text style={styles.medicationNote}>
+                        {reminder.note || 'Không có ghi chú'}
+                      </Text>
+                      {reminder.taken && (
+                        <Text style={styles.takenStatus}>✓ Đã uống</Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={styles.emptyStateContainer}>
+            <Image
+              source={require('../../assets/istockphoto-1014193944-170667a-removebg-preview.png')}
+              style={styles.emptyStateImage}
+            />
+            <View style={styles.textContainer}>
+              <Text style={styles.monitorText}>
+                Theo dõi lịch uống thuốc của bạn
+              </Text>
+              <Text style={styles.subText}>
+                Xem lịch trình hàng ngày và đánh dấu khi bạn đã uống thuốc
+              </Text>
             </View>
-          ))}
-        </ScrollView>
-      ) : (
-        <View style={styles.emptyStateContainer}>
-          <Image
-            source={require('../../assets/istockphoto-1014193944-170667a-removebg-preview.png')}
-            style={styles.emptyStateImage}
-          />
-          <View style={styles.textContainer}>
-            <Text style={styles.monitorText}>
-              Theo dõi lịch uống thuốc của bạn
-            </Text>
-            <Text style={styles.subText}>
-              Xem lịch trình hàng ngày và đánh dấu khi bạn đã uống thuốc
-            </Text>
           </View>
-        </View>
-      )) : (
-        // Lọc appointments cho ngày đã chọn
+        )
+      ) : (
         appointments.filter(appointment => {
           const appointmentDate = new Date(appointment.date);
           const current = new Date(selectedDate);
@@ -427,42 +446,56 @@ const MedicationScheduleScreen = () => {
           return appointmentDate.getTime() === current.getTime();
         }).length > 0 ? (
           <ScrollView style={styles.medicationList} contentContainerStyle={styles.medicationListContent}>
-            {appointments
-              .filter(appointment => {
-                const appointmentDate = new Date(appointment.date);
-                const current = new Date(selectedDate);
-                
-                // Reset time part để so sánh chỉ ngày tháng năm
-                appointmentDate.setHours(0, 0, 0, 0);
-                current.setHours(0, 0, 0, 0);
-
-                return appointmentDate.getTime() === current.getTime();
-              })
-              .sort((a, b) => {
-                const timeA = new Date(`1970/01/01 ${a.time}`).getTime();
-                const timeB = new Date(`1970/01/01 ${b.time}`).getTime();
-                return timeA - timeB;
-              })
-              .map((appointment) => (
-                <View key={appointment._id} style={styles.medicationItem}>
-                  <View style={styles.medicationCircle} />
-                  <View style={styles.medicationInfo}>
-                    <Text style={styles.medicationName}>
-                      {appointment.title}
-                    </Text>
-                    <Text style={styles.medicationDose}>
-                      {appointment.hospital} - {appointment.location}
-                    </Text>
-                    <Text style={styles.medicationDose}>
-                      {appointment.time}
-                    </Text>
-                    <Text style={styles.medicationNote}>
-                      {appointment.notes || 'Không có ghi chú'}
-                    </Text>
-                  </View>
-                </View>
-              ))
-            }
+            {Object.entries(
+              appointments
+                .filter(appointment => {
+                  const appointmentDate = new Date(appointment.date);
+                  const current = new Date(selectedDate);
+                  appointmentDate.setHours(0, 0, 0, 0);
+                  current.setHours(0, 0, 0, 0);
+                  return appointmentDate.getTime() === current.getTime();
+                })
+                .sort((a, b) => {
+                  const timeA = new Date(`1970/01/01 ${a.time}`).getTime();
+                  const timeB = new Date(`1970/01/01 ${b.time}`).getTime();
+                  return timeA - timeB;
+                })
+                .reduce((sections: { [key: string]: Appointment[] }, appointment) => {
+                  const time = appointment.time;
+                  if (!sections[time]) {
+                    sections[time] = [];
+                  }
+                  sections[time].push(appointment);
+                  return sections;
+                }, {})
+            ).map(([time, appointmentsForTime]) => (
+              <View key={`appt-time-${time}`} style={styles.timeSection}>
+                <Text style={styles.timeHeader}>{time}</Text>
+                {appointmentsForTime.map((appointment, index) => (
+                  <TouchableOpacity
+                    key={`${appointment._id}-${index}`}
+                    style={styles.medicationItem}
+                    onPress={() => {
+                      setSelectedReminder(appointment);
+                      setIsModalVisible(true);
+                    }}
+                  >
+                    <View style={styles.medicationCircle} />
+                    <View style={styles.medicationInfo}>
+                      <Text style={styles.medicationName}>
+                        {appointment.title}
+                      </Text>
+                      <Text style={styles.medicationDose}>
+                        {appointment.hospital} - {appointment.location}
+                      </Text>
+                      <Text style={styles.medicationNote}>
+                        {appointment.notes || 'Không có ghi chú'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ))}
           </ScrollView>
         ) : (
           <View style={styles.emptyStateContainer}>
@@ -487,7 +520,6 @@ const MedicationScheduleScreen = () => {
           style={styles.addButton}
           onPress={() => {
             if (activeTab === 'medication') {
-              console.log('Navigating to MedicationsScreen with:', { token, userId });
               navigation.navigate('MedicationsScreen', { token, userId });
             } else {
               navigation.navigate('AddAppointment', { token, userId });
@@ -511,49 +543,163 @@ const MedicationScheduleScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chi tiết thuốc</Text>
-              <TouchableOpacity 
-                onPress={() => setIsModalVisible(false)}
-                style={styles.closeButton}
-              >
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
+              <Text style={styles.modalTitle}>
+                {'hospital' in (selectedReminder || {}) ? 'Chi tiết lịch tái khám' : 'Chi tiết thuốc'}
+              </Text>
             </View>
-            
             {selectedReminder && (
               <View style={styles.modalBody}>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Tên thuốc:</Text>
-                  <Text style={styles.detailValue}>{selectedReminder.medicationId?.name || 'Không có tên'}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Liều lượng:</Text>
-                  <Text style={styles.detailValue}>{selectedReminder.medicationId?.dosage || 'Không có'}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Dạng thuốc:</Text>
-                  <Text style={styles.detailValue}>{selectedReminder.medicationId?.form || 'Không có'}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Thời gian:</Text>
-                  <Text style={styles.detailValue}>{selectedReminder.time}</Text>
-                </View>
-                {selectedReminder.repeat && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Lặp lại:</Text>
-                    <Text style={styles.detailValue}>
-                      {selectedReminder.repeat === 'daily' ? 'Hàng ngày' : 'Một lần'}
-                    </Text>
-                  </View>
-                )}
-                {selectedReminder.note && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Ghi chú:</Text>
-                    <Text style={styles.detailValue}>{selectedReminder.note}</Text>
-                  </View>
+                {'hospital' in selectedReminder ? (
+                  <>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Tiêu đề:</Text>
+                      <Text style={styles.detailValue}>{selectedReminder.title}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Bệnh viện:</Text>
+                      <Text style={styles.detailValue}>{selectedReminder.hospital}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Địa điểm:</Text>
+                      <Text style={styles.detailValue}>{selectedReminder.location}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Thời gian:</Text>
+                      <Text style={styles.detailValue}>{selectedReminder.time}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Ngày:</Text>
+                      <Text style={styles.detailValue}>{formatDate(selectedReminder.date)}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Ghi chú:</Text>
+                      <Text style={styles.detailValue}>{selectedReminder.notes || 'Không có ghi chú'}</Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Tên thuốc:</Text>
+                      <Text style={styles.detailValue}>{selectedReminder.medicationId?.name || 'Không có tên'}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Dạng thuốc:</Text>
+                      <Text style={styles.detailValue}>{selectedReminder.medicationId?.form || 'Không có'}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Buổi:</Text>
+                      <Text style={styles.detailValue}>{selectedReminder.timeLabel}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Giờ:</Text>
+                      <Text style={styles.detailValue}>{selectedReminder.time}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Từ ngày:</Text>
+                      <Text style={styles.detailValue}>{formatDate(selectedReminder.startDate)}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Đến ngày:</Text>
+                      <Text style={styles.detailValue}>{formatDate(selectedReminder.endDate)}</Text>
+                    </View>
+                    {selectedReminder.note && (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Ghi chú:</Text>
+                        <Text style={styles.detailValue}>{selectedReminder.note}</Text>
+                      </View>
+                    )}
+                    {selectedReminder.taken !== undefined && (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Trạng thái:</Text>
+                        <Text style={styles.detailValue}>
+                          {selectedReminder.taken ? '✓ Đã uống' : 'Chưa uống'}
+                        </Text>
+                      </View>
+                    )}
+                  </>
                 )}
               </View>
             )}
+            <View style={styles.actionButtons}>
+              <TouchableOpacity 
+                onPress={() => setIsModalVisible(false)} 
+                style={styles.actionButton}
+              >
+                <View style={styles.iconCircle}>
+                  <MaterialIcons name="close" size={28} color="#3B82F6" />
+                </View>
+                <Text style={[styles.actionLabel, { color: '#3B82F6' }]}>Đóng</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                onPress={async () => {
+                  Alert.alert(
+                    'Xác nhận xóa',
+                    'Bạn có chắc chắn muốn xóa mục này?',
+                    [
+                      { text: 'Hủy', style: 'cancel' },
+                      { 
+                        text: 'Xóa', 
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            if (selectedReminder && 'hospital' in selectedReminder) {
+                              // Xóa lịch tái khám
+                              await AppointmentsService.deleteAppointment(selectedReminder._id, token);
+                              Alert.alert('Thành công', 'Đã xóa lịch tái khám');
+                              fetchAppointments();
+                            } else if (selectedReminder) {
+                              // Xóa lịch nhắc uống thuốc
+                              const reminderId = selectedReminder._id.split('-')[0];
+                              await ReminderService.deleteReminder(reminderId, token);
+                              Alert.alert('Thành công', 'Đã xóa lịch nhắc uống thuốc');
+                              fetchReminders();
+                            }
+                            setIsModalVisible(false);
+                          } catch (error) {
+                            console.error('Error deleting:', error);
+                            Alert.alert('Lỗi', 'Không thể xóa. Vui lòng thử lại');
+                          }
+                        }
+                      }
+                    ]
+                  );
+                }}
+                style={styles.actionButton}
+              >
+                <View style={styles.iconCircle}>
+                  <MaterialIcons name="delete" size={28} color="#EF4444" />
+                </View>
+                <Text style={[styles.actionLabel, { color: '#EF4444' }]}>Xóa</Text>
+              </TouchableOpacity>
+
+<TouchableOpacity 
+  onPress={() => {
+    setIsModalVisible(false);
+    if (selectedReminder && 'hospital' in selectedReminder) {
+      navigation.navigate('EditAppointment', { 
+        token, 
+        userId,
+        appointment: selectedReminder
+      });
+    } else if (selectedReminder) {
+      const reminderId = selectedReminder._id.split('-')[0];
+      navigation.navigate('EditReminder', { 
+        token, 
+        userId,
+        reminderId, // truyền đúng ObjectId
+        reminder: selectedReminder // truyền object để hiển thị thông tin
+      });
+    }
+  }}
+  style={styles.actionButton}
+> 
+  <View style={styles.iconCircle}>
+    <MaterialIcons name="edit" size={28} color="#3B82F6" />
+  </View>
+  <Text style={[styles.actionLabel, { color: '#3B82F6' }]}>Sửa</Text>
+</TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -580,22 +726,39 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'column',
     marginBottom: 20,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
   },
-  closeButton: {
-    padding: 8,
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
   },
-  closeButtonText: {
-    fontSize: 20,
-    color: '#666',
+  actionButton: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  iconCircle: {
+    backgroundColor: '#F6F8FB',
+    borderRadius: 50,
+    padding: 16,
+    marginBottom: 4,
+  },
+  actionLabel: {
+    fontSize: 14,
+    marginTop: 4,
+    fontWeight: '500',
   },
   modalBody: {
     paddingBottom: 20,
@@ -616,12 +779,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  calendarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -635,7 +792,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
-    calendar: {
+  calendar: {
     flexDirection: 'row',
     paddingVertical: 0,
     borderBottomWidth: 1,
@@ -677,9 +834,6 @@ const styles = StyleSheet.create({
   selectedDateText: {
     color: '#fff',
   },
-  scheduleContainer: {
-    // Removed - not needed
-  },
   tabContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -707,16 +861,11 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   emptyStateContainer: {
-    top: -120,
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  contentContainer: {
     flex: 1,
     justifyContent: 'center',
-  },
-  spacer: {
-    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginTop: -500,
   },
   emptyStateImage: {
     width: 180,
@@ -755,16 +904,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  // Medication list styles
   medicationList: {
+    flex: 1,
     paddingHorizontal: 16,
+    top: -200,
   },
   medicationListContent: {
-    paddingTop: 16,
     paddingBottom: 20,
   },
   timeSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   timeHeader: {
     fontSize: 18,
@@ -787,6 +936,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#00A3FF',
     marginRight: 12,
   },
+  medicationCircleTaken: {
+    backgroundColor: '#4CAF50',
+  },
   medicationInfo: {
     flex: 1,
   },
@@ -806,7 +958,12 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 4,
   },
-  // Bottom button styles
+  takenStatus: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: '600',
+    marginTop: 4,
+  },
   bottomButtonContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,

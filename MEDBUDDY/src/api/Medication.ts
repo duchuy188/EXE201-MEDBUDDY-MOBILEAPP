@@ -1,15 +1,19 @@
 import apiClient from './index';
 
+export interface MedicationTime {
+  time: 'Sáng' | 'Chiều' | 'Tối';
+  dosage: string;
+}
+
 export interface Medication {
   _id?: string;
   userId: string;
   name: string;
-  dosage: string;
+  quantity?: string;
   form?: string;
   image?: string;
   note?: string;
-  timeOfDay?: string;
-  time?: string;
+  times: MedicationTime[]; // Mảng các buổi uống và liều lượng
   expirationDate?: string;
   createdAt?: string;
 }
@@ -57,12 +61,13 @@ class MedicationService {
 }
 
 export default new MedicationService();
+
 // Kiểu dữ liệu cho thuốc từ OCR
 export interface MedicationFromOCR {
   name: string;
-  quantity: string;
-  form: string;
-  usage: string;
+  form?: string;
+  usage?: string;
+  times?: MedicationTime[]; // Thêm trường times cho OCR
 }
 
 export interface SaveMedicationsFromOCRRequest {

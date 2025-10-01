@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Modal, TextInput, Button, Pressable, Image, Alert } from 'react-native';
@@ -7,13 +6,23 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
+interface MedicationTime {
+  time: string; // "Sáng", "Chiều", "Tối"
+  dosage: string; // Liều lượng
+  _id?: string;
+}
+
 interface Medication {
-  _id: string;
+  _id?: string;
+  userId: string;
   name: string;
-  dosage: string;
-  timeOfDay: string;
-  createdAt: string;
+  quantity?: string;
+  form?: string;
+  image?: string;
   note?: string;
+  times: MedicationTime[]; // Mảng các buổi uống và liều lượng
+  expirationDate?: string;
+  createdAt?: string;
 }
 
 const MedicationsScreen = ({ route, navigation }: any) => {
@@ -64,8 +73,6 @@ const MedicationsScreen = ({ route, navigation }: any) => {
   const [modalMedication, setModalMedication] = useState<Medication | null>(null);
   // Form states for modal
   const [modalName, setModalName] = useState('');
-  const [modalDosage, setModalDosage] = useState('');
-  const [modalTimeOfDay, setModalTimeOfDay] = useState('');
   const [modalNote, setModalNote] = useState('');
   const [modalDate, setModalDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -102,41 +109,36 @@ const MedicationsScreen = ({ route, navigation }: any) => {
     }
   };
 
-  const renderMedicationItem = ({ item }: { item: Medication }) => (
-    <TouchableOpacity style={styles.itemContainer} onPress={() => {
-      setModalMedication(item);
-      setModalName(item.name);
-      setModalDosage(item.dosage);
-      setModalTimeOfDay(item.timeOfDay);
-      setModalNote(item.note || '');
-      setModalDate(new Date(item.createdAt));
-      setModalVisible(true);
-    }}>
-      <View style={styles.itemContent}>
-        <Text style={styles.itemName}>Tên thuốc: {item.name}</Text>
-        <Text style={styles.itemDetail}>Liều lượng: {item.dosage}</Text>
-        <Text style={styles.itemDetail}>Thời gian: {
-          (item.timeOfDay || '')
-            .split(',')
-            .map((time: string) => {
-              switch (time) {
-                case 'morning':
-                  return 'Sáng';
-                case 'afternoon':
-                  return 'Chiều';
-                case 'evening':
-                  return 'Tối';
-                default:
-                  return time;
-              }
-            })
-            .join(', ')
-        }</Text>
-        <Text style={styles.itemDetail}>Ngày thêm vào: {new Date(item.createdAt).toLocaleDateString('vi-VN') || 'Không xác định'}</Text>
-        <Text style={styles.itemDetail}>Ghi chú: {item.note || 'chưa có ghi chú'}</Text>
-      </View>
-    </TouchableOpacity>
-);
+  const renderMedicationItem = ({ item }: { item: Medication }) => {
+    console.log('Rendering medication item:', JSON.stringify(item, null, 2));
+    return (
+      <TouchableOpacity style={styles.itemContainer} onPress={() => {
+        setModalMedication(item);
+        setModalName(item.name);
+        setModalNote(item.note || '');
+        setModalDate(item.createdAt ? new Date(item.createdAt) : new Date());
+        setModalVisible(true);
+      }}>
+        <View style={styles.itemContent}>
+          <Text style={styles.itemName}>Tên thuốc: {item.name}</Text>
+          <Text style={styles.itemDetail}>
+            Dạng: {item.form || 'Không xác định'} - Số lượng: {item.quantity || 'Không xác định'}
+          </Text>
+          <Text style={styles.itemDetail}>
+            Lịch uống: {
+              item.times && Array.isArray(item.times) && item.times.length > 0
+                ? item.times.map((t) => `${t.time} (${t.dosage})`).join(', ')
+                : 'Chưa có lịch'
+            }
+          </Text>
+          <Text style={styles.itemDetail}>
+            Ngày thêm vào: {item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : 'Không xác định'}
+          </Text>
+          <Text style={styles.itemDetail}>Ghi chú: {item.note || 'chưa có ghi chú'}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const fetchMedications = React.useCallback(async () => {
     try {
@@ -160,11 +162,11 @@ const MedicationsScreen = ({ route, navigation }: any) => {
             fetchMedications();
         }
     }, [token])
-);
+  );
 
   return (
-  <View style={styles.container}>
-  {medicationsList.length === 0 ? (
+    <View style={styles.container}>
+      {medicationsList.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Image
             source={require('../../assets/pill-icon.png')}
@@ -222,38 +224,46 @@ const MedicationsScreen = ({ route, navigation }: any) => {
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                 <MaterialIcons name="medication" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
                 <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Tên thuốc:</Text>
-                <Text style={{ color: '#1E293B', fontWeight: 'bold' }}>{modalName}</Text>
+                <Text style={{ color: '#1E293B', fontWeight: 'bold' }}>{modalMedication?.name || modalName}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <MaterialIcons name="medical-services" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
+                <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Dạng thuốc:</Text>
+                <Text style={{ color: '#1E293B' }}>{modalMedication?.form || 'Không xác định'}</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                 <MaterialIcons name="format-list-numbered" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Liều lượng:</Text>
-                <Text style={{ color: '#1E293B' }}>{modalDosage}</Text>
+                <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Số lượng:</Text>
+                <Text style={{ color: '#1E293B' }}>{modalMedication?.quantity || 'Không xác định'}</Text>
               </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <MaterialIcons name="schedule" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Thời gian:</Text>
-                <Text style={{ color: '#1E293B' }}>{(modalTimeOfDay || '')
-                  .split(',')
-                  .map((time) => {
-                    switch (time.trim()) {
-                      case 'morning': return 'Sáng';
-                      case 'afternoon': return 'Chiều';
-                      case 'evening': return 'Tối';
-                      default: return time;
-                    }
-                  })
-                  .join(', ')
-                }</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
+                <MaterialIcons name="schedule" size={22} color="#3B82F6" style={{ marginRight: 8, marginTop: 2 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#64748B', fontWeight: '500', marginBottom: 4 }}>Lịch uống:</Text>
+                  {modalMedication?.times && modalMedication.times.length > 0 ? (
+                    modalMedication.times.map((timeSlot, index) => (
+                      <Text key={index} style={{ color: '#1E293B', marginLeft: 8, marginBottom: 2 }}>
+                        • {timeSlot.time}: {timeSlot.dosage}
+                      </Text>
+                    ))
+                  ) : (
+                    <Text style={{ color: '#1E293B', marginLeft: 8 }}>Chưa có lịch uống</Text>
+                  )}
+                </View>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                 <MaterialIcons name="calendar-today" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
                 <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Ngày thêm vào:</Text>
-                <Text style={{ color: '#1E293B' }}>{modalDate.toLocaleDateString('vi-VN')}</Text>
+                <Text style={{ color: '#1E293B' }}>
+                  {modalMedication?.createdAt 
+                    ? new Date(modalMedication.createdAt).toLocaleDateString('vi-VN')
+                    : modalDate.toLocaleDateString('vi-VN')}
+                </Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                 <MaterialIcons name="notes" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
                 <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Ghi chú:</Text>
-                <Text style={{ color: '#1E293B', flex: 1 }}>{modalNote}</Text>
+                <Text style={{ color: '#1E293B', flex: 1 }}>{modalMedication?.note || modalNote || 'Chưa có ghi chú'}</Text>
               </View>
             </View>
             {/* Icon button group */}
@@ -328,8 +338,6 @@ const MedicationsScreen = ({ route, navigation }: any) => {
           </View>
         </View>
       </Modal>
-
-
     </View>
   );
 };
@@ -411,7 +419,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 18,
   },
-
   checkboxContainer: {
     marginLeft: 8,
   },

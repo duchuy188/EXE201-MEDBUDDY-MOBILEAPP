@@ -194,43 +194,52 @@ const AppointmentsScreen = ({ navigation }: any) => {
                   <Text style={styles.modalText}>Trạng thái: {selectedAppointment.status}</Text>
                 </View>
                 <View style={styles.modalActions}>
-                  <TouchableOpacity style={styles.modalActionBtn} onPress={() => setModalVisible(false)}>
-                    <Ionicons name="close" size={28} color="#2563EB" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.modalActionBtn}
-                    onPress={async () => {
-                      if (!selectedAppointment) return;
-                      const token = await AsyncStorage.getItem('token');
-                      if (!token) return;
-                      try {
-                        await AppointmentsService.deleteAppointment(selectedAppointment._id, token);
+                  <View style={{ alignItems: 'center' }}>
+                    <TouchableOpacity style={styles.modalActionBtn} onPress={() => setModalVisible(false)}>
+                      <Ionicons name="close" size={28} color="#2563EB" />
+                    </TouchableOpacity>
+                    <Text style={{ color: '#2563EB', marginTop: 4, fontWeight: '500', fontSize: 14 }}>Đóng</Text>
+                  </View>
+                  <View style={{ alignItems: 'center' }}>
+                    <TouchableOpacity
+                      style={styles.modalActionBtn}
+                      onPress={async () => {
+                        if (!selectedAppointment) return;
+                        const token = await AsyncStorage.getItem('token');
+                        if (!token) return;
+                        try {
+                          await AppointmentsService.deleteAppointment(selectedAppointment._id, token);
+                          setModalVisible(false);
+                          setSelectedAppointment(null);
+                          fetchAppointments();
+                        } catch (error) {
+                          console.error('Error deleting appointment:', error);
+                        }
+                      }}
+                    >
+                      <Ionicons name="trash" size={28} color="#EF4444" />
+                    </TouchableOpacity>
+                    <Text style={{ color: '#EF4444', marginTop: 4, fontWeight: '500', fontSize: 14 }}>Xóa</Text>
+                  </View>
+                  <View style={{ alignItems: 'center' }}>
+                    <TouchableOpacity
+                      style={styles.modalActionBtn}
+                      onPress={async () => {
+                        if (!selectedAppointment) return;
+                        const token = await AsyncStorage.getItem('token');
+                        const userId = await AsyncStorage.getItem('userId');
                         setModalVisible(false);
-                        setSelectedAppointment(null);
-                        fetchAppointments();
-                      } catch (error) {
-                        console.error('Error deleting appointment:', error);
-                      }
-                    }}
-                  >
-                    <Ionicons name="trash" size={28} color="#EF4444" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.modalActionBtn}
-                    onPress={async () => {
-                      if (!selectedAppointment) return;
-                      const token = await AsyncStorage.getItem('token');
-                      const userId = await AsyncStorage.getItem('userId');
-                      setModalVisible(false);
-                      navigation.navigate('EditAppointment', {
-                        appointment: selectedAppointment,
-                        token,
-                        userId,
-                      });
-                    }}
-                  >
-                    <Ionicons name="pencil" size={28} color="#2563EB" />
-                  </TouchableOpacity>
+                        navigation.navigate('EditAppointment', {
+                          appointment: selectedAppointment,
+                          token,
+                          userId,
+                        });
+                      }}
+                    >
+                      <Ionicons name="pencil" size={28} color="#2563EB" />
+                    </TouchableOpacity>
+                    <Text style={{ color: '#2563EB', marginTop: 4, fontWeight: '500', fontSize: 14 }}>Chỉnh sửa</Text>
+                  </View>
                 </View>
               </React.Fragment>
             )}

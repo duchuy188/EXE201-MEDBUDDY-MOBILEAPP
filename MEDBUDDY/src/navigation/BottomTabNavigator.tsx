@@ -22,6 +22,7 @@ import AppSettingsScreen from '../screen/AppSettingsScreen';
 import AddRelativeScreen from '../screen/AddRelativeScreen';
 import ConfirmRelativeOTPScreen from '../screen/ConfirmRelativeOTPScreen';
 import HealthTrackingScreen from '../screen/HealthTrackingScreen';
+import EditReminderScreen from '../screen/EditReminderScreen';
 
 
 const Tab = createBottomTabNavigator();
@@ -168,6 +169,12 @@ export default function BottomTabNavigator({ route }: any) {
         component={HealthTrackingScreen}
         initialParams={{ token, userId }}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="EditReminder" 
+        component={EditReminderScreen} 
+        initialParams={{ token, userId }}
+        options={{ headerShown: true, title: 'Chỉnh sửa lịch nhắc' }} 
       />
     </Stack.Navigator>
   );

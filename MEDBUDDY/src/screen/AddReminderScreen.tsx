@@ -22,7 +22,6 @@ interface ReminderData {
   isActive: boolean;
 }
 
-// Đường dẫn tương đối từ vị trí hiện tại (src/screen)
 const voiceFiles: { [key: string]: any } = {
   banmai: require('../../voice/banmai.mp3'),
   thuminh: require('../../voice/thuminh.mp3'),
@@ -39,33 +38,32 @@ const AddReminderScreen = () => {
   const { token: paramToken, userId, medication, deviceToken } = routeParams;
 
   const [token, setToken] = useState(paramToken || '');
-  // Nếu có medication truyền vào thì lấy tên thuốc, không thì để trống
   const [medicationName, setMedicationName] = useState(medication?.name || '');
 
   React.useEffect(() => {
-    // Nếu token truyền vào không có hoặc không hợp lệ, lấy lại từ AsyncStorage
     if (!token || token === 'undefined' || token === null) {
       (async () => {
         // const storedToken = await (await import('@react-native-async-storage/async-storage')).default.getItem('token');
-        if (storedToken) setToken(storedToken);
+        // if (storedToken) setToken(storedToken);
       })();
     }
   }, [token]);
-  const [selectedTime, setSelectedTime] = useState('');
+
+  const [selectedTimes, setSelectedTimes] = useState<{morning?: string, afternoon?: string, evening?: string}>({});
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [note, setNote] = useState('');
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [currentTimeSlot, setCurrentTimeSlot] = useState<'morning' | 'afternoon' | 'evening'>('morning');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [repeatType, setRepeatType] = useState<'daily' | 'weekly' | 'custom'>('daily');
   const [reminderType, setReminderType] = useState<'normal' | 'voice'>('normal');
   const [voiceType, setVoiceType] = useState('banmai');
+  const [speed, setSpeed] = useState<-3 | -2 | -1 | 0 | 1 | 2 | 3>(0);
+  const [time, setTime] = useState(new Date());
 
-  // Gửi thông báo khi chọn giọng nói
   const handleVoiceChange = (itemValue: string) => {
     setVoiceType(itemValue);
   };
-  const [speed, setSpeed] = useState<-3 | -2 | -1 | 0 | 1 | 2 | 3>(0);
-  const [time, setTime] = useState(new Date());
 
   const reminderTypeOptions = [
     { label: 'Thông thường', value: 'normal' },
@@ -106,19 +104,32 @@ const AddReminderScreen = () => {
 
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
 
+  // Hàm lấy giờ mặc định theo buổi
+  const getDefaultTimeForSlot = (slot: 'morning' | 'afternoon' | 'evening'): Date => {
+    const now = new Date();
+    if (slot === 'morning') {
+      now.setHours(7, 0, 0, 0); // 7:00 sáng
+    } else if (slot === 'afternoon') {
+      now.setHours(13, 0, 0, 0); // 13:00 chiều
+    } else if (slot === 'evening') {
+      now.setHours(19, 0, 0, 0); // 19:00 tối
+    }
+    return now;
+  };
+
   const handleTimeConfirm = (date: Date) => {
     const formattedTime = date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
     });
-    setSelectedTime(formattedTime);
+    setSelectedTimes(prev => ({...prev, [currentTimeSlot]: formattedTime}));
     setShowTimePicker(false);
   };
 
   const handleAddReminder = async () => {
-    if (!medicationName || !selectedTime) {
-      Alert.alert('Thông báo', 'Vui lòng nhập tên thuốc và chọn thời gian nhắc nhở');
+    if (!medicationName || Object.keys(selectedTimes).length === 0) {
+      Alert.alert('Thông báo', 'Vui lòng nhập tên thuốc và chọn ít nhất một thời gian nhắc nhở');
       return;
     }
 
@@ -128,11 +139,8 @@ const AddReminderScreen = () => {
     }
 
     try {
-      // Map các ngày sang số (0=CN, 1=T2, ... 6=T7)
       const weekDayMap: Record<string, number> = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
-      const repeatDays = repeatType === 'custom' ? selectedDays.map(d => weekDayMap[d]) : undefined;
-
-      // Lấy medicationId từ medication nếu có
+      const repeatDaysArray = repeatType === 'custom' ? selectedDays.map(d => weekDayMap[d]) : [];
       const medicationId = medication?._id || '';
 
       if (!userId) {
@@ -140,28 +148,36 @@ const AddReminderScreen = () => {
         return;
       }
 
-      const packageName = 'com.medbuddy.app'; // Thay bằng package name thật nếu cần
-      const reminderData: ReminderData = {
-        userId,
+      // Map selectedTimes sang định dạng backend yêu cầu
+      const times = Object.entries(selectedTimes).map(([slot, _]) => ({
+        time: slot === 'morning' ? 'Sáng' : slot === 'afternoon' ? 'Chiều' : 'Tối'
+      }));
+
+      const repeatTimes = Object.entries(selectedTimes).map(([_, timeValue]) => ({
+        time: timeValue,
+        taken: false
+      }));
+
+      const reminderData: any = {
         medicationId,
-        time: selectedTime,
-        startDate: selectedDate.toISOString().split('T')[0],
-        endDate: selectedDate.toISOString().split('T')[0], // Nếu có input riêng thì thay bằng giá trị kết thúc
+        times,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
         reminderType: reminderType,
-        repeat: repeatType,
-        repeatDays,
-        note,
-        ...(reminderType === 'voice' && {
-          voice: voiceType as 'banmai' | 'thuminh' | 'giahuy' | 'lannhi' | 'leminh' | 'myan' | 'linhsan',
-          speed: speed,
-          audioUrl: `android.resource://${packageName}/raw/${voiceType}.mp3`
-        }),
-        isActive: true,
+        repeatDays: repeatDaysArray,
+        repeatTimes,
+        note: note || 'Đã đến giờ uống thuốc rồi',
       };
+
+      // Chỉ thêm voice nếu reminderType là 'voice'
+      if (reminderType === 'voice') {
+        reminderData.voice = voiceType as 'banmai' | 'thuminh' | 'giahuy' | 'lannhi' | 'leminh' | 'myan' | 'linhsan';
+      }
+
+      console.log('Sending reminder data:', JSON.stringify(reminderData, null, 2));
 
       await ReminderService.addReminder(reminderData, token);
 
-      // Gửi thông báo khi thêm lịch nhắc nếu là voice
       if (reminderType === 'voice' && userId && token && deviceToken) {
         const notificationData: any = {
           userId,
@@ -178,13 +194,13 @@ const AddReminderScreen = () => {
       }
 
       Alert.alert('Thành công', 'Đã thêm lịch nhắc uống thuốc');
-      // Reset form
-      setSelectedTime('');
+      setSelectedTimes({});
       setNote('');
       if (repeatType === 'custom') {
         setSelectedDays([]);
       }
     } catch (error: any) {
+      console.error('Error adding reminder:', error);
       Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể thêm lịch nhắc');
     }
   };
@@ -198,7 +214,6 @@ const AddReminderScreen = () => {
     try {
       console.log('Starting to play voice for type:', voiceType);
       
-      // Configure audio mode
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         staysActiveInBackground: false,
@@ -209,22 +224,18 @@ const AddReminderScreen = () => {
 
       const soundObject = new Audio.Sound();
       
-      // Load sound file
       console.log('Loading sound file...');
       const soundFile = voiceFiles[voiceType as keyof typeof voiceFiles];
       console.log('Sound file:', soundFile);
       await soundObject.loadAsync(soundFile, { shouldPlay: true });
       console.log('Sound loaded successfully');
 
-      // Play sound
       console.log('Starting playback...');
       await soundObject.playAsync();
       console.log('Playback started');
 
-      // Set volume to maximum
       await soundObject.setVolumeAsync(1.0);
 
-      // Unload sound when finished
       soundObject.setOnPlaybackStatusUpdate(async (status) => {
         console.log('Playback status:', status);
         if (!status.isLoaded) return;
@@ -239,115 +250,142 @@ const AddReminderScreen = () => {
     }
   };
 
+  const timeSlots = [
+    { key: 'morning', label: '🌅 Buổi sáng' },
+    { key: 'afternoon', label: '🌤️ Buổi chiều' },
+    { key: 'evening', label: '🌙 Buổi tối' },
+  ];
+
+  // CẬP NHẬT: Lấy allowedSlots từ medication.times thay vì medication.timeOfDay
+  const allowedSlots = medication?.times 
+    ? medication.times.map((t: any) => {
+        // Chuyển "Sáng", "Chiều", "Tối" sang "morning", "afternoon", "evening"
+        const timeMap: { [key: string]: string } = {
+          'Sáng': 'morning',
+          'Chiều': 'afternoon', 
+          'Tối': 'evening'
+        };
+        return timeMap[t.time] || t.time.toLowerCase();
+      })
+    : ['morning', 'afternoon', 'evening']; // fallback: hiển thị tất cả nếu không có data
+
+  console.log('Medication:', medication);
+  console.log('Medication times:', medication?.times);
+  console.log('Allowed slots:', allowedSlots);
+
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+
+  const handleStartDateConfirm = (date: Date) => {
+    setStartDate(date);
+    setShowStartDatePicker(false);
+  };
+  const handleEndDateConfirm = (date: Date) => {
+    setEndDate(date);
+    setShowEndDatePicker(false);
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.card}>
         <Text style={styles.title}>Thêm lịch nhắc uống thuốc</Text>
 
-        {/* Tên thuốc */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Tên thuốc</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Nhập tên thuốc"
-            value={medicationName}
-            onChangeText={setMedicationName}
-          />
+          <View style={[styles.input, { minHeight: 48, justifyContent: 'center' }]}>
+            <Text style={{ fontSize: 16, color: '#1E293B' }}>{medicationName}</Text>
+          </View>
         </View>
 
-        {/* Ngày bắt đầu */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Ngày bắt đầu</Text>
           <TouchableOpacity 
             style={styles.timeInput}
-            onPress={() => setShowDatePicker(true)}
+            onPress={() => setShowStartDatePicker(true)}
           >
             <Text style={styles.timeText}>
-              {selectedDate.toLocaleDateString('vi-VN')}
+              {startDate.toLocaleDateString('vi-VN')}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Ngày kết thúc */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Ngày kết thúc</Text>
           <TouchableOpacity 
             style={styles.timeInput}
-            onPress={() => setShowDatePicker(true)}
+            onPress={() => setShowEndDatePicker(true)}
           >
             <Text style={styles.timeText}>
-              {selectedDate.toLocaleDateString('vi-VN')}
+              {endDate.toLocaleDateString('vi-VN')}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Thời gian */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Thời gian nhắc</Text>
-          <TouchableOpacity 
-            style={styles.timeInput}
-            onPress={() => setShowTimePicker(true)}
-          >
-            <Text style={styles.timeText}>
-              {selectedTime || 'Chọn thời gian'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Lặp lại */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Lặp lại</Text>
-          <View style={styles.repeatContainer}>
-            {repeatOptions.map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.repeatOption,
-                  repeatType === option.value && styles.selectedRepeatOption
-                ]}
-                onPress={() => setRepeatType(option.value as 'daily' | 'weekly' | 'custom')}
-              >
-                <Text style={[
-                  styles.repeatOptionText,
-                  repeatType === option.value && styles.selectedRepeatOptionText
-                ]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
+          {timeSlots
+            .filter(slot => allowedSlots.includes(slot.key))
+            .map(slot => (
+              <View style={styles.timeSlotContainer} key={slot.key}>
+                <Text style={styles.timeSlotLabel}>{slot.label}</Text>
+                <View style={styles.timeRow}>
+                  <TouchableOpacity
+                    style={styles.timeInputFlex}
+                    onPress={() => {
+                      setCurrentTimeSlot(slot.key as 'morning' | 'afternoon' | 'evening');
+                      // Nếu đã chọn giờ rồi thì dùng giờ đã chọn, không thì dùng giờ mặc định
+                      const existingTime = selectedTimes[slot.key as 'morning' | 'afternoon' | 'evening'];
+                      if (existingTime) {
+                        // Parse giờ đã chọn
+                        const [hours, minutes] = existingTime.split(':');
+                        const date = new Date();
+                        date.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                        setTime(date);
+                      } else {
+                        // Dùng giờ mặc định cho slot
+                        setTime(getDefaultTimeForSlot(slot.key as 'morning' | 'afternoon' | 'evening'));
+                      }
+                      setShowTimePicker(true);
+                    }}
+                  >
+                    <Text style={styles.timeText}>
+                      {selectedTimes[slot.key as 'morning' | 'afternoon' | 'evening']
+                        ? selectedTimes[slot.key as 'morning' | 'afternoon' | 'evening']
+                        : 'Chọn thời gian'}
+                    </Text>
+                  </TouchableOpacity>
+                  {selectedTimes[slot.key as 'morning' | 'afternoon' | 'evening'] && (
+                    <TouchableOpacity
+                      style={styles.clearTimeButton}
+                      onPress={() => setSelectedTimes(prev => {
+                        const newTimes = { ...prev };
+                        delete newTimes[slot.key as 'morning' | 'afternoon' | 'evening'];
+                        return newTimes;
+                      })}
+                    >
+                      <Text style={styles.clearTimeText}>✕</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
             ))}
-          </View>
-
-          {/* Hiển thị các ngày trong tuần khi chọn Tùy chỉnh */}
-          {repeatType === 'custom' && (
-            <View style={styles.weekDaysContainer}>
-              {weekDays.map((day) => (
-                <TouchableOpacity
-                  key={day.value}
-                  style={[
-                    styles.dayOption,
-                    selectedDays.includes(day.value) && styles.selectedDayOption
-                  ]}
-                  onPress={() => {
-                    if (selectedDays.includes(day.value)) {
-                      setSelectedDays(selectedDays.filter(d => d !== day.value));
-                    } else {
-                      setSelectedDays([...selectedDays, day.value]);
-                    }
-                  }}
-                >
-                  <Text style={[
-                    styles.dayOptionText,
-                    selectedDays.includes(day.value) && styles.selectedDayOptionText
-                  ]}>
-                    {day.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+          {/* Hiển thị tổng hợp thời gian đã chọn */}
+          <Text style={{marginTop: 8, color: '#475569', fontSize: 15}}>
+            Đã chọn: {
+              Object.values(selectedTimes).length > 0
+                ? Object.entries(selectedTimes)
+                    .map(([slot, time]) => {
+                      const slotLabel = slot === 'morning' ? 'Sáng' : slot === 'afternoon' ? 'Chiều' : 'Tối';
+                      return `${slotLabel}: ${time}`;
+                    })
+                    .join(', ')
+                : 'Chưa chọn thời gian'
+            }
+          </Text>
         </View>
 
-        {/* Loại nhắc nhở */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Loại nhắc nhở</Text>
           <View style={styles.repeatContainer}>
@@ -371,7 +409,6 @@ const AddReminderScreen = () => {
           </View>
         </View>
 
-        {/* Voice settings khi chọn voice */}
         {reminderType === 'voice' && (
           <>
               <View style={styles.inputGroup}>
@@ -397,32 +434,14 @@ const AddReminderScreen = () => {
                   style={styles.testVoiceButton}
                   onPress={playVoiceTest}
                 >
-                  <Text style={styles.testVoiceText}>Nghe thử giọng đọc</Text>
+                  <Text style={styles.testVoiceText}>🔊 Nghe thử giọng đọc</Text>
                 </TouchableOpacity>
-              </View>            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Tốc độ đọc</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={speed}
-                  onValueChange={(itemValue) => setSpeed(itemValue)}
-                  style={styles.picker}
-                  dropdownIconColor="#1E293B"
-                >
-                  {speedOptions.map((option) => (
-                    <Picker.Item 
-                      key={option.value} 
-                      label={option.label} 
-                      value={option.value}
-                      color="#1E293B"
-                    />
-                  ))}
-                </Picker>
-              </View>
+              </View>            
+              <View style={styles.inputGroup}>
             </View>
           </>
         )}
 
-        {/* Lời nhắc */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Lời nhắc (không bắt buộc)</Text>
           <TextInput
@@ -435,11 +454,15 @@ const AddReminderScreen = () => {
         </View>
 
         <TouchableOpacity
-          style={[styles.addButton, !selectedTime && styles.disabledButton]}
+          style={[styles.addButton, Object.keys(selectedTimes).length === 0 && styles.disabledButton]}
           onPress={handleAddReminder}
-          disabled={!selectedTime}
+          disabled={Object.keys(selectedTimes).length === 0}
         >
-          <Text style={styles.buttonText}>Thêm lịch nhắc</Text>
+          <Text style={styles.buttonText}>
+            {Object.keys(selectedTimes).length > 0 
+              ? `Thêm ${Object.keys(selectedTimes).length} lịch nhắc` 
+              : 'Thêm lịch nhắc'}
+          </Text>
         </TouchableOpacity>
 
         <DateTimePickerModal
@@ -447,13 +470,21 @@ const AddReminderScreen = () => {
           mode="time"
           onConfirm={handleTimeConfirm}
           onCancel={() => setShowTimePicker(false)}
+          date={time}
         />
         <DateTimePickerModal
-          isVisible={showDatePicker}
+          isVisible={showStartDatePicker}
           mode="date"
-          onConfirm={handleDateConfirm}
-          onCancel={() => setShowDatePicker(false)}
+          onConfirm={handleStartDateConfirm}
+          onCancel={() => setShowStartDatePicker(false)}
           minimumDate={new Date()}
+        />
+        <DateTimePickerModal
+          isVisible={showEndDatePicker}
+          mode="date"
+          onConfirm={handleEndDateConfirm}
+          onCancel={() => setShowEndDatePicker(false)}
+          minimumDate={startDate}
         />
       </View>
     </ScrollView>
@@ -614,6 +645,43 @@ const styles = StyleSheet.create({
     padding: 12,
     height: 48,
     justifyContent: 'center',
+  },
+  timeSlotContainer: {
+    marginBottom: 16,
+  },
+  timeSlotLabel: {
+    fontSize: 14,
+    color: '#475569',
+    marginBottom: 6,
+    fontWeight: '600',
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  timeInputFlex: {
+    flex: 1,
+    backgroundColor: '#F0F6FF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#B6D5FA',
+    padding: 12,
+    height: 48,
+    justifyContent: 'center',
+  },
+  clearTimeButton: {
+    width: 36,
+    height: 36,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearTimeText: {
+    color: '#DC2626',
+    fontSize: 16,
+    fontWeight: '700',
   },
   timeText: {
     fontSize: 16,
