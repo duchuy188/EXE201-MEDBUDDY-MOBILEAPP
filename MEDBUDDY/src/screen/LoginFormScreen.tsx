@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert } fro
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import messaging from '@react-native-firebase/messaging';
+import { Ionicons } from '@expo/vector-icons'; // Thêm dòng này
 
 import AuthService from '../api/authService';
 import NotificationService, { SaveTokenRequest } from '../api/Notifications';
@@ -13,6 +14,7 @@ const LoginFormScreen = ({ route, navigation }: any) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // Thêm state này
 
   if (!accountType) {
     return (
@@ -37,8 +39,9 @@ const LoginFormScreen = ({ route, navigation }: any) => {
       const result = await AuthService.login({ email, password });
       console.log('Login API result:', result);
 
-      if (result.accessToken) {
+      if (result.accessToken && result.refreshToken) {
         await AsyncStorage.setItem('token', result.accessToken);
+        await AsyncStorage.setItem('refreshToken', result.refreshToken);
 
         if (result.user?._id) {
           await AsyncStorage.setItem('userId', result.user._id);
@@ -112,22 +115,38 @@ const LoginFormScreen = ({ route, navigation }: any) => {
           Đăng nhập {accountType === 'patient' ? 'Người bệnh' : 'Người thân'}
         </Text>
 
+        {/* Email label + input */}
+        <Text style={styles.label}>Email</Text>
         <TextInput
           style={styles.input}
-          placeholder="Email"
+          placeholder="Nhập email"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
         />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Mật khẩu"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        {/* Mật khẩu label + input + icon con mắt */}
+        <Text style={styles.label}>Mật khẩu</Text>
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={styles.inputPassword}
+            placeholder="Nhập mật khẩu"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Ionicons
+              name={showPassword ? 'eye' : 'eye-off'}
+              size={22}
+              color="#4A90C2"
+            />
+          </TouchableOpacity>
+        </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -171,6 +190,35 @@ const styles = StyleSheet.create({
   loginBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16, letterSpacing: 0.2 },
   backButton: { marginTop: 20, padding: 10, alignItems: 'center' },
   backButtonText: { color: '#4A90C2', fontSize: 16 },
+  label: {
+    fontSize: 15,
+    color: '#1E3A5F',
+    marginBottom: 6,
+    marginLeft: 2,
+    fontWeight: '500',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+    marginBottom: 15,
+  },
+  inputPassword: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#D6E6F5',
+    borderRadius: 8,
+    padding: 15,
+    fontSize: 16,
+    backgroundColor: '#F7FAFC',
+    paddingRight: 40, // Để chừa chỗ cho icon
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 12,
+    top: 13,
+    padding: 4,
+  },
 });
 
 export default LoginFormScreen;

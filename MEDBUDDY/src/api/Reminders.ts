@@ -26,30 +26,6 @@ class ReminderService {
     return res.data;
   }
 
-  // Đặt lịch nhắc đo huyết áp
-  async addBloodPressureReminder(data: Omit<Reminder, 'medicationId' | '_id' | 'createdAt'>, token: string) {
-    const res = await apiClient.post('/reminders/blood-pressure', data, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return res.data;
-  }
-
-  // Chỉnh sửa nhắc đo huyết áp
-  async updateBloodPressureReminder(id: string, data: Partial<Reminder>, token: string) {
-    const res = await apiClient.put(`/reminders/blood-pressure/${id}`, data, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return res.data;
-  }
-
-  // Xóa nhắc đo huyết áp
-  async deleteBloodPressureReminder(id: string, token: string) {
-    const res = await apiClient.delete(`/reminders/blood-pressure/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return res.data;
-  }
-
   // Thêm nhắc nhở mới
   async addReminder(data: Omit<Reminder, '_id' | 'createdAt'>, token: string) {
     const res = await apiClient.post('/reminders', {

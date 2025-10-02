@@ -1,11 +1,33 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView, SafeAreaView, Modal, TextInput, Button, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createBloodPressureReminder } from '../api/BloodPressureReminder';
+import { updateBloodPressureReminder } from '../api/BloodPressureReminder';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 
 const AppSettingsScreen = ({ navigation }: any) => {
+  const [reminderId, setReminderId] = useState<string | null>(null);
   const defaultFontSize = 100;
   const [fontSize, setFontSize] = useState(defaultFontSize);
+  const [isBpReminderActive, setIsBpReminderActive] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [reminderTime, setReminderTime] = useState('08:00');
+  const [note, setNote] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+  const [isTimePickerVisible, setTimePickerVisible] = useState(false);
+
+  // Lấy token từ AsyncStorage khi mở modal
+  React.useEffect(() => {
+    if (modalVisible) {
+      (async () => {
+        const t = await AsyncStorage.getItem('token');
+        setToken(t);
+      })();
+    }
+  }, [modalVisible]);
 
   return (
     <View style={styles.container}>
@@ -52,37 +74,133 @@ const AppSettingsScreen = ({ navigation }: any) => {
             </View>
           </View>
           <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuTitle}>Quản lý người dùng</Text>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}>
-            <View>
-              <Text style={styles.menuTitle}>Giao diện trang chủ</Text>
-              <Text style={styles.menuSubtitle}>Dạng dòng thời gian</Text>
-            </View>
+            <Text style={styles.menuTitle}>Xem lịch xử thanh toán</Text>
             <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
         </View>
 
         {/* CÀI ĐẶT NÂNG CAO */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>CÀI ĐẶT NÂNG CAO</Text>
-          <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuTitle}>Nâng cấp tài khoản Premium</Text>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>
-        </View>
+<View style={styles.section}>
+  <Text style={styles.sectionHeader}>CÀI ĐẶT NÂNG CAO</Text>
+  <TouchableOpacity
+    style={styles.menuItem}
+    onPress={() => navigation.navigate('PackageScreen')}
+  >
+    <Text style={styles.menuTitle}>Nâng cấp tài khoản</Text>
+    <Ionicons name="chevron-forward" size={20} color="#999" />
+  </TouchableOpacity>
+</View>
 
-        {/* MÚI GIỜ */}
+        {/* Nhắc nhở đo huyết áp */}
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>MÚI GIỜ</Text>
-          <TouchableOpacity style={styles.menuItem}>
+          <Text style={styles.sectionHeader}>NHẮC NHỞ ĐO HUYẾT ÁP</Text>
+          <View style={styles.menuItem}>
             <View>
-              <Text style={styles.menuTitle}>Làm mới thời gian nhắc nhở</Text>
-              <Text style={styles.menuSubtitle}>Cập nhật lại thời gian nhắc khi múi giờ không chính xác</Text>
+              <Text style={styles.menuTitle}>Nhắc nhở đo huyết áp</Text>
+              <Text style={styles.menuSubtitle}>Cập nhật lại thời gian nhắc nhở</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>
+            <Switch
+              value={isBpReminderActive}
+              onValueChange={async (val) => {
+                setIsBpReminderActive(val);
+                if (val) {
+                  setModalVisible(true); // Mở modal để nhập giờ và ghi chú
+                } else {
+                  // Tắt nhắc nhở
+                  setLoading(true);
+                  try {
+                    const token = await AsyncStorage.getItem('token');
+                    if (!token || !reminderId) {
+                      setLoading(false);
+                      return;
+                    }
+                    await updateBloodPressureReminder(reminderId, { isActive: false }, token);
+                  } catch (err) {
+                    alert('Có lỗi khi cập nhật trạng thái nhắc nhở!');
+                  }
+                  setLoading(false);
+                }
+              }}
+              thumbColor={isBpReminderActive ? '#2563eb' : '#ccc'}
+              trackColor={{ false: '#e5e7eb', true: '#93c5fd' }}
+            />
+          </View>
+          <Modal
+            visible={modalVisible}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={() => setModalVisible(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 12 }}>Cài đặt nhắc nhở huyết áp</Text>
+                <Text>Chọn giờ nhắc nhở:</Text>
+                <TouchableOpacity
+                  style={styles.input}
+                  onPress={() => setTimePickerVisible(true)}
+                >
+                  <Text style={{ fontSize: 16 }}>{reminderTime}</Text>
+                </TouchableOpacity>
+                <DateTimePickerModal
+                  isVisible={isTimePickerVisible}
+                  mode="time"
+                  onConfirm={(date) => {
+                    const hours = date.getHours().toString().padStart(2, '0');
+                    const minutes = date.getMinutes().toString().padStart(2, '0');
+                    setReminderTime(`${hours}:${minutes}`);
+                    setTimePickerVisible(false);
+                  }}
+                  onCancel={() => setTimePickerVisible(false)}
+                />
+                <Text style={{ marginTop: 10 }}>Ghi chú (không bắt buộc):</Text>
+                <TextInput
+                  style={styles.input}
+                  value={note}
+                  onChangeText={setNote}
+                  placeholder="Nhập ghi chú nếu muốn"
+                />
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 18 }}>
+                  <Button title="Hủy" color="#888" onPress={() => { setModalVisible(false); setIsBpReminderActive(false); }} />
+                  <View style={{ width: 12 }} />
+                  <Button
+                    title={loading ? 'Đang lưu...' : 'Lưu'}
+                    onPress={async () => {
+                      const userId = await AsyncStorage.getItem('userId');
+                      const data = {
+                        userId: userId || '',
+                        times: [{ time: reminderTime }],
+                        note: note,
+                        isActive: true,
+                      };
+                      setLoading(true);
+                      try {
+                        if (!token) {
+                          alert('Không tìm thấy token, vui lòng đăng nhập lại!');
+                          setLoading(false);
+                          return;
+                        }
+                        let res;
+                        if (reminderId) {
+                          // Đã có reminder, cập nhật lại giờ và ghi chú
+                          res = await updateBloodPressureReminder(reminderId, data, token);
+                        } else {
+                          // Chưa có, tạo mới
+                          res = await createBloodPressureReminder(data, token);
+                          setReminderId(res._id || null);
+                        }
+                        setModalVisible(false);
+                      } catch (err: any) {
+                        alert('Có lỗi xảy ra khi lưu nhắc nhở!');
+                      }
+                      setLoading(false);
+                    }}
+                    color="#2563eb"
+                    disabled={loading}
+                  />
+                </View>
+              </View>
+            </View>
+          </Modal>
         </View>
 
         {/* TÀI KHOẢN */}
@@ -90,6 +208,10 @@ const AppSettingsScreen = ({ navigation }: any) => {
           <Text style={styles.sectionHeader}>TÀI KHOẢN</Text>
           <TouchableOpacity style={styles.menuItem}>
             <Text style={styles.menuTitle}>Ngôn ngữ</Text>
+            <Text style={styles.menuSubtitle}>Tiếng việt</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuTitle}>Thông tin ứng dụng</Text>
             <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
           <TouchableOpacity style={[styles.menuItem, {marginTop: 20}]}>
@@ -99,10 +221,6 @@ const AppSettingsScreen = ({ navigation }: any) => {
             </View>
             <Ionicons name="chevron-forward" size={20} color="#ef4444" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuTitle}>Thông tin ứng dụng</Text>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -110,6 +228,32 @@ const AppSettingsScreen = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 24,
+    width: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+    fontSize: 16,
+    backgroundColor: '#f8f9fa',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',

@@ -27,6 +27,7 @@
     "web": {
       "favicon": "./assets/a5a1e309-4ce6-425d-981a-c1659954e018.png"
     },
+  "scheme": "medbuddy",
     "extra": {
       "eas": {
         "projectId": "90e2e9fb-e3c4-45ab-a600-055746f4f97b"

@@ -23,6 +23,7 @@ import AddRelativeScreen from '../screen/AddRelativeScreen';
 import ConfirmRelativeOTPScreen from '../screen/ConfirmRelativeOTPScreen';
 import HealthTrackingScreen from '../screen/HealthTrackingScreen';
 import EditReminderScreen from '../screen/EditReminderScreen';
+import PackageScreen from '../screen/PackageScreen'; // Import the new screen
 
 
 const Tab = createBottomTabNavigator();
@@ -175,6 +176,11 @@ export default function BottomTabNavigator({ route }: any) {
         component={EditReminderScreen} 
         initialParams={{ token, userId }}
         options={{ headerShown: true, title: 'Chỉnh sửa lịch nhắc' }} 
+      />
+      <Stack.Screen
+        name="PackageScreen"
+        component={PackageScreen}
+        options={{ headerShown: true, title: 'Gói dịch vụ' }}
       />
     </Stack.Navigator>
   );

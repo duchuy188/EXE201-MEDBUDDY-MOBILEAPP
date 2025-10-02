@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import AuthService from '../api/authService';
 
 const RegisterTypeScreen = ({ navigation }: any) => {
@@ -18,6 +19,9 @@ const RegisterTypeScreen = ({ navigation }: any) => {
   const [emailError, setEmailError] = useState('');
   const [phoneError, setPhoneError] = useState('');
   const [birthdayError, setBirthdayError] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date(1990, 0, 1));
+  
   const validateBirthday = (date: string) => {
     // Định dạng dd/mm/yyyy, kiểm tra hợp lệ cơ bản
     const re = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
@@ -29,6 +33,7 @@ const RegisterTypeScreen = ({ navigation }: any) => {
     const re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@(([^<>()[\]\\.,;:\s@"]+\.)+[^<>()[\]\\.,;:\s@"]{2,})$/i;
     return re.test(String(email).toLowerCase());
   };
+  
   const handleInputChange = (field: string, value: string) => {
     if (field === 'phone') {
       // Chỉ cho nhập số
@@ -58,10 +63,25 @@ const RegisterTypeScreen = ({ navigation }: any) => {
     }
   };
 
+  const handleDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    
+    if (date) {
+      setSelectedDate(date);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      const formattedDate = `${day}/${month}/${year}`;
+      setFormData((prev: any) => ({ ...prev, birthday: formattedDate }));
+      setBirthdayError('');
+    }
+  };
+
   const [registerError, setRegisterError] = useState('');
   const [registerSuccess, setRegisterSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  // const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const handleSubmit = async () => {
     setRegisterError('');
@@ -75,7 +95,7 @@ const RegisterTypeScreen = ({ navigation }: any) => {
           phoneNumber: formData.phone,
           password: formData.password,
           role: userType,
-          dateOfBirth: formData.birthday, // thêm dòng này
+          dateOfBirth: formData.birthday,
         });
         console.log('Register result:', result);
         // Kiểm tra message có chứa 'success' (không phân biệt hoa thường)
@@ -109,35 +129,40 @@ const RegisterTypeScreen = ({ navigation }: any) => {
   if (!userType) {
     return (
       <View style={styles.container}>
-        {/* Nút back */}
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <MaterialCommunityIcons name="arrow-left" size={28} color="#4A90C2" />
         </TouchableOpacity>
-        <View style={{width: '100%', alignItems: 'center'}}>
-          {/* Header icon */}
-          <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.iconCircle}>
-            <Ionicons name="heart-outline" size={40} color="#fff" />
+        <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.iconCircle}>
+          <Ionicons name="heart-outline" size={48} color="#fff" />
+        </LinearGradient>
+        <Text style={styles.title}>Đăng ký tài khoản</Text>
+        <Text style={styles.subtitle}>Chọn loại tài khoản bạn muốn tạo</Text>
+
+        {/* Card Người bệnh */}
+        <View style={styles.card}>
+          <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.cardIconWrap}>
+            <Ionicons name="person-outline" size={36} color="#fff" />
           </LinearGradient>
-          {/* Tiêu đề */}
-          <Text style={styles.title}>Đăng ký tài khoản</Text>
-          <Text style={styles.subtitle}>Chọn loại tài khoản bạn muốn tạo</Text>
-
-          {/* Card Người bệnh */}
-          <TouchableOpacity style={styles.card} onPress={() => setUserType('patient')}>
-            <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.cardIconWrap}>
-              <Ionicons name="person-outline" size={32} color="#fff" />
+          <Text style={styles.cardTitle}>Người bệnh</Text>
+          <Text style={styles.cardDesc}>Tạo tài khoản để theo dõi thuốc và sức khỏe của bạn</Text>
+          <TouchableOpacity style={styles.loginBtn} onPress={() => setUserType('patient')}>
+            <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.loginBtnGradient}>
+              <Text style={styles.loginBtnText}>Đăng ký</Text>
             </LinearGradient>
-            <Text style={styles.cardTitle}>Người bệnh</Text>
-            <Text style={styles.cardDesc}>Tạo tài khoản để theo dõi thuốc và sức khỏe của bạn</Text>
           </TouchableOpacity>
+        </View>
 
-          {/* Card Người thân */}
-          <TouchableOpacity style={styles.card} onPress={() => setUserType('relative')}>
-            <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.cardIconWrap}>
-              <MaterialCommunityIcons name="shield-account-outline" size={32} color="#fff" />
+        {/* Card Người thân */}
+        <View style={styles.card}>
+          <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.cardIconWrap}>
+            <MaterialCommunityIcons name="shield-account-outline" size={36} color="#fff" />
+          </LinearGradient>
+          <Text style={styles.cardTitle}>Người thân</Text>
+          <Text style={styles.cardDesc}>Tạo tài khoản để chăm sóc người thân yêu</Text>
+          <TouchableOpacity style={styles.loginBtn} onPress={() => setUserType('relative')}>
+            <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.loginBtnGradient}>
+              <Text style={styles.loginBtnText}>Đăng ký</Text>
             </LinearGradient>
-            <Text style={styles.cardTitle}>Người thân</Text>
-            <Text style={styles.cardDesc}>Tạo tài khoản để chăm sóc người thân yêu</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -146,7 +171,6 @@ const RegisterTypeScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      {/* Modal thông báo đăng ký thành công đã bỏ, dùng Alert thay thế */}
       {/* Nút back về chọn loại tài khoản */}
       <TouchableOpacity style={styles.backBtn} onPress={() => setUserType(null)}>
         <MaterialCommunityIcons name="arrow-left" size={28} color="#4A90C2" />
@@ -189,15 +213,32 @@ const RegisterTypeScreen = ({ navigation }: any) => {
           </View>
           <View style={{marginBottom: 10}}>
             <Text style={styles.inputLabel}>Ngày sinh</Text>
-            <TextInput
+            <TouchableOpacity 
               style={styles.input}
-              placeholder="dd/mm/yyyy"
-              value={formData.birthday}
-              onChangeText={text => handleInputChange('birthday', text)}
-              placeholderTextColor="#A0A4A8"
-              keyboardType="numeric"
-              maxLength={10}
-            />
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={{color: formData.birthday ? '#1E3A5F' : '#A0A4A8', fontSize: 15}}>
+                {formData.birthday || 'dd/mm/yyyy'}
+              </Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
+                onChange={handleDateChange}
+                maximumDate={new Date()}
+                minimumDate={new Date(1900, 0, 1)}
+              />
+            )}
+            {Platform.OS === 'ios' && showDatePicker && (
+              <TouchableOpacity 
+                style={{backgroundColor: '#4A90C2', padding: 10, borderRadius: 8, marginTop: 8}}
+                onPress={() => setShowDatePicker(false)}
+              >
+                <Text style={{color: '#fff', textAlign: 'center', fontWeight: 'bold'}}>Xác nhận</Text>
+              </TouchableOpacity>
+            )}
             {!!birthdayError && (
               <Text style={{color: 'red', fontSize: 13, marginTop: 2}}>{birthdayError}</Text>
             )}
@@ -250,7 +291,7 @@ const RegisterTypeScreen = ({ navigation }: any) => {
             <Text style={{color: 'green', fontSize: 13, marginTop: 6, marginBottom: 2}}>{registerSuccess}</Text>
           ) : null}
           <TouchableOpacity
-            style={[styles.loginBtn, {marginTop: 8, opacity: loading || !formData.name || !formData.email || !formData.phone || !formData.birthday || !formData.password || formData.password !== formData.confirmPassword || !!emailError || !!phoneError || !!birthdayError ? 0.5 : 1}]}
+            style={[{width: '100%', borderRadius: 8, overflow: 'hidden', marginTop: 8}, {opacity: loading || !formData.name || !formData.email || !formData.phone || !formData.birthday || !formData.password || formData.password !== formData.confirmPassword || !!emailError || !!phoneError || !!birthdayError ? 0.5 : 1}]}
             disabled={loading || !formData.name || !formData.email || !formData.phone || !formData.birthday || !formData.password || formData.password !== formData.confirmPassword || !!emailError || !!phoneError || !!birthdayError}
             onPress={handleSubmit}
           >
@@ -286,13 +327,13 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   loginBtn: {
-    width: '100%',
+    width: '90%',
     borderRadius: 8,
     overflow: 'hidden',
     marginTop: 2,
   },
   loginBtnGradient: {
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
     borderRadius: 8,
     backgroundColor: 'transparent',
@@ -322,7 +363,7 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     position: 'absolute',
-    top: 70, // Đẩy mũi tên xuống cùng với nội dung
+    top: 70,
     left: 18,
     zIndex: 10,
     backgroundColor: 'transparent',
@@ -332,7 +373,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F0F8FF',
     alignItems: 'center',
-    paddingTop: 48, // Đẩy nội dung xuống tránh vướng camera/status bar
+    paddingTop: 48,
   },
   iconCircle: {
     width: 72,
@@ -362,8 +403,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     alignItems: 'center',
-    paddingVertical: 20,
-    marginBottom: 16,
+    paddingVertical: 22,
+    marginBottom: 18,
     borderWidth: 1.5,
     borderColor: '#D6E6F5',
     shadowColor: '#000',
@@ -372,16 +413,16 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 54,
+    height: 54,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
     overflow: 'hidden',
   },
   cardTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#1E3A5F',
     marginBottom: 4,
@@ -389,8 +430,27 @@ const styles = StyleSheet.create({
   cardDesc: {
     color: '#4A6B8A',
     fontSize: 14,
+    marginBottom: 14,
     textAlign: 'center',
-    marginHorizontal: 8,
+  },
+  cardBtn: {
+    alignSelf: 'center',
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginTop: 16,
+    width: 180,
+  },
+  cardBtnGradient: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+  },
+  cardBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
+    letterSpacing: 0.2,
   },
 });
 

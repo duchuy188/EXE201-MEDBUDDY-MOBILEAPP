@@ -158,13 +158,15 @@ const UserDetailScreen = ({ navigation, route }: any) => {
               </TouchableOpacity>
             )}
           </View>
-            <TextInput
-              style={[styles.input, { backgroundColor: isEditing ? '#f8f8f8' : '#eee' }]}
-              placeholder="Tên"
-              value={firstName}
-              onChangeText={setFirstName}
-              editable={isEditing}
-            />
+          <Text style={styles.label}>Tên</Text>
+          <TextInput
+            style={[styles.input, { backgroundColor: isEditing ? '#f8f8f8' : '#eee' }]}
+            placeholder="Tên"
+            value={firstName}
+            onChangeText={setFirstName}
+            editable={isEditing}
+          />
+          <Text style={styles.label}>Email</Text>
           <TextInput
             style={[styles.input, { backgroundColor: isEditing ? '#f8f8f8' : '#eee' }]}
             placeholder="Email"
@@ -173,6 +175,7 @@ const UserDetailScreen = ({ navigation, route }: any) => {
             editable={isEditing}
             keyboardType="email-address"
           />
+          <Text style={styles.label}>Số điện thoại</Text>
           <TextInput
             style={[styles.input, { backgroundColor: isEditing ? '#f8f8f8' : '#eee' }]}
             placeholder="Số điện thoại"
@@ -181,6 +184,7 @@ const UserDetailScreen = ({ navigation, route }: any) => {
             editable={isEditing}
             keyboardType="phone-pad"
           />
+          <Text style={styles.label}>Ngày sinh</Text>
           <TextInput
             style={[styles.input, { backgroundColor: isEditing ? '#f8f8f8' : '#eee' }]}
             placeholder="Ngày sinh (YYYY-MM-DD)"
@@ -369,6 +373,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 12,
     backgroundColor: '#f8f8f8',
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#222',
+    marginBottom: 4,
+    marginTop: 8,
   },
   changePasswordBtn: {
     backgroundColor: '#183153',
