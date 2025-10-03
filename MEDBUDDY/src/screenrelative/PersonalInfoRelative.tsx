@@ -87,7 +87,7 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
     },
     {
       id: 'doctors',
-      title: 'Người thân',
+      title: 'Người bệnh',
       icon: 'people-outline',
       bgColor: '#0D9488'
     }

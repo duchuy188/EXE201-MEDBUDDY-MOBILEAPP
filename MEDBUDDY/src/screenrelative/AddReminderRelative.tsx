@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { useRoute } from '@react-navigation/native';
-import ReminderService from '../api/Reminders';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, TextInput, KeyboardAvoidingView, Platform, Modal, FlatList } from 'react-native';
+import { useRoute, useNavigation } from '@react-navigation/native';
+import RelativePatientService from '../api/RelativePatient';
 import NotificationService, { SendNotificationRequest } from '../api/Notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Audio } from 'expo-av';
 import { Picker } from '@react-native-picker/picker';
@@ -22,6 +24,26 @@ interface ReminderData {
   isActive: boolean;
 }
 
+interface Patient {
+  _id: string;
+  fullName: string;
+  email?: string;
+  phone?: string;
+}
+
+interface PatientRelationship {
+  _id: string;
+  patient: {
+    _id: string;
+    fullName: string;
+    email?: string;
+    phone?: string;
+  };
+  relationship: string;
+  canViewMedications: boolean;
+  canManageReminders: boolean;
+}
+
 const voiceFiles: { [key: string]: any } = {
   banmai: require('../../voice/banmai.mp3'),
   thuminh: require('../../voice/thuminh.mp3'),
@@ -34,19 +56,56 @@ const voiceFiles: { [key: string]: any } = {
 
 const AddReminderRelative = () => {
   const route = useRoute();
-  const routeParams = route.params as { token?: string; userId?: string; medication?: any; deviceToken?: string } || {};
-  const { token: paramToken, userId, medication, deviceToken } = routeParams;
+  const navigation = useNavigation();
+  const routeParams = route.params as { 
+    token?: string; 
+    userId?: string; 
+    medication?: any; 
+    deviceToken?: string;
+    selectedPatient?: Patient;
+  } || {};
+  const { token: paramToken, userId, medication, deviceToken, selectedPatient: paramSelectedPatient } = routeParams;
 
   const [token, setToken] = useState(paramToken || '');
   const [medicationName, setMedicationName] = useState(medication?.name || '');
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(paramSelectedPatient || null);
+  const [showPatientModal, setShowPatientModal] = useState(false);
 
   React.useEffect(() => {
     if (!token || token === 'undefined' || token === null) {
       (async () => {
-        // const storedToken = await (await import('@react-native-async-storage/async-storage')).default.getItem('token');
-        // if (storedToken) setToken(storedToken);
+        const storedToken = await AsyncStorage.getItem('token');
+        if (storedToken) setToken(storedToken);
       })();
     }
+  }, [token]);
+
+  // Fetch patients when component mounts
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        const currentToken = token || await AsyncStorage.getItem('token');
+        if (currentToken) {
+          const response = await RelativePatientService.getPatientsOfRelative(currentToken);
+          console.log('Patients response:', response);
+          
+          if (response?.data) {
+            const transformedPatients = response.data.map((relationship: PatientRelationship) => ({
+              _id: relationship.patient._id,
+              fullName: relationship.patient.fullName,
+              email: relationship.patient.email,
+              phone: relationship.patient.phone,
+            }));
+            setPatients(transformedPatients);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching patients:', error);
+      }
+    };
+
+    fetchPatients();
   }, [token]);
 
   const [selectedTimes, setSelectedTimes] = useState<{morning?: string, afternoon?: string, evening?: string}>({});
@@ -128,6 +187,11 @@ const AddReminderRelative = () => {
   };
 
   const handleAddReminder = async () => {
+    if (!selectedPatient) {
+      Alert.alert('Thông báo', 'Vui lòng chọn bệnh nhân');
+      return;
+    }
+
     if (!medicationName || Object.keys(selectedTimes).length === 0) {
       Alert.alert('Thông báo', 'Vui lòng nhập tên thuốc và chọn ít nhất một thời gian nhắc nhở');
       return;
@@ -161,8 +225,8 @@ const AddReminderRelative = () => {
       const reminderData: any = {
         medicationId,
         times,
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0],
+        startDate: `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`,
+        endDate: `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`,
         reminderType: reminderType,
         repeatDays: repeatDaysArray,
         repeatTimes,
@@ -174,11 +238,22 @@ const AddReminderRelative = () => {
         reminderData.voice = voiceType as 'banmai' | 'thuminh' | 'giahuy' | 'lannhi' | 'leminh' | 'myan' | 'linhsan';
       }
 
+      console.log('Date debugging:');
+      console.log('startDate object:', startDate);
+      console.log('endDate object:', endDate);
+      console.log('startDate formatted:', `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`);
+      console.log('endDate formatted:', `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`);
       console.log('Sending reminder data:', JSON.stringify(reminderData, null, 2));
 
-      await ReminderService.addReminder(reminderData, token);
+      const currentToken = token || await AsyncStorage.getItem('token');
+      if (!currentToken) {
+        Alert.alert('Lỗi', 'Không tìm thấy token');
+        return;
+      }
 
-      if (reminderType === 'voice' && userId && token && deviceToken) {
+      await RelativePatientService.createMedicationReminderForPatient(selectedPatient._id, reminderData, currentToken);
+
+      if (reminderType === 'voice' && userId && currentToken && deviceToken) {
         const notificationData: any = {
           userId,
           title: 'Nhắc uống thuốc',
@@ -187,18 +262,33 @@ const AddReminderRelative = () => {
           token: deviceToken,
         };
         try {
-          await NotificationService.sendNotification(notificationData, token);
+          await NotificationService.sendNotification(notificationData, currentToken);
         } catch (error) {
           console.error('Gửi thông báo thất bại:', error);
         }
       }
 
-      Alert.alert('Thành công', 'Đã thêm lịch nhắc uống thuốc');
-      setSelectedTimes({});
-      setNote('');
-      if (repeatType === 'custom') {
-        setSelectedDays([]);
-      }
+      Alert.alert(
+        'Thành công', 
+        `Đã thêm lịch nhắc uống thuốc cho bệnh nhân ${selectedPatient.fullName}`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Reset form
+              setSelectedTimes({});
+              setNote('');
+              setSelectedPatient(null);
+              if (repeatType === 'custom') {
+                setSelectedDays([]);
+              }
+              
+              // Navigate back to previous screen
+              navigation.goBack();
+            }
+          }
+        ]
+      );
     } catch (error: any) {
       console.error('Error adding reminder:', error);
       Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể thêm lịch nhắc');
@@ -300,6 +390,41 @@ const AddReminderRelative = () => {
       >
         <View style={styles.card}>
           <Text style={styles.title}>Thêm lịch nhắc uống thuốc</Text>
+
+          {/* Chỉ hiển thị chọn bệnh nhân nếu chưa có selectedPatient từ params */}
+          {!paramSelectedPatient && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Chọn bệnh nhân</Text>
+              <TouchableOpacity 
+                style={[styles.input, { minHeight: 48, justifyContent: 'center' }]}
+                onPress={() => setShowPatientModal(true)}
+              >
+                <View style={styles.patientSelector}>
+                  <Text style={[styles.patientSelectorText, !selectedPatient && styles.placeholderText]}>
+                    {selectedPatient ? selectedPatient.fullName : 'Chọn bệnh nhân'}
+                  </Text>
+                  <MaterialIcons name="arrow-drop-down" size={24} color="#64748B" />
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Hiển thị thông tin bệnh nhân đã chọn nếu có từ params */}
+          {paramSelectedPatient && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Bệnh nhân</Text>
+              <View style={[styles.input, { minHeight: 48, justifyContent: 'center', backgroundColor: '#F8FAFC' }]}>
+                <Text style={{ fontSize: 16, color: '#1E293B', fontWeight: '600' }}>
+                  {selectedPatient?.fullName}
+                </Text>
+                {selectedPatient?.email && (
+                  <Text style={{ fontSize: 14, color: '#64748B', marginTop: 2 }}>
+                    📧 {selectedPatient.email}
+                  </Text>
+                )}
+              </View>
+            </View>
+          )}
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Tên thuốc</Text>
@@ -463,16 +588,75 @@ const AddReminderRelative = () => {
           </View>
 
           <TouchableOpacity
-            style={[styles.addButton, Object.keys(selectedTimes).length === 0 && styles.disabledButton]}
+            style={[styles.addButton, (!selectedPatient || Object.keys(selectedTimes).length === 0) && styles.disabledButton]}
             onPress={handleAddReminder}
-            disabled={Object.keys(selectedTimes).length === 0}
+            disabled={!selectedPatient || Object.keys(selectedTimes).length === 0}
           >
             <Text style={styles.buttonText}>
-              {Object.keys(selectedTimes).length > 0 
-                ? `Thêm ${Object.keys(selectedTimes).length} lịch nhắc` 
-                : 'Thêm lịch nhắc'}
+              {!selectedPatient 
+                ? 'Chọn bệnh nhân để thêm lịch nhắc'
+                : Object.keys(selectedTimes).length > 0 
+                  ? `Thêm ${Object.keys(selectedTimes).length} lịch nhắc cho ${selectedPatient.fullName}` 
+                  : 'Thêm lịch nhắc'}
             </Text>
           </TouchableOpacity>
+
+          {/* Patient Selection Modal */}
+          <Modal
+            visible={showPatientModal}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowPatientModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Chọn bệnh nhân</Text>
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={() => setShowPatientModal(false)}
+                  >
+                    <MaterialIcons name="close" size={24} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
+                
+                <FlatList
+                  data={patients}
+                  keyExtractor={(item) => item._id}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[
+                        styles.patientItem,
+                        selectedPatient?._id === item._id && styles.selectedPatientItem
+                      ]}
+                      onPress={() => {
+                        setSelectedPatient(item);
+                        setShowPatientModal(false);
+                      }}
+                    >
+                      <View style={styles.patientInfo}>
+                        <Text style={styles.patientName}>{item.fullName}</Text>
+                        {item.email && (
+                          <Text style={styles.patientDetail}>📧 {item.email}</Text>
+                        )}
+                        {item.phone && (
+                          <Text style={styles.patientDetail}>📱 {item.phone}</Text>
+                        )}
+                      </View>
+                      {selectedPatient?._id === item._id && (
+                        <MaterialIcons name="check-circle" size={24} color="#10B981" />
+                      )}
+                    </TouchableOpacity>
+                  )}
+                  ListEmptyComponent={
+                    <View style={styles.emptyList}>
+                      <Text style={styles.emptyText}>Không có bệnh nhân nào</Text>
+                    </View>
+                  }
+                />
+              </View>
+            </View>
+          </Modal>
 
           <DateTimePickerModal
             isVisible={showTimePicker}
@@ -718,6 +902,83 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  patientSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  patientSelectorText: {
+    fontSize: 16,
+    color: '#1E293B',
+  },
+  placeholderText: {
+    color: '#64748B',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    width: '90%',
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1E293B',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  patientItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  selectedPatientItem: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#3B82F6',
+  },
+  patientInfo: {
+    flex: 1,
+  },
+  patientName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  patientDetail: {
+    fontSize: 14,
+    color: '#64748B',
+    marginBottom: 2,
+  },
+  emptyList: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#64748B',
+    textAlign: 'center',
   },
 });
 

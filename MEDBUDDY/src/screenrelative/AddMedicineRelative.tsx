@@ -1,9 +1,32 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Platform, KeyboardAvoidingView, Modal, FlatList } from 'react-native';
 import { FontAwesome5, Feather, MaterialIcons } from '@expo/vector-icons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import MedicationService from '../api/Medication';
+import RelativePatientService from '../api/RelativePatient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRoute, useNavigation } from '@react-navigation/native';
+
+interface Patient {
+  _id: string;
+  email: string;
+  fullName: string;
+  phone?: string;
+  dateOfBirth?: string;
+}
+
+interface PatientRelationship {
+  _id: string;
+  patient: {
+    _id: string;
+    email: string;
+    fullName: string;
+    phoneNumber?: string;
+    dateOfBirth?: string;
+    avatar?: string;
+    role: string;
+  };
+  permissions: string[];
+}
 
 const timeSlots = [
   { id: 'morning', label: 'Sáng', icon: '🌅' },
@@ -20,6 +43,18 @@ const unitMapping: { [key: string]: string } = {
 
 const AddMedicineRelative: React.FC = () => {
   const navigation = useNavigation();
+  const route = useRoute();
+  // @ts-ignore
+  const token = route.params?.token || '';
+  // @ts-ignore
+  const userId = route.params?.userId || '';
+
+  // Patient selection states
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [showPatientSelector, setShowPatientSelector] = useState(false);
+
+  // Medication form states
   const [medicineName, setMedicineName] = useState('');
   const [dosage, setDosage] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -40,11 +75,35 @@ const AddMedicineRelative: React.FC = () => {
     navigation.navigate('PhotoCapture', { token, userId });
   };
 
-  const route = useRoute();
-  // @ts-ignore
-  const token = route.params?.token || '';
-  // @ts-ignore
-  const userId = route.params?.userId || '';
+  // Fetch patients function
+  const fetchPatients = async () => {
+    try {
+      if (!token) return;
+      
+      console.log('Fetching patients...');
+      const patientsData = await RelativePatientService.getPatientsOfRelative(token);
+      
+      // Transform the relationship data to Patient format
+      const relationshipsList: PatientRelationship[] = Array.isArray(patientsData) ? patientsData : [];
+      const patientsList: Patient[] = relationshipsList.map((relationship) => ({
+        _id: relationship.patient._id,
+        email: relationship.patient.email,
+        fullName: relationship.patient.fullName,
+        phone: relationship.patient.phoneNumber,
+        dateOfBirth: relationship.patient.dateOfBirth,
+      }));
+      
+      setPatients(patientsList);
+    } catch (error: any) {
+      console.error('Error fetching patients:', error);
+      Alert.alert('Lỗi', 'Không thể lấy danh sách bệnh nhân');
+    }
+  };
+
+  // Load patients when component mounts
+  React.useEffect(() => {
+    fetchPatients();
+  }, [token]);
 
   const toggleTimeSlot = (timeId: string) => {
     setSelectedTimes(prev =>
@@ -70,7 +129,11 @@ const AddMedicineRelative: React.FC = () => {
       Alert.alert('Vui lòng chọn ít nhất một thời gian uống!');
       return;
     }
-    if (!token || !userId) {
+    if (!selectedPatient) {
+      Alert.alert('Lỗi', 'Vui lòng chọn bệnh nhân trước khi thêm thuốc.');
+      return;
+    }
+    if (!token) {
       Alert.alert('Lỗi', 'Không tìm thấy thông tin đăng nhập. Vui lòng đăng nhập lại.');
       return;
     }
@@ -116,7 +179,7 @@ const AddMedicineRelative: React.FC = () => {
       const dosageDetails = times.map(t => `${t.dosage}/${t.time.toLowerCase()}`).join(', ');
 
       const data = {
-        userId,
+        userId: selectedPatient._id, // Use selected patient's ID
         name: medicineName,
         form: selectedUnit, // viên, lọ, hộp...
         quantity: `${dosage} ${displayUnit}`, // Tổng số lượng: "30 ml" hoặc "30 viên"
@@ -125,11 +188,12 @@ const AddMedicineRelative: React.FC = () => {
       };
       
       console.log('Data gửi lên API:', JSON.stringify(data, null, 2));
+      console.log('Selected patient ID:', selectedPatient._id);
       
-      await MedicationService.addMedication(data, token);
+      await RelativePatientService.createMedicationForPatient(selectedPatient._id, data, token);
       Alert.alert(
         'Thêm thuốc thành công', 
-        `Tên: ${medicineName}\nTổng số: ${dosage} ${displayUnit}\nLiều lượng: ${dosageDetails}\nGhi chú: ${expiryDate || 'Không có'}`
+        `Bệnh nhân: ${selectedPatient.fullName}\nTên: ${medicineName}\nTổng số: ${dosage} ${displayUnit}\nLiều lượng: ${dosageDetails}\nGhi chú: ${expiryDate || 'Không có'}`
       );
       setMedicineName('');
       setDosage('');
@@ -140,6 +204,7 @@ const AddMedicineRelative: React.FC = () => {
       setSelectedUnit('viên');
       setTimeDosages({ morning: '', afternoon: '', evening: '' });
     } catch (error: any) {
+      console.error('Add medication error:', error);
       Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể thêm thuốc.');
     }
   };
@@ -160,6 +225,24 @@ const AddMedicineRelative: React.FC = () => {
       >
         <View style={styles.card}>
           <Text style={styles.title}>Thêm thuốc mới</Text>
+          
+          {/* Patient Selector */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Chọn bệnh nhân</Text>
+            <TouchableOpacity
+              style={styles.patientSelector}
+              onPress={() => setShowPatientSelector(true)}
+            >
+              <Text style={styles.patientSelectorText}>
+                {selectedPatient 
+                  ? (selectedPatient.fullName || selectedPatient.email)
+                  : 'Chọn bệnh nhân'
+                }
+              </Text>
+              <MaterialIcons name="arrow-drop-down" size={24} color="#4A7BA7" />
+            </TouchableOpacity>
+          </View>
+
           {/* Tên thuốc */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Tên thuốc</Text>
@@ -270,12 +353,12 @@ const AddMedicineRelative: React.FC = () => {
 
           {/* Nút thêm thuốc */}
           <TouchableOpacity
-            style={[styles.addBtn, !(medicineName && dosage && selectedTimes.length > 0) && {backgroundColor: '#B6D5FA'}]}
+            style={[styles.addBtn, !(medicineName && dosage && selectedTimes.length > 0 && selectedPatient) && {backgroundColor: '#B6D5FA'}]}
             onPress={handleAddMedicine}
-            disabled={!(medicineName && dosage && selectedTimes.length > 0)}
+            disabled={!(medicineName && dosage && selectedTimes.length > 0 && selectedPatient)}
           >
-            <Feather name="plus" size={20} color={medicineName && dosage && selectedTimes.length > 0 ? '#fff' : '#3B82F6'} />
-            <Text style={{color: medicineName && dosage && selectedTimes.length > 0 ? '#fff' : '#3B82F6', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Thêm thuốc</Text>
+            <Feather name="plus" size={20} color={medicineName && dosage && selectedTimes.length > 0 && selectedPatient ? '#fff' : '#3B82F6'} />
+            <Text style={{color: medicineName && dosage && selectedTimes.length > 0 && selectedPatient ? '#fff' : '#3B82F6', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Thêm thuốc</Text>
           </TouchableOpacity>
         
           {/* Nút chụp ảnh thuốc */}
@@ -289,6 +372,69 @@ const AddMedicineRelative: React.FC = () => {
 
         </View>
       </ScrollView>
+
+      {/* Patient Selection Modal */}
+      <Modal
+        visible={showPatientSelector}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowPatientSelector(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.patientModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chọn bệnh nhân</Text>
+              <TouchableOpacity onPress={() => setShowPatientSelector(false)}>
+                <MaterialIcons name="close" size={24} color="#374151" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={patients}
+              keyExtractor={(item) => item._id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.patientItem,
+                    selectedPatient?._id === item._id && styles.selectedPatientItem
+                  ]}
+                  onPress={() => {
+                    setSelectedPatient(item);
+                    setShowPatientSelector(false);
+                  }}
+                >
+                  <Text style={styles.patientName}>
+                    {item.fullName || 'Tên chưa cập nhật'}
+                  </Text>
+                  <Text style={styles.patientEmail}>Email: {item.email}</Text>
+                  {item.phone && (
+                    <Text style={styles.patientPhone}>SĐT: {item.phone}</Text>
+                  )}
+                  {item.dateOfBirth && (
+                    <Text style={styles.patientBirth}>
+                      Sinh: {new Date(item.dateOfBirth).toLocaleDateString('vi-VN')}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <View style={styles.emptyPatientsContainer}>
+                  <Text style={styles.emptyPatientsText}>Chưa có bệnh nhân nào</Text>
+                  <TouchableOpacity
+                    style={styles.addPatientButton}
+                    onPress={() => {
+                      setShowPatientSelector(false);
+                      // @ts-ignore
+                      navigation.navigate('AddRelative');
+                    }}
+                  >
+                    <Text style={styles.addPatientButtonText}>+ Thêm bệnh nhân mới</Text>
+                  </TouchableOpacity>
+                </View>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -354,6 +500,102 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     color: '#1E293B',
+  },
+  // Patient Selector Styles
+  patientSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#B6D5FA',
+  },
+  patientSelectorText: {
+    fontSize: 16,
+    color: '#374151',
+    flex: 1,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  patientModal: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '90%',
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  patientItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  selectedPatientItem: {
+    backgroundColor: '#EBF4FF',
+    borderLeftWidth: 3,
+    borderLeftColor: '#4A7BA7',
+  },
+  patientName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  patientEmail: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  patientPhone: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginBottom: 2,
+  },
+  patientBirth: {
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
+  emptyPatientsContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyPatientsText: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#6B7280',
+    padding: 20,
+  },
+  addPatientButton: {
+    backgroundColor: '#4A7BA7',
+    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    marginTop: 16,
+  },
+  addPatientButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   dateInput: {
     flexDirection: 'row',

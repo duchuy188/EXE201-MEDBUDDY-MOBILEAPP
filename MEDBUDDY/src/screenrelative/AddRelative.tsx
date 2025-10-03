@@ -19,7 +19,7 @@ const AddRelative = ({ navigation }: any) => {
 
   const handleAddRelative = async () => {
     if (!email) {
-      Alert.alert('Lỗi', 'Vui lòng nhập email người thân');
+      Alert.alert('Lỗi', 'Vui lòng nhập email người bệnh');
       return;
     }
 
@@ -27,7 +27,7 @@ const AddRelative = ({ navigation }: any) => {
     try {
       const token = await AsyncStorage.getItem('token');
       if (token) {
-        const response = await RelativePatientService.addRelativePatient({ email }, token);
+        const response = await RelativePatientService.addPatientRelative({ email }, token);
         Alert.alert(
           'Thành công',
           'Đã gửi yêu cầu kết nối. Vui lòng kiểm tra email để lấy mã OTP.',
@@ -42,7 +42,7 @@ const AddRelative = ({ navigation }: any) => {
         );
       }
     } catch (error: any) {
-      Alert.alert('Lỗi', error.response?.data?.message || 'Không thể thêm người thân');
+      Alert.alert('Lỗi', error.response?.data?.message || 'Không thể thêm người bệnh');
     } finally {
       setLoading(false);
     }
@@ -57,16 +57,16 @@ const AddRelative = ({ navigation }: any) => {
         >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Thêm người thân</Text>
+        <Text style={styles.headerTitle}>Thêm người bệnh</Text>
         <View style={styles.backButton} />
       </View>
 
       <View style={styles.content}>
         <View style={styles.inputContainer}>
-          <Text style={styles.label}>Email người thân</Text>
+          <Text style={styles.label}>Email người bệnh</Text>
           <TextInput
             style={styles.input}
-            placeholder="Nhập email người thân"
+            placeholder="Nhập email người bệnh"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -83,7 +83,7 @@ const AddRelative = ({ navigation }: any) => {
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.addButtonText}>Thêm người thân</Text>
+            <Text style={styles.addButtonText}>Thêm người bệnh</Text>
           )}
         </TouchableOpacity>
       </View>

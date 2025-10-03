@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import RelativePatientService from '../api/RelativePatient';
+import apiClient from '../api/index';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const HealthTrackingRelative = ({ navigation }: any) => {
@@ -23,12 +23,36 @@ const HealthTrackingRelative = ({ navigation }: any) => {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
+  // API function to get patients of relative
+  const getPatientsOfRelative = async (token: string) => {
+    const res = await apiClient.get('/relative-patient/patients', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  };
+
+  // API function to get relatives of patient
+  const getRelativesOfPatient = async (token: string) => {
+    const res = await apiClient.get('/relative-patient/relatives', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  };
+
+  // API function to delete relative patient
+  const deleteRelativePatient = async (linkId: string, token: string) => {
+    const res = await apiClient.post('/relative-patient/delete', { linkId }, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  };
+
   const fetchData = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
       if (token) {
-        const patientsData = await RelativePatientService.getPatientsOfRelative(token);
-        const relativesData = await RelativePatientService.getRelativesOfPatient(token);
+        const patientsData = await getPatientsOfRelative(token);
+        const relativesData = await getRelativesOfPatient(token);
         console.log('Full patients data:', JSON.stringify(patientsData, null, 2));
         console.log('Full relatives data:', JSON.stringify(relativesData, null, 2));
         setPatients(patientsData);
@@ -58,7 +82,7 @@ const HealthTrackingRelative = ({ navigation }: any) => {
       console.log('Token lấy từ local:', token); // Log để kiểm tra
       console.log('linkId (should be _id of RelativePatient):', selectedUser._id); // Log giá trị _id
       if (token) {
-        await RelativePatientService.deleteRelativePatient(selectedUser._id, token);
+        await deleteRelativePatient(selectedUser._id, token);
         setModalVisible(false);
         fetchData();
       } else {
@@ -74,13 +98,15 @@ const HealthTrackingRelative = ({ navigation }: any) => {
   // Helper để lấy đúng object thông tin người thân
   const getUserInfo = (user: any) => {
     if (!user) return null;
-    // Nếu có field 'relative', trả về user.relative, ngược lại trả về user
-    return user.relative ? user.relative : user;
+    // Nếu có field 'relative', trả về user.relative
+    // Nếu có field 'patient', trả về user.patient
+    // Ngược lại trả về user
+    return user.relative || user.patient || user;
   };
 
   const renderUserCard = (user: any, type: 'patient' | 'relative') => {
-    // Lấy đúng thông tin người thân để hiển thị tên
-    const info = user.relative ? user.relative : user;
+    // Lấy đúng thông tin người thân hoặc người bệnh để hiển thị tên
+    const info = user.relative || user.patient || user;
     return (
       <TouchableOpacity
         style={styles.userCard}
@@ -100,6 +126,11 @@ const HealthTrackingRelative = ({ navigation }: any) => {
           <Text style={styles.userType}>
             {type === 'patient' ? 'Người bệnh' : 'Người thân'}
           </Text>
+          {user.permissions && (
+            <Text style={styles.userPermissions}>
+              Quyền: {user.permissions.length} quyền được cấp
+            </Text>
+          )}
         </View>
         <Ionicons name="chevron-forward" size={24} color="#999" />
       </TouchableOpacity>
@@ -202,6 +233,19 @@ const HealthTrackingRelative = ({ navigation }: any) => {
                         </Text>
                       )}
                       <Text style={{ fontSize: 16, marginBottom: 8 }}>Vai trò: {info?.role === 'patient' ? 'Người bệnh' : 'Người thân'}</Text>
+                      {selectedUser.permissions && selectedUser.permissions.length > 0 && (
+                        <>
+                          <Text style={{ fontSize: 16, marginBottom: 8, fontWeight: 'bold' }}>Quyền được cấp:</Text>
+                          {selectedUser.permissions.map((permission: string, index: number) => (
+                            <Text key={index} style={{ fontSize: 14, marginBottom: 4, marginLeft: 10 }}>
+                              • {permission === 'view_medical_records' ? 'Xem hồ sơ y tế' :
+                                  permission === 'schedule_medication' ? 'Đặt lịch uống thuốc' :
+                                  permission === 'schedule_appointment' ? 'Đặt lịch tái khám' :
+                                  permission === 'manage_health_data' ? 'Quản lý dữ liệu sức khỏe' : permission}
+                            </Text>
+                          ))}
+                        </>
+                      )}
                     </>
                   );
                 })()}
@@ -302,6 +346,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 4,
+  },
+  userPermissions: {
+    fontSize: 12,
+    color: '#059669',
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   loadingContainer: {
     flex: 1,

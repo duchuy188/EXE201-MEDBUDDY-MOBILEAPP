@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Modal, TextInput, Button, Pressable, Image, Alert } from 'react-native';
-import MedicationService from '../api/Medication';
+import RelativePatientService from '../api/RelativePatient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -13,7 +13,7 @@ interface MedicationTime {
 }
 
 interface Medication {
-  _id?: string;
+  _id: string;
   userId: string;
   name: string;
   quantity?: string;
@@ -25,10 +25,38 @@ interface Medication {
   createdAt?: string;
 }
 
+interface Patient {
+  _id: string;
+  email: string;
+  fullName: string;
+  phone?: string;
+  dateOfBirth?: string;
+}
+
+interface PatientRelationship {
+  _id: string;
+  patient: {
+    _id: string;
+    email: string;
+    fullName: string;
+    phoneNumber?: string;
+    dateOfBirth?: string;
+    avatar?: string;
+    role: string;
+  };
+  permissions: string[];
+}
+
 const MedicationsRelative = ({ route, navigation }: any) => {
   const [token, setToken] = React.useState<string | null>(null);
   const [userId, setUserId] = React.useState<string | null>(null);
   const medications = route.params?.medications;
+  
+  // Patient selection states
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [patientRelationships, setPatientRelationships] = useState<PatientRelationship[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [showPatientSelector, setShowPatientSelector] = useState(false);
 
   // Lấy token và userId từ route.params hoặc AsyncStorage
   React.useEffect(() => {
@@ -49,7 +77,11 @@ const MedicationsRelative = ({ route, navigation }: any) => {
         console.log('Token loaded:', currentToken);
         console.log('UserId loaded:', currentUserId);
 
-        if (currentToken) setToken(currentToken);
+        if (currentToken) {
+          setToken(currentToken);
+          // Fetch patients when token is available
+          await fetchPatients(currentToken);
+        }
         if (currentUserId) setUserId(currentUserId);
 
         if (!currentToken || !currentUserId) {
@@ -67,6 +99,46 @@ const MedicationsRelative = ({ route, navigation }: any) => {
 
   const [medicationsList, setMedicationsList] = useState<Medication[]>([]);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
+
+  // Fetch patients function
+  const fetchPatients = async (currentToken: string) => {
+    try {
+      console.log('Fetching patients with token:', currentToken?.substring(0, 20) + '...');
+      const patientsData = await RelativePatientService.getPatientsOfRelative(currentToken);
+      console.log('Raw patients response:', patientsData);
+      
+      // Handle different possible response structures
+      let relationshipsList: PatientRelationship[] = [];
+      if (Array.isArray(patientsData)) {
+        relationshipsList = patientsData;
+      } else if (patientsData && patientsData.data && Array.isArray(patientsData.data)) {
+        relationshipsList = patientsData.data;
+      } else if (patientsData && patientsData.patients && Array.isArray(patientsData.patients)) {
+        relationshipsList = patientsData.patients;
+      }
+      
+      // Transform the relationship data to Patient format
+      const patientsList: Patient[] = relationshipsList.map((relationship) => ({
+        _id: relationship.patient._id,
+        email: relationship.patient.email,
+        fullName: relationship.patient.fullName,
+        phone: relationship.patient.phoneNumber,
+        dateOfBirth: relationship.patient.dateOfBirth,
+      }));
+      
+      console.log('Processed patients list:', patientsList);
+      setPatientRelationships(relationshipsList);
+      setPatients(patientsList);
+      
+      if (patientsList.length === 0) {
+        console.log('No patients found. You may need to add patients first using the addPatientRelative API.');
+      }
+    } catch (error: any) {
+      console.error('Error fetching patients:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      Alert.alert('Lỗi', `Không thể lấy danh sách bệnh nhân: ${error.response?.data?.message || error.message}`);
+    }
+  };
 
   // Modal state for editing/viewing medication
   const [modalVisible, setModalVisible] = useState(false);
@@ -94,18 +166,21 @@ const MedicationsRelative = ({ route, navigation }: any) => {
   const deleteSelectedItems = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      if (!token) throw new Error('Không tìm thấy token');
+      if (!token || !selectedPatient?._id) {
+        Alert.alert('Lỗi', 'Không tìm thấy thông tin xác thực hoặc bệnh nhân');
+        return;
+      }
 
       await Promise.all(
-        selectedItems.map((id) => MedicationService.deleteMedication(id, token))
+        selectedItems.map((id) => RelativePatientService.deletePatientMedication(selectedPatient._id, id, token))
       );
 
-      alert('Xóa thành công!');
+      Alert.alert('Thành công', 'Xóa thuốc thành công!');
       await fetchMedications();
       setSelectedItems([]);
     } catch (error) {
       console.error('Error deleting medications:', error);
-      alert('Xóa thất bại!');
+      Alert.alert('Lỗi', 'Xóa thuốc thất bại!');
     }
   };
 
@@ -142,31 +217,166 @@ const MedicationsRelative = ({ route, navigation }: any) => {
 
   const fetchMedications = React.useCallback(async () => {
     try {
-      if (!token) {
-        console.error('Token not found in state');
+      if (!token || !selectedPatient?._id) {
+        console.error('Token or selected patient not found');
         return;
       }
 
-      const updatedMedications = await MedicationService.getMedications(token);
-      setMedicationsList(updatedMedications);
+      console.log('Fetching medications for patient ID:', selectedPatient._id);
+      const updatedMedications = await RelativePatientService.getPatientMedications(selectedPatient._id, token);
+      console.log('Raw medications response:', updatedMedications);
+      console.log('Medications response type:', typeof updatedMedications);
+      console.log('Is array?', Array.isArray(updatedMedications));
+      
+      // Handle different possible response structures
+      let medicationsList = [];
+      if (Array.isArray(updatedMedications)) {
+        medicationsList = updatedMedications;
+      } else if (updatedMedications && updatedMedications.data && Array.isArray(updatedMedications.data)) {
+        medicationsList = updatedMedications.data;
+      } else if (updatedMedications && updatedMedications.medications && Array.isArray(updatedMedications.medications)) {
+        medicationsList = updatedMedications.medications;
+      }
+      
+      console.log('Processed medications list:', medicationsList);
+      console.log('Medications count:', medicationsList.length);
+      
+      setMedicationsList(medicationsList);
     } catch (error) {
       console.error('Error fetching medications:', error);
       Alert.alert('Lỗi', 'Không thể lấy danh sách thuốc mới!');
     }
-  }, [token]);
+  }, [token, selectedPatient]);
 
   useFocusEffect(
     React.useCallback(() => {
-        console.log('Screen focused, fetching medications with token:', token);
-        if (token) {
+        console.log('Screen focused, fetching medications with token:', token, 'selectedPatient:', selectedPatient);
+        if (token && selectedPatient) {
             fetchMedications();
         }
-    }, [token])
+    }, [token, selectedPatient, fetchMedications])
   );
 
   return (
     <View style={styles.container}>
-      {medicationsList.length === 0 ? (
+      {/* Patient Selector */}
+      <View style={styles.patientSelectorContainer}>
+        <View style={styles.selectorHeaderRow}>
+          <Text style={styles.selectorLabel}>Chọn bệnh nhân:</Text>
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={() => {
+              if (token) {
+                fetchPatients(token);
+              }
+            }}
+          >
+            <MaterialIcons name="refresh" size={20} color="#4A7BA7" />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          style={styles.patientSelector}
+          onPress={() => setShowPatientSelector(true)}
+        >
+          <Text style={styles.patientSelectorText}>
+            {selectedPatient 
+              ? (selectedPatient.fullName 
+                  ? `${selectedPatient.fullName}` 
+                  : selectedPatient.email)
+              : 'Chọn bệnh nhân'
+            }
+          </Text>
+          <MaterialIcons name="arrow-drop-down" size={24} color="#4A7BA7" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Patient Selection Modal */}
+      <Modal
+        visible={showPatientSelector}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowPatientSelector(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.patientModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chọn bệnh nhân</Text>
+              <TouchableOpacity onPress={() => setShowPatientSelector(false)}>
+                <MaterialIcons name="close" size={24} color="#374151" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={patients}
+              keyExtractor={(item) => item._id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.patientItem,
+                    selectedPatient?._id === item._id && styles.selectedPatientItem
+                  ]}
+                  onPress={() => {
+                    setSelectedPatient(item);
+                    setShowPatientSelector(false);
+                    setMedicationsList([]); // Clear current medications
+                  }}
+                >
+                  <Text style={styles.patientName}>
+                    {item.fullName || 'Tên chưa cập nhật'}
+                  </Text>
+                  <Text style={styles.patientEmail}>Email: {item.email}</Text>
+                  {item.phone && (
+                    <Text style={styles.patientPhone}>SĐT: {item.phone}</Text>
+                  )}
+                  {item.dateOfBirth && (
+                    <Text style={styles.patientBirth}>
+                      Sinh: {new Date(item.dateOfBirth).toLocaleDateString('vi-VN')}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <View style={styles.emptyPatientsContainer}>
+                  <Text style={styles.emptyPatientsText}>Chưa có bệnh nhân nào</Text>
+                  <TouchableOpacity
+                    style={styles.addPatientButton}
+                    onPress={() => {
+                      setShowPatientSelector(false);
+                      navigation.navigate('AddRelative');
+                    }}
+                  >
+                    <Text style={styles.addPatientButtonText}>+ Thêm bệnh nhân mới</Text>
+                  </TouchableOpacity>
+                </View>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {!selectedPatient ? (
+        <View style={styles.emptyContainer}>
+          <Image
+            source={require('../../assets/pill-icon.png')}
+            style={styles.icon}
+          />
+          <Text style={styles.emptyMessage}>Vui lòng chọn bệnh nhân để xem danh sách thuốc</Text>
+          <Text style={styles.emptySubMessage}>
+            {patients.length === 0 
+              ? 'Chưa có bệnh nhân nào được thêm. Hãy thêm bệnh nhân mới để bắt đầu.'
+              : 'Hãy chọn một bệnh nhân từ danh sách trên.'
+            }
+          </Text>
+          {patients.length === 0 && (
+            <TouchableOpacity
+              style={styles.addPatientMainButton}
+              onPress={() => navigation.navigate('AddRelative')}
+            >
+              <MaterialIcons name="person-add" size={24} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.addPatientMainButtonText}>Thêm bệnh nhân đầu tiên</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : medicationsList.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Image
             source={require('../../assets/pill-icon.png')}
@@ -278,10 +488,10 @@ const MedicationsRelative = ({ route, navigation }: any) => {
                 // Xóa thuốc
                 (async () => {
                   try {
-                    if (!modalMedication?._id) throw new Error('Không tìm thấy id thuốc');
+                    if (!modalMedication?._id || !selectedPatient?._id) throw new Error('Không tìm thấy thông tin thuốc hoặc bệnh nhân');
                     const token = await AsyncStorage.getItem('token');
                     if (!token) throw new Error('Không tìm thấy token');
-                    await MedicationService.deleteMedication(modalMedication._id, token);
+                    await RelativePatientService.deletePatientMedication(selectedPatient._id, modalMedication._id, token);
                     Alert.alert('Xóa', 'Đã xóa thuốc này');
                     setModalVisible(false);
                     // Cập nhật lại danh sách
@@ -315,7 +525,8 @@ const MedicationsRelative = ({ route, navigation }: any) => {
                   navigation.navigate('AddReminder', {
                     token,
                     userId,
-                    medication: modalMedication
+                    medication: modalMedication,
+                    selectedPatient: selectedPatient
                   });
                 }}>
                   <View style={{ backgroundColor: '#F6F8FB', borderRadius: 50, padding: 16 }}>
@@ -361,6 +572,135 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 16,
+  },
+  // Patient Selector Styles
+  patientSelectorContainer: {
+    marginBottom: 16,
+  },
+  selectorHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  selectorLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  refreshButton: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: '#F3F4F6',
+  },
+  debugButton: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 6,
+    padding: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  debugButtonText: {
+    color: '#92400E',
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  patientSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  patientSelectorText: {
+    fontSize: 16,
+    color: '#374151',
+    flex: 1,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  patientModal: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '90%',
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  patientItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  selectedPatientItem: {
+    backgroundColor: '#EBF4FF',
+    borderLeftWidth: 3,
+    borderLeftColor: '#4A7BA7',
+  },
+  patientName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  patientEmail: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  patientPhone: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginBottom: 2,
+  },
+  patientBirth: {
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
+  emptyPatientsText: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#6B7280',
+    padding: 20,
+  },
+  emptyPatientsContainer: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  addPatientButton: {
+    backgroundColor: '#4A7BA7',
+    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    marginTop: 16,
+  },
+  addPatientButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   itemContainer: {
     flexDirection: 'row',
@@ -462,9 +802,37 @@ const styles = StyleSheet.create({
   },
   emptyMessage: {
     textAlign: 'center',
-    fontSize: 40,
+    fontSize: 18,
     color: '#6b7280',
-    marginBottom: 20,
+    marginBottom: 12,
+    fontWeight: '600',
+  },
+  emptySubMessage: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginBottom: 24,
+    paddingHorizontal: 20,
+    lineHeight: 20,
+  },
+  addPatientMainButton: {
+    flexDirection: 'row',
+    backgroundColor: '#4A7BA7',
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  addPatientMainButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   icon: {
     width: 200,

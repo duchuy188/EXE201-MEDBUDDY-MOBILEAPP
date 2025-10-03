@@ -29,6 +29,13 @@ class RelativePatientService {
     return res.data;
   }
 
+    async addPatientRelative(data: AddRelativePatientRequest, token: string) {
+    const res = await apiClient.post('/relative-patient/add-patient', data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
   // Xác nhận liên kết bằng OTP
   async confirmRelativePatient(data: ConfirmRelativePatientRequest, token: string) {
     const res = await apiClient.post('/relative-patient/confirm', data, {
@@ -128,6 +135,48 @@ class RelativePatientService {
     return res.data;
   }
 
+  // ========== API QUẢN LÝ THUỐC CHO BỆNH NHÂN ==========
+
+  // Lấy danh sách thuốc của bệnh nhân
+  async getPatientMedications(patientId: string, token: string) {
+    const res = await apiClient.get(`/relative-patient/patients/${patientId}/medications`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Thêm thuốc mới cho bệnh nhân
+  async createMedicationForPatient(patientId: string, data: any, token: string) {
+    const res = await apiClient.post(`/relative-patient/patients/${patientId}/medications`, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Lấy chi tiết thuốc cụ thể của bệnh nhân
+  async getPatientMedicationById(patientId: string, medicationId: string, token: string) {
+    const res = await apiClient.get(`/relative-patient/patients/${patientId}/medications/${medicationId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Cập nhật thuốc của bệnh nhân
+  async updatePatientMedication(patientId: string, medicationId: string, data: any, token: string) {
+    const res = await apiClient.put(`/relative-patient/patients/${patientId}/medications/${medicationId}`, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Xóa thuốc của bệnh nhân
+  async deletePatientMedication(patientId: string, medicationId: string, token: string) {
+    const res = await apiClient.delete(`/relative-patient/patients/${patientId}/medications/${medicationId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
   // Kiểm tra quyền của người thân
   async checkRelativePermissions(patientId: string, token: string) {
     const res = await apiClient.get(`/relative-patient/patients/${patientId}/permissions`, {
@@ -167,6 +216,8 @@ class RelativePatientService {
     });
     return res.data;
   }
+
+  
 }
 
 export default new RelativePatientService();
