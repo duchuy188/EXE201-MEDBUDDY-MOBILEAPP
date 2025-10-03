@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image} from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AuthService from '../api/authService';
@@ -49,78 +49,96 @@ const ResetPasswordScreen = ({ route, navigation }: any) => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.contentContainer}>
-                <Image 
-                  source={require('../../assets/top_7_app_nhac_nho_uong_thuoc_giup_ban_quan_ly_suc_khoe_hieu_qua_32782764ba.jpg')}
-                  style={styles.topImage}
-                  resizeMode="cover"
-                />
-        <Text style={styles.title}>Đặt lại mật khẩu</Text>
-        <Text style={styles.subtitle}>
-          Nhập mật khẩu mới cho tài khoản của bạn
-        </Text>
-
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.inputWithIcon}
-            placeholder="Mật khẩu mới"
-            value={newPassword}
-            onChangeText={setNewPassword}
-            secureTextEntry={!showPassword}
-          />
-          <TouchableOpacity 
-            style={styles.eyeIcon}
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            <Ionicons 
-              name={showPassword ? "eye-outline" : "eye-off-outline"} 
-              size={24} 
-              color="#4A90C2"
-            />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.inputWithIcon}
-            placeholder="Xác nhận mật khẩu mới"
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            secureTextEntry={!showConfirmPassword}
-          />
-          <TouchableOpacity 
-            style={styles.eyeIcon}
-            onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-          >
-            <Ionicons 
-              name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} 
-              size={24} 
-              color="#4A90C2"
-            />
-          </TouchableOpacity>
-        </View>
-
-        {message ? (
-          <Text style={[styles.message, isSuccess ? styles.successMessage : styles.errorMessage]}>
-            {message}
-          </Text>
-        ) : null}
-
-        <TouchableOpacity style={styles.resetBtn} onPress={handleResetPassword}>
-          <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.resetBtnGradient}>
-            <Text style={styles.resetBtnText}>Xác nhận</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => navigation.navigate('Login')}
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.backButtonText}>Quay lại trang đăng nhập</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+          <View style={styles.contentContainer}>
+            <Image 
+              source={require('../../assets/top_7_app_nhac_nho_uong_thuoc_giup_ban_quan_ly_suc_khoe_hieu_qua_32782764ba.jpg')}
+              style={styles.topImage}
+              resizeMode="cover"
+            />
+            <Text style={styles.title}>Đặt lại mật khẩu</Text>
+            <Text style={styles.subtitle}>
+              Nhập mật khẩu mới cho tài khoản của bạn
+            </Text>
+            
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Mật khẩu mới</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.inputPassword}
+                  placeholder="Nhập mật khẩu mới"
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity 
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons 
+                    name={showPassword ? "eye" : "eye-off"} 
+                    size={22} 
+                    color="#4A90C2"
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Xác nhận mật khẩu mới</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.inputPassword}
+                  placeholder="Nhập lại mật khẩu mới"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                />
+                <TouchableOpacity 
+                  style={styles.eyeIcon}
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  <Ionicons 
+                    name={showConfirmPassword ? "eye" : "eye-off"} 
+                    size={22} 
+                    color="#4A90C2"
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {message ? (
+              <Text style={[styles.message, isSuccess ? styles.successMessage : styles.errorMessage]}>
+                {message}
+              </Text>
+            ) : null}
+
+            <TouchableOpacity style={styles.resetBtn} onPress={handleResetPassword}>
+              <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.resetBtnGradient}>
+                <Text style={styles.resetBtnText}>Xác nhận</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.backButton} 
+              onPress={() => navigation.navigate('Login')}
+            >
+              <Text style={styles.backButtonText}>Quay lại trang đăng nhập</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -128,6 +146,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F0F8FF',
+  },
+  scrollContainer: {
+    flexGrow: 1,
   },
   contentContainer: {
     flex: 1,
@@ -148,26 +169,37 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 20,
   },
+  label: {
+    fontSize: 15,
+    color: '#1E3A5F',
+    marginBottom: 6,
+    marginLeft: 2,
+    fontWeight: '500',
+  },
   inputContainer: {
     width: '100%',
     marginBottom: 15,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     position: 'relative',
   },
-  inputWithIcon: {
-    width: '100%',
+  inputPassword: {
+    flex: 1,
     borderWidth: 1,
     borderColor: '#D6E6F5',
     borderRadius: 8,
     padding: 15,
     fontSize: 16,
     backgroundColor: '#F7FAFC',
+    color: '#1E3A5F',
     paddingRight: 50,
   },
   eyeIcon: {
     position: 'absolute',
     right: 12,
-    top: 12,
-    padding: 5,
+    padding: 4,
   },
   message: {
     marginBottom: 15,

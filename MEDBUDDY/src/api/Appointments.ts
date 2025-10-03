@@ -12,6 +12,8 @@ export interface Appointment {
   status?: 'pending' | 'completed' | 'cancelled';
   createdAt?: string;
   updatedAt?: string;
+  createdBy?: string; // ObjectId của người tạo lịch
+  createdByType?: 'patient' | 'relative'; // Loại người tạo
 }
 
 class AppointmentService {

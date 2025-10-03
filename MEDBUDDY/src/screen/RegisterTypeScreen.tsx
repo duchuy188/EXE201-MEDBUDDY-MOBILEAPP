@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -170,141 +170,154 @@ const RegisterTypeScreen = ({ navigation }: any) => {
   }
 
   return (
-    <View style={styles.container}>
-      {/* Nút back về chọn loại tài khoản */}
-      <TouchableOpacity style={styles.backBtn} onPress={() => setUserType(null)}>
-        <MaterialCommunityIcons name="arrow-left" size={28} color="#4A90C2" />
-      </TouchableOpacity>
-      <View style={{width: '100%', alignItems: 'center'}}>
-        {/* Header icon */}
-        <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.iconCircle}>
-          <Ionicons name="heart-outline" size={40} color="#fff" />
-        </LinearGradient>
-        {/* Tiêu đề */}
-        <Text style={styles.title}>Đăng ký {userType === 'patient' ? 'Người bệnh' : 'Người thân'}</Text>
-        <Text style={styles.subtitle}>Điền thông tin để tạo tài khoản mới</Text>
+    <KeyboardAvoidingView 
+      style={{ flex: 1 }} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+      <ScrollView 
+        style={{ flex: 1, backgroundColor: '#F0F8FF' }}
+        contentContainerStyle={{ flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.formContainer}>
+          {/* Nút back về chọn loại tài khoản */}
+          <TouchableOpacity style={styles.backBtn} onPress={() => setUserType(null)}>
+            <MaterialCommunityIcons name="arrow-left" size={28} color="#4A90C2" />
+          </TouchableOpacity>
+          
+          {/* Header icon */}
+          <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.iconCircle}>
+            <Ionicons name="heart-outline" size={40} color="#fff" />
+          </LinearGradient>
+          
+          {/* Tiêu đề */}
+          <Text style={styles.title}>Đăng ký {userType === 'patient' ? 'Người bệnh' : 'Người thân'}</Text>
+          <Text style={styles.subtitle}>Điền thông tin để tạo tài khoản mới</Text>
 
-        {/* Form đăng ký */}
-        <View style={{width: '90%'}}>
-          <View style={{marginBottom: 10}}>
-            <Text style={styles.inputLabel}>Họ và tên</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Nhập họ và tên"
-              value={formData.name}
-              onChangeText={text => handleInputChange('name', text)}
-              placeholderTextColor="#A0A4A8"
-            />
-          </View>
-          <View style={{marginBottom: 10}}>
-            <Text style={styles.inputLabel}>Email</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Nhập địa chỉ email"
-              value={formData.email}
-              onChangeText={text => handleInputChange('email', text)}
-              placeholderTextColor="#A0A4A8"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            {!!emailError && (
-              <Text style={{color: 'red', fontSize: 13, marginTop: 2}}>{emailError}</Text>
-            )}
-          </View>
-          <View style={{marginBottom: 10}}>
-            <Text style={styles.inputLabel}>Ngày sinh</Text>
-            <TouchableOpacity 
-              style={styles.input}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Text style={{color: formData.birthday ? '#1E3A5F' : '#A0A4A8', fontSize: 15}}>
-                {formData.birthday || 'dd/mm/yyyy'}
-              </Text>
-            </TouchableOpacity>
-            {showDatePicker && (
-              <DateTimePicker
-                value={selectedDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
-                onChange={handleDateChange}
-                maximumDate={new Date()}
-                minimumDate={new Date(1900, 0, 1)}
+          {/* Form đăng ký */}
+          <View style={styles.formWrapper}>
+            <View style={{marginBottom: 10}}>
+              <Text style={styles.inputLabel}>Họ và tên</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nhập họ và tên"
+                value={formData.name}
+                onChangeText={text => handleInputChange('name', text)}
+                placeholderTextColor="#A0A4A8"
               />
-            )}
-            {Platform.OS === 'ios' && showDatePicker && (
+            </View>
+            <View style={{marginBottom: 10}}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nhập địa chỉ email"
+                value={formData.email}
+                onChangeText={text => handleInputChange('email', text)}
+                placeholderTextColor="#A0A4A8"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              {!!emailError && (
+                <Text style={{color: 'red', fontSize: 13, marginTop: 2}}>{emailError}</Text>
+              )}
+            </View>
+            <View style={{marginBottom: 10}}>
+              <Text style={styles.inputLabel}>Ngày sinh</Text>
               <TouchableOpacity 
-                style={{backgroundColor: '#4A90C2', padding: 10, borderRadius: 8, marginTop: 8}}
-                onPress={() => setShowDatePicker(false)}
+                style={styles.input}
+                onPress={() => setShowDatePicker(true)}
               >
-                <Text style={{color: '#fff', textAlign: 'center', fontWeight: 'bold'}}>Xác nhận</Text>
+                <Text style={{color: formData.birthday ? '#1E3A5F' : '#A0A4A8', fontSize: 15}}>
+                  {formData.birthday || 'dd/mm/yyyy'}
+                </Text>
               </TouchableOpacity>
-            )}
-            {!!birthdayError && (
-              <Text style={{color: 'red', fontSize: 13, marginTop: 2}}>{birthdayError}</Text>
-            )}
+              {showDatePicker && (
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
+                  onChange={handleDateChange}
+                  maximumDate={new Date()}
+                  minimumDate={new Date(1900, 0, 1)}
+                />
+              )}
+              {Platform.OS === 'ios' && showDatePicker && (
+                <TouchableOpacity 
+                  style={{backgroundColor: '#4A90C2', padding: 10, borderRadius: 8, marginTop: 8}}
+                  onPress={() => setShowDatePicker(false)}
+                >
+                  <Text style={{color: '#fff', textAlign: 'center', fontWeight: 'bold'}}>Xác nhận</Text>
+                </TouchableOpacity>
+              )}
+              {!!birthdayError && (
+                <Text style={{color: 'red', fontSize: 13, marginTop: 2}}>{birthdayError}</Text>
+              )}
+            </View>
+            <View style={{marginBottom: 10}}>
+              <Text style={styles.inputLabel}>Số điện thoại</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nhập số điện thoại"
+                value={formData.phone}
+                onChangeText={text => handleInputChange('phone', text)}
+                placeholderTextColor="#A0A4A8"
+                keyboardType="phone-pad"
+                maxLength={10}
+              />
+              {!!phoneError && (
+                <Text style={{color: 'red', fontSize: 13, marginTop: 2}}>{phoneError}</Text>
+              )}
+            </View>
+            <View style={{marginBottom: 10}}>
+              <Text style={styles.inputLabel}>Mật khẩu</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nhập mật khẩu"
+                value={formData.password}
+                onChangeText={text => handleInputChange('password', text)}
+                placeholderTextColor="#A0A4A8"
+                secureTextEntry
+              />
+            </View>
+            <View style={{marginBottom: 10}}>
+              <Text style={styles.inputLabel}>Xác nhận mật khẩu</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nhập lại mật khẩu"
+                value={formData.confirmPassword}
+                onChangeText={text => handleInputChange('confirmPassword', text)}
+                placeholderTextColor="#A0A4A8"
+                secureTextEntry
+              />
+              {formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                <Text style={{color: 'red', fontSize: 13, marginTop: 2}}>Mật khẩu không khớp</Text>
+              )}
+            </View>
+            {/* Đã chuyển báo lỗi lên ngay dưới ô xác nhận mật khẩu */}
+            {registerError ? (
+              <Text style={{color: 'red', fontSize: 13, marginTop: 6, marginBottom: 2}}>{registerError}</Text>
+            ) : null}
+            {registerSuccess ? (
+              <Text style={{color: 'green', fontSize: 13, marginTop: 6, marginBottom: 2}}>{registerSuccess}</Text>
+            ) : null}
+            <TouchableOpacity
+              style={[{width: '100%', borderRadius: 8, overflow: 'hidden', marginTop: 8}, {opacity: loading || !formData.name || !formData.email || !formData.phone || !formData.birthday || !formData.password || formData.password !== formData.confirmPassword || !!emailError || !!phoneError || !!birthdayError ? 0.5 : 1}]}
+              disabled={loading || !formData.name || !formData.email || !formData.phone || !formData.birthday || !formData.password || formData.password !== formData.confirmPassword || !!emailError || !!phoneError || !!birthdayError}
+              onPress={handleSubmit}
+            >
+              <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.loginBtnGradient}>
+                <Text style={styles.loginBtnText}>{loading ? 'Đang đăng ký...' : 'Tạo tài khoản'}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity style={{alignSelf: 'center', marginTop: 10}} onPress={() => navigation.navigate('Login')}>
+              <Text style={{color: '#4A90C2', fontSize: 14, fontWeight: 'bold'}}>Đã có tài khoản? Đăng nhập ngay</Text>
+            </TouchableOpacity>
           </View>
-          <View style={{marginBottom: 10}}>
-            <Text style={styles.inputLabel}>Số điện thoại</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Nhập số điện thoại"
-              value={formData.phone}
-              onChangeText={text => handleInputChange('phone', text)}
-              placeholderTextColor="#A0A4A8"
-              keyboardType="phone-pad"
-              maxLength={10}
-            />
-            {!!phoneError && (
-              <Text style={{color: 'red', fontSize: 13, marginTop: 2}}>{phoneError}</Text>
-            )}
-          </View>
-          <View style={{marginBottom: 10}}>
-            <Text style={styles.inputLabel}>Mật khẩu</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Nhập mật khẩu"
-              value={formData.password}
-              onChangeText={text => handleInputChange('password', text)}
-              placeholderTextColor="#A0A4A8"
-              secureTextEntry
-            />
-          </View>
-          <View style={{marginBottom: 10}}>
-            <Text style={styles.inputLabel}>Xác nhận mật khẩu</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Nhập lại mật khẩu"
-              value={formData.confirmPassword}
-              onChangeText={text => handleInputChange('confirmPassword', text)}
-              placeholderTextColor="#A0A4A8"
-              secureTextEntry
-            />
-            {formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword && (
-              <Text style={{color: 'red', fontSize: 13, marginTop: 2}}>Mật khẩu không khớp</Text>
-            )}
-          </View>
-          {/* Đã chuyển báo lỗi lên ngay dưới ô xác nhận mật khẩu */}
-          {registerError ? (
-            <Text style={{color: 'red', fontSize: 13, marginTop: 6, marginBottom: 2}}>{registerError}</Text>
-          ) : null}
-          {registerSuccess ? (
-            <Text style={{color: 'green', fontSize: 13, marginTop: 6, marginBottom: 2}}>{registerSuccess}</Text>
-          ) : null}
-          <TouchableOpacity
-            style={[{width: '100%', borderRadius: 8, overflow: 'hidden', marginTop: 8}, {opacity: loading || !formData.name || !formData.email || !formData.phone || !formData.birthday || !formData.password || formData.password !== formData.confirmPassword || !!emailError || !!phoneError || !!birthdayError ? 0.5 : 1}]}
-            disabled={loading || !formData.name || !formData.email || !formData.phone || !formData.birthday || !formData.password || formData.password !== formData.confirmPassword || !!emailError || !!phoneError || !!birthdayError}
-            onPress={handleSubmit}
-          >
-            <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.loginBtnGradient}>
-              <Text style={styles.loginBtnText}>{loading ? 'Đang đăng ký...' : 'Tạo tài khoản'}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-          <TouchableOpacity style={{alignSelf: 'center', marginTop: 10}} onPress={() => navigation.navigate('Login')}>
-            <Text style={{color: '#4A90C2', fontSize: 14, fontWeight: 'bold'}}>Đã có tài khoản? Đăng nhập ngay</Text>
-          </TouchableOpacity>
         </View>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -451,6 +464,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 15,
     letterSpacing: 0.2,
+  },
+  formContainer: {
+    flex: 1,
+    alignItems: 'center',
+    paddingTop: 48,
+    minHeight: '100%',
+  },
+  formWrapper: {
+    width: '90%',
+    paddingBottom: 50,
   },
 });
 

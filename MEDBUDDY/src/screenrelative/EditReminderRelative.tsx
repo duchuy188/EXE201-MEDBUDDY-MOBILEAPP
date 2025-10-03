@@ -16,9 +16,9 @@ const voiceFiles: { [key: string]: any } = {
 	linhsan: require('../../voice/linhsan.mp3'),
 };
 
-const EditReminderScreen = () => {
-    const route = useRoute();
-    const { token, userId, medication, deviceToken, reminder, reminderId } = route.params as any;
+const EditReminderRelative = () => {
+	const route = useRoute();
+	const { token, userId, medication, deviceToken, reminder, reminderId } = route.params as any;
 
 		// Lấy tên thuốc từ medication hoặc reminder.medicationId
 		const [medicationName, setMedicationName] = useState(
@@ -97,56 +97,56 @@ const EditReminderScreen = () => {
 	};
 
 const handleUpdateReminder = async () => {
-    if (!medicationName || Object.keys(selectedTimes).length === 0) {
-        Alert.alert('Thông báo', 'Vui lòng nhập tên thuốc và chọn ít nhất một thời gian nhắc nhở');
-        return;
-    }
-    try {
-        // Lấy times gốc và repeatTimes gốc
-        const originalTimes = reminder?.times || [];
-        const originalRepeatTimes = reminder?.repeatTimes || [];
-        
-        // Map selectedTimes về slot để so sánh
-        const updatedTimesMap = new Map();
-        Object.entries(selectedTimes).forEach(([slotKey, time]) => {
-            const slotLabel = slotKey === 'morning' ? 'Sáng' : slotKey === 'afternoon' ? 'Chiều' : 'Tối';
-            updatedTimesMap.set(slotLabel, time);
-        });
-        
-        // Merge: duyệt qua originalTimes và giữ/update repeatTimes tương ứng
-        const repeatTimesArr = originalTimes.map((originalTime, index) => {
-            const slot = originalTime.time; // "Sáng", "Tối"
-            
-            // Nếu có update cho slot này, dùng time mới
-            if (updatedTimesMap.has(slot)) {
-                return {
-                    time: updatedTimesMap.get(slot),
-                    taken: false
-                };
-            }
-            
-            // Không có update, giữ nguyên repeatTime gốc
-            return originalRepeatTimes[index] || {
-                time: originalTime.time,
-                taken: false
-            };
-        });
+	if (!medicationName || Object.keys(selectedTimes).length === 0) {
+		Alert.alert('Thông báo', 'Vui lòng nhập tên thuốc và chọn ít nhất một thời gian nhắc nhở');
+		return;
+	}
+	try {
+		// Lấy times gốc và repeatTimes gốc
+		const originalTimes = reminder?.times || [];
+		const originalRepeatTimes = reminder?.repeatTimes || [];
+		
+		// Map selectedTimes về slot để so sánh
+		const updatedTimesMap = new Map();
+		Object.entries(selectedTimes).forEach(([slotKey, time]) => {
+			const slotLabel = slotKey === 'morning' ? 'Sáng' : slotKey === 'afternoon' ? 'Chiều' : 'Tối';
+			updatedTimesMap.set(slotLabel, time);
+		});
+		
+		// Merge: duyệt qua originalTimes và giữ/update repeatTimes tương ứng
+		const repeatTimesArr = originalTimes.map((originalTime, index) => {
+			const slot = originalTime.time; // "Sáng", "Tối"
+			
+			// Nếu có update cho slot này, dùng time mới
+			if (updatedTimesMap.has(slot)) {
+				return {
+					time: updatedTimesMap.get(slot),
+					taken: false
+				};
+			}
+			
+			// Không có update, giữ nguyên repeatTime gốc
+			return originalRepeatTimes[index] || {
+				time: originalTime.time,
+				taken: false
+			};
+		});
 
-        const reminderData: any = {
-            medicationId: medication?._id,
-            repeatTimes: repeatTimesArr,
-            startDate: startDate.toISOString().split('T')[0],
-            endDate: endDate.toISOString().split('T')[0],
-            reminderType,
-            note,
-            voice: reminderType === 'voice' ? voiceType : undefined,
-        };
-        
-        await ReminderService.updateReminder(reminderId, reminderData, token);
-        Alert.alert('Thành công', 'Đã cập nhật lịch nhắc uống thuốc');
-    } catch (error: any) {
-        Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể cập nhật lịch nhắc');
-    }
+		const reminderData: any = {
+			medicationId: medication?._id,
+			repeatTimes: repeatTimesArr,
+			startDate: startDate.toISOString().split('T')[0],
+			endDate: endDate.toISOString().split('T')[0],
+			reminderType,
+			note,
+			voice: reminderType === 'voice' ? voiceType : undefined,
+		};
+		
+		await ReminderService.updateReminder(reminderId, reminderData, token);
+		Alert.alert('Thành công', 'Đã cập nhật lịch nhắc uống thuốc');
+	} catch (error: any) {
+		Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể cập nhật lịch nhắc');
+	}
 };
 		const timeSlots = [
 			{ key: 'morning', label: '🌅 Buổi sáng' },
@@ -496,4 +496,4 @@ const styles = StyleSheet.create({
 	},
 });
 
-export default EditReminderScreen;
+export default EditReminderRelative;

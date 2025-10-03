@@ -32,7 +32,7 @@ const voiceFiles: { [key: string]: any } = {
   linhsan: require('../../voice/linhsan.mp3'),
 };
 
-const AddReminderScreen = () => {
+const AddReminderRelative = () => {
   const route = useRoute();
   const routeParams = route.params as { token?: string; userId?: string; medication?: any; deviceToken?: string } || {};
   const { token: paramToken, userId, medication, deviceToken } = routeParams;
@@ -721,4 +721,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AddReminderScreen;
+export default AddReminderRelative;

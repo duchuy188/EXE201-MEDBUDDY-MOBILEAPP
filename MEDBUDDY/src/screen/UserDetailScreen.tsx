@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, SafeAreaView, TouchableOpacity, TextInput, ScrollView, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, Image, SafeAreaView, TouchableOpacity, TextInput, ScrollView, Alert, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from '../api/user';
 import UserService from '../api/user';
@@ -13,6 +13,9 @@ const UserDetailScreen = ({ navigation, route }: any) => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const user = route.params?.user;
   const [firstName, setFirstName] = useState(user?.fullName?.split(' ')[0] || '');
   const [lastName, setLastName] = useState(user?.fullName?.split(' ').slice(1).join(' ') || '');
@@ -107,179 +110,267 @@ const UserDetailScreen = ({ navigation, route }: any) => {
       <TouchableOpacity style={styles.backArrow} onPress={() => navigation.goBack()}>
         <Ionicons name="arrow-back" size={28} color="#222" />
       </TouchableOpacity>
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <View style={{ height: 120, backgroundColor: '#e8eaf6', borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }} />
-        <View style={{ alignItems: 'center', marginTop: -60 }}>
-          <View style={{ position: 'relative' }}>
-            <Image
-              source={avatar ? { uri: avatar } : require('../../assets/icon.png')}
-              style={styles.avatar}
-            />
-            {isEditing && (
-              <TouchableOpacity style={styles.editAvatarBtn} onPress={openAvatarModal}>
-                <View style={styles.editAvatarCircle}>
-                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>📷</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-        {/* Modal chỉnh ảnh cá nhân */}
-        <Modal
-          visible={avatarModalVisible}
-          animationType="slide"
-          transparent
-          onRequestClose={closeAvatarModal}
-        >
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' }}>
-            <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 24 }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }}>Chỉnh sửa ảnh đại diện</Text>
-              <TouchableOpacity style={styles.modalBtn} onPress={handleTakePhoto}>
-                <Text style={styles.modalBtnText}>Chụp ảnh</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalBtn} onPress={handlePickImage}>
-                <Text style={styles.modalBtnText}>Tải ảnh từ file lên</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalBtn} onPress={handleRemoveAvatar}>
-                <Text style={[styles.modalBtnText, { color: 'red' }]}>Xóa avatar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#eee' }]} onPress={closeAvatarModal}>
-                <Text style={[styles.modalBtnText, { color: '#222' }]}>Hủy</Text>
-              </TouchableOpacity>
+      
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+      >
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+          <View style={{ height: 120, backgroundColor: '#e8eaf6', borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }} />
+          <View style={{ alignItems: 'center', marginTop: -60 }}>
+            <View style={{ position: 'relative' }}>
+              <Image
+                source={avatar ? { uri: avatar } : require('../../assets/icon.png')}
+                style={styles.avatar}
+              />
+              {isEditing && (
+                <TouchableOpacity style={styles.editAvatarBtn} onPress={openAvatarModal}>
+                  <View style={styles.editAvatarCircle}>
+                    <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>📷</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
-        </Modal>
-        <View style={{ paddingHorizontal: 24, marginTop: 16 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <Text style={styles.editTitle}>Trang cá nhân</Text>
+          
+          {/* Modal chỉnh ảnh cá nhân */}
+          <Modal
+            visible={avatarModalVisible}
+            animationType="slide"
+            transparent
+            onRequestClose={closeAvatarModal}
+          >
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' }}>
+              <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 24 }}>
+                <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }}>Chỉnh sửa ảnh đại diện</Text>
+                <TouchableOpacity style={styles.modalBtn} onPress={handleTakePhoto}>
+                  <Text style={styles.modalBtnText}>Chụp ảnh</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalBtn} onPress={handlePickImage}>
+                  <Text style={styles.modalBtnText}>Tải ảnh từ file lên</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalBtn} onPress={handleRemoveAvatar}>
+                  <Text style={[styles.modalBtnText, { color: 'red' }]}>Xóa avatar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#eee' }]} onPress={closeAvatarModal}>
+                  <Text style={[styles.modalBtnText, { color: '#222' }]}>Hủy</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+          
+          <View style={{ paddingHorizontal: 24, marginTop: 16 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={styles.editTitle}>Trang cá nhân</Text>
+              {!isEditing && (
+                <TouchableOpacity style={styles.editBtn} onPress={handleEdit}>
+                  <Text style={{ color: '#183153', fontWeight: 'bold', fontSize: 16 }}>Chỉnh sửa thông tin</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <Text style={styles.label}>Tên</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: isEditing ? '#f8f8f8' : '#eee' }]}
+              placeholder="Tên"
+              value={firstName}
+              onChangeText={setFirstName}
+              editable={isEditing}
+            />
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: isEditing ? '#f8f8f8' : '#eee' }]}
+              placeholder="Email"
+              value={email}
+              onChangeText={setEmail}
+              editable={isEditing}
+              keyboardType="email-address"
+            />
+            <Text style={styles.label}>Số điện thoại</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: isEditing ? '#f8f8f8' : '#eee' }]}
+              placeholder="Số điện thoại"
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              editable={isEditing}
+              keyboardType="phone-pad"
+            />
+            <Text style={styles.label}>Ngày sinh</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: isEditing ? '#f8f8f8' : '#eee' }]}
+              placeholder="Ngày sinh (YYYY-MM-DD)"
+              value={birth}
+              onChangeText={setBirth}
+              editable={isEditing}
+            />
             {!isEditing && (
-              <TouchableOpacity style={styles.editBtn} onPress={handleEdit}>
-                <Text style={{ color: '#183153', fontWeight: 'bold', fontSize: 16 }}>Chỉnh sửa thông tin</Text>
+              <TouchableOpacity style={styles.changePasswordBtn} onPress={() => setPasswordModalVisible(true)}>
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Thay đổi mật khẩu</Text>
               </TouchableOpacity>
             )}
-          </View>
-          <Text style={styles.label}>Tên</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: isEditing ? '#f8f8f8' : '#eee' }]}
-            placeholder="Tên"
-            value={firstName}
-            onChangeText={setFirstName}
-            editable={isEditing}
-          />
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: isEditing ? '#f8f8f8' : '#eee' }]}
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            editable={isEditing}
-            keyboardType="email-address"
-          />
-          <Text style={styles.label}>Số điện thoại</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: isEditing ? '#f8f8f8' : '#eee' }]}
-            placeholder="Số điện thoại"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            editable={isEditing}
-            keyboardType="phone-pad"
-          />
-          <Text style={styles.label}>Ngày sinh</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: isEditing ? '#f8f8f8' : '#eee' }]}
-            placeholder="Ngày sinh (YYYY-MM-DD)"
-            value={birth}
-            onChangeText={setBirth}
-            editable={isEditing}
-          />
-          {!isEditing && (
-            <TouchableOpacity style={styles.changePasswordBtn} onPress={() => setPasswordModalVisible(true)}>
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Thay đổi mật khẩu</Text>
-            </TouchableOpacity>
-          )}
-      {/* Modal đổi mật khẩu */}
-      <Modal
-        visible={passwordModalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setPasswordModalVisible(false)}
-      >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 24 }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }}>Đổi mật khẩu</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Mật khẩu hiện tại"
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              secureTextEntry
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Mật khẩu mới"
-              value={newPassword}
-              onChangeText={setNewPassword}
-              secureTextEntry
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Xác nhận mật khẩu mới"
-              value={confirmNewPassword}
-              onChangeText={setConfirmNewPassword}
-              secureTextEntry
-            />
-            <TouchableOpacity
-              style={[styles.saveBtn, { width: '100%' }, loading && { opacity: 0.7 }]}
-              onPress={async () => {
-                if (newPassword !== confirmNewPassword) {
-                  Alert.alert('Lỗi', 'Mật khẩu mới và xác nhận mật khẩu mới không khớp!');
-                  return;
-                }
-                try {
-                  setLoading(true);
-                  const token = await AsyncStorage.getItem('token');
-                  if (!token) throw new Error('Không tìm thấy token');
-                  await UserService.changePassword(currentPassword, newPassword, confirmNewPassword, token);
-                  setPasswordModalVisible(false);
-                  setCurrentPassword('');
-                  setNewPassword('');
-                  setConfirmNewPassword('');
-                  Alert.alert('Thành công', 'Đổi mật khẩu thành công!');
-                } catch (e: any) {
-                  Alert.alert('Lỗi', e?.response?.data?.message || e?.message || 'Đổi mật khẩu thất bại!');
-                } finally {
-                  setLoading(false);
-                }
-              }}
-              disabled={loading}
+            
+            {/* Modal đổi mật khẩu */}
+            <Modal
+              visible={passwordModalVisible}
+              animationType="slide"
+              transparent
+              onRequestClose={() => setPasswordModalVisible(false)}
             >
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Lưu</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.cancelBtn, { width: '100%', marginTop: 8 }]} onPress={() => setPasswordModalVisible(false)}>
-              <Text style={styles.cancelText}>Hủy</Text>
-            </TouchableOpacity>
+              <KeyboardAvoidingView 
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              >
+                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' }}>
+                  <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 24 }}>
+                    <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }}>Đổi mật khẩu</Text>
+                    
+                    <Text style={styles.label}>Mật khẩu cũ</Text>
+                    <View style={styles.passwordContainer}>
+                      <TextInput
+                        style={[styles.input, styles.passwordInput]}
+                        placeholder="Mật khẩu hiện tại"
+                        value={currentPassword}
+                        onChangeText={setCurrentPassword}
+                        secureTextEntry={!showCurrentPassword}
+                      />
+                      <TouchableOpacity 
+                        style={styles.eyeIcon}
+                        onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+                      >
+                        <Ionicons 
+                          name={showCurrentPassword ? "eye" : "eye-off"} 
+                          size={24} 
+                          color="#666" 
+                        />
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.label}>Mật khẩu mới</Text>
+                    <View style={styles.passwordContainer}>
+                      <TextInput
+                        style={[styles.input, styles.passwordInput]}
+                        placeholder="Mật khẩu mới"
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        secureTextEntry={!showNewPassword}
+                      />
+                      <TouchableOpacity 
+                        style={styles.eyeIcon}
+                        onPress={() => setShowNewPassword(!showNewPassword)}
+                      >
+                        <Ionicons 
+                          name={showNewPassword ? "eye" : "eye-off"} 
+                          size={24} 
+                          color="#666" 
+                        />
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.label}>Xác nhận mật khẩu mới</Text>
+                    <View style={styles.passwordContainer}>
+                      <TextInput
+                        style={[styles.input, styles.passwordInput]}
+                        placeholder="Xác nhận mật khẩu mới"
+                        value={confirmNewPassword}
+                        onChangeText={setConfirmNewPassword}
+                        secureTextEntry={!showConfirmPassword}
+                      />
+                      <TouchableOpacity 
+                        style={styles.eyeIcon}
+                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        <Ionicons 
+                          name={showConfirmPassword ? "eye" : "eye-off"} 
+                          size={24} 
+                          color="#666" 
+                        />
+                      </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.saveBtn, { width: '100%' }, loading && { opacity: 0.7 }]}
+                      onPress={async () => {
+                        if (newPassword !== confirmNewPassword) {
+                          Alert.alert('Lỗi', 'Mật khẩu mới và xác nhận mật khẩu mới không khớp!');
+                          return;
+                        }
+                        try {
+                          setLoading(true);
+                          const token = await AsyncStorage.getItem('token');
+                          if (!token) throw new Error('Không tìm thấy token');
+                          await UserService.changePassword(currentPassword, newPassword, confirmNewPassword, token);
+                          setPasswordModalVisible(false);
+                          setCurrentPassword('');
+                          setNewPassword('');
+                          setConfirmNewPassword('');
+                          setShowCurrentPassword(false);
+                          setShowNewPassword(false);
+                          setShowConfirmPassword(false);
+                          Alert.alert('Thành công', 'Đổi mật khẩu thành công!');
+                        } catch (e: any) {
+                          Alert.alert('Lỗi', e?.response?.data?.message || e?.message || 'Đổi mật khẩu thất bại!');
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      disabled={loading}
+                    >
+                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Lưu</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.cancelBtn, { width: '100%', marginTop: 8 }]} 
+                      onPress={() => {
+                        setPasswordModalVisible(false);
+                        setCurrentPassword('');
+                        setNewPassword('');
+                        setConfirmNewPassword('');
+                        setShowCurrentPassword(false);
+                        setShowNewPassword(false);
+                        setShowConfirmPassword(false);
+                      }}
+                    >
+                      <Text style={styles.cancelText}>Hủy</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </KeyboardAvoidingView>
+            </Modal>
+            
+            {isEditing && (
+              <>
+                <TouchableOpacity style={[styles.saveBtn, loading && { opacity: 0.7 }]} onPress={handleSave} disabled={loading}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Lưu</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.cancelBtn, { width: '100%', marginTop: 8 }]} onPress={() => { setIsEditing(false); }}>
+                  <Text style={styles.cancelText}>Hủy</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
-        </View>
-      </Modal>
-          {isEditing && (
-            <>
-              <TouchableOpacity style={[styles.saveBtn, loading && { opacity: 0.7 }]} onPress={handleSave} disabled={loading}>
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Lưu</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.cancelBtn, { width: '100%', marginTop: 8 }]} onPress={() => { setIsEditing(false); }}>
-                <Text style={styles.cancelText}>Hủy</Text>
-              </TouchableOpacity>
-            </>
-          )}
-          {/* Đã thay bằng icon arrow ở trên */}
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  passwordContainer: {
+    position: 'relative',
+    marginBottom: 12,
+  },
+  passwordInput: {
+    marginBottom: 0,
+    paddingRight: 50,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 15,
+    top: '50%',
+    transform: [{ translateY: -12 }],
+    padding: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   cancelBtn: {
     backgroundColor: '#e53935',
     borderRadius: 8,
@@ -369,10 +460,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    padding: 10,
+    padding: 15,
     fontSize: 16,
     marginBottom: 12,
     backgroundColor: '#f8f8f8',
+    height: 50,
   },
   label: {
     fontSize: 15,

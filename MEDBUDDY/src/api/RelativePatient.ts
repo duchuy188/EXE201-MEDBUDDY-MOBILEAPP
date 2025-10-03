@@ -8,6 +8,7 @@ export interface RelativePatient {
   otp?: string;
   otpExpiresAt?: Date;
   createdAt?: string;
+  permissions?: ('view_medical_records' | 'schedule_medication' | 'schedule_appointment' | 'manage_health_data')[];
 }
 
 export interface AddRelativePatientRequest {
@@ -56,6 +57,112 @@ class RelativePatientService {
   async deleteRelativePatient(linkId: string, token: string) {
     // Truyền body là { linkId }, headers là tham số thứ 3
     const res = await apiClient.post('/relative-patient/delete', { linkId }, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // ========== API ĐẶT LỊCH CHO BỆNH NHÂN BỞI NGƯỜI THÂN ==========
+
+  // Đặt lịch uống thuốc cho bệnh nhân
+  async createMedicationReminderForPatient(patientId: string, data: any, token: string) {
+    const res = await apiClient.post(`/relative-patient/patients/${patientId}/medication-reminder`, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Đặt lịch tái khám cho bệnh nhân
+  async createAppointmentForPatient(patientId: string, data: any, token: string) {
+    const res = await apiClient.post(`/relative-patient/patients/${patientId}/appointment`, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Lấy danh sách lịch uống thuốc của bệnh nhân
+  async getPatientMedicationReminders(patientId: string, token: string) {
+    const res = await apiClient.get(`/relative-patient/patients/${patientId}/medication-reminders`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Lấy danh sách lịch tái khám của bệnh nhân
+  async getPatientAppointments(patientId: string, token: string) {
+    const res = await apiClient.get(`/relative-patient/patients/${patientId}/appointments`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Cập nhật lịch uống thuốc của bệnh nhân
+  async updatePatientMedicationReminder(patientId: string, reminderId: string, data: any, token: string) {
+    const res = await apiClient.put(`/relative-patient/patients/${patientId}/medication-reminder/${reminderId}`, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Cập nhật lịch tái khám của bệnh nhân
+  async updatePatientAppointment(patientId: string, appointmentId: string, data: any, token: string) {
+    const res = await apiClient.put(`/relative-patient/patients/${patientId}/appointment/${appointmentId}`, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Xóa lịch uống thuốc của bệnh nhân
+  async deletePatientMedicationReminder(patientId: string, reminderId: string, token: string) {
+    const res = await apiClient.delete(`/relative-patient/patients/${patientId}/medication-reminder/${reminderId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Xóa lịch tái khám của bệnh nhân
+  async deletePatientAppointment(patientId: string, appointmentId: string, token: string) {
+    const res = await apiClient.delete(`/relative-patient/patients/${patientId}/appointment/${appointmentId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Kiểm tra quyền của người thân
+  async checkRelativePermissions(patientId: string, token: string) {
+    const res = await apiClient.get(`/relative-patient/patients/${patientId}/permissions`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Cập nhật permissions cho mối quan hệ
+  async updateRelativePermissions(linkId: string, permissions: string[], token: string) {
+    const res = await apiClient.put(`/relative-patient/relationship/${linkId}/permissions`, { permissions }, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Fix permissions cho các mối quan hệ đã tồn tại
+  async fixExistingPermissions(token: string) {
+    const res = await apiClient.post('/relative-patient/fix-permissions', {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Test authentication
+  async testAuth(token: string) {
+    const res = await apiClient.get('/relative-patient/test-auth', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Fix permissions cho một mối quan hệ cụ thể
+  async quickFixPermissions(patientId: string, token: string) {
+    const res = await apiClient.post(`/relative-patient/patients/${patientId}/fix-permissions`, {}, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return res.data;

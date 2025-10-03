@@ -3,7 +3,7 @@ import MedicationService from '../api/Medication';
 
 import { useState } from 'react';
 import { FontAwesome5, Feather } from '@expo/vector-icons';
-import { Alert, ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { Alert, ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 
 const timeSlots = [
   { id: 'morning', label: 'Sáng', icon: '🌅' },
@@ -144,128 +144,139 @@ const EditMedicineScreen = ({ route, navigation }: any) => {
   const displayUnit = unitMapping[selectedUnit];
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.card}>
-        <Text style={styles.title}>Chỉnh sửa thông tin thuốc</Text>
-        {/* Tên thuốc */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Tên thuốc</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="VD: Amlodipine"
-            value={name}
-            onChangeText={setName}
-            placeholderTextColor="#B6D5FA"
-          />
-        </View>
-        {/* Tổng số lượng */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Tổng số lượng</Text>
-          <View style={{flexDirection: 'row', gap: 8, alignItems: 'center'}}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+    >
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.card}>
+          <Text style={styles.title}>Chỉnh sửa thông tin thuốc</Text>
+          {/* Tên thuốc */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Tên thuốc</Text>
             <TextInput
-              style={[styles.input, {flex: 1}]}
-              placeholder="VD: 30"
-              value={dosage}
-              onChangeText={setDosage}
+              style={styles.input}
+              placeholder="VD: Amlodipine"
+              value={name}
+              onChangeText={setName}
               placeholderTextColor="#B6D5FA"
-              keyboardType="numeric"
             />
-            <Text style={styles.unitDisplay}>{displayUnit}</Text>
-            <TouchableOpacity 
-              style={styles.unitPicker}
-              onPress={() => setShowUnitPicker(!showUnitPicker)}
-            >
-              <Text style={styles.unitText}>{selectedUnit}</Text>
-              <Feather name="chevron-down" size={20} color="#64748B" />
-            </TouchableOpacity>
           </View>
-          {showUnitPicker && (
-            <View style={styles.unitDropdown}>
-              {['viên', 'lọ', 'ống', 'gói'].map(unit => (
+          {/* Tổng số lượng */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Tổng số lượng</Text>
+            <View style={{flexDirection: 'row', gap: 8, alignItems: 'center'}}>
+              <TextInput
+                style={[styles.input, {flex: 1}]}
+                placeholder="VD: 30"
+                value={dosage}
+                onChangeText={setDosage}
+                placeholderTextColor="#B6D5FA"
+                keyboardType="numeric"
+              />
+              <Text style={styles.unitDisplay}>{displayUnit}</Text>
+              <TouchableOpacity 
+                style={styles.unitPicker}
+                onPress={() => setShowUnitPicker(!showUnitPicker)}
+              >
+                <Text style={styles.unitText}>{selectedUnit}</Text>
+                <Feather name="chevron-down" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            {showUnitPicker && (
+              <View style={styles.unitDropdown}>
+                {['viên', 'lọ', 'ống', 'gói'].map(unit => (
+                  <TouchableOpacity
+                    key={unit}
+                    style={styles.unitOption}
+                    onPress={() => {
+                      setSelectedUnit(unit);
+                      setShowUnitPicker(false);
+                    }}
+                  >
+                    <Text style={[styles.unitOptionText, selectedUnit === unit && {color: '#3B82F6', fontWeight: 'bold'}]}>
+                      {unit}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+          {/* Ghi chú */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Ghi chú (không bắt buộc)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Nhập ghi chú"
+              value={note}
+              onChangeText={setNote}
+              placeholderTextColor="#B6D5FA"
+              keyboardType="default"
+            />
+          </View>
+          {/* Thời gian uống */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Thời gian uống</Text>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 6}}>
+              {timeSlots.map(slot => (
                 <TouchableOpacity
-                  key={unit}
-                  style={styles.unitOption}
-                  onPress={() => {
-                    setSelectedUnit(unit);
-                    setShowUnitPicker(false);
-                  }}
+                  key={slot.id}
+                  style={[styles.timeBtn, selectedTimes.includes(slot.id) && styles.timeBtnSelected]}
+                  onPress={() => toggleTimeSlot(slot.id)}
                 >
-                  <Text style={[styles.unitOptionText, selectedUnit === unit && {color: '#3B82F6', fontWeight: 'bold'}]}>
-                    {unit}
-                  </Text>
+                  <Text style={{fontSize: 22}}>{slot.icon}</Text>
+                  <Text style={{fontSize: 13, color: selectedTimes.includes(slot.id) ? '#1E293B' : '#64748B'}}>{slot.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-          )}
-        </View>
-        {/* Ghi chú */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Ghi chú (không bắt buộc)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Nhập ghi chú"
-            value={note}
-            onChangeText={setNote}
-            placeholderTextColor="#B6D5FA"
-            keyboardType="default"
-          />
-        </View>
-        {/* Thời gian uống */}
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Thời gian uống</Text>
-          <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 6}}>
-            {timeSlots.map(slot => (
-              <TouchableOpacity
-                key={slot.id}
-                style={[styles.timeBtn, selectedTimes.includes(slot.id) && styles.timeBtnSelected]}
-                onPress={() => toggleTimeSlot(slot.id)}
-              >
-                <Text style={{fontSize: 22}}>{slot.icon}</Text>
-                <Text style={{fontSize: 13, color: selectedTimes.includes(slot.id) ? '#1E293B' : '#64748B'}}>{slot.label}</Text>
-              </TouchableOpacity>
-            ))}
           </View>
-        </View>
 
-        {/* Nhập liều lượng cho từng buổi */}
-        {selectedTimes.length > 0 && (
-          <View style={styles.dosageSection}>
-            <Text style={styles.label}>Liều lượng từng buổi</Text>
-            {selectedTimes.map(timeId => {
-              const slot = timeSlots.find(t => t.id === timeId);
-              return (
-                <View key={timeId} style={styles.dosageInput}>
-                  <Text style={styles.dosageLabel}>
-                    {slot?.icon} {slot?.label}:
-                  </Text>
-                  <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
-                    <TextInput
-                      style={[styles.input, {flex: 1, marginBottom: 0}]}
-                      placeholder="VD: 1"
-                      value={timeDosages[timeId]}
-                      onChangeText={(value) => updateTimeDosage(timeId, value)}
-                      placeholderTextColor="#B6D5FA"
-                      keyboardType="numeric"
-                    />
-                    <Text style={styles.dosageUnit}>{displayUnit}/{slot?.label.toLowerCase()}</Text>
+          {/* Nhập liều lượng cho từng buổi */}
+          {selectedTimes.length > 0 && (
+            <View style={styles.dosageSection}>
+              <Text style={styles.label}>Liều lượng từng buổi</Text>
+              {selectedTimes.map(timeId => {
+                const slot = timeSlots.find(t => t.id === timeId);
+                return (
+                  <View key={timeId} style={styles.dosageInput}>
+                    <Text style={styles.dosageLabel}>
+                      {slot?.icon} {slot?.label}:
+                    </Text>
+                    <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+                      <TextInput
+                        style={[styles.input, {flex: 1, marginBottom: 0}]}
+                        placeholder="VD: 1"
+                        value={timeDosages[timeId]}
+                        onChangeText={(value) => updateTimeDosage(timeId, value)}
+                        placeholderTextColor="#B6D5FA"
+                        keyboardType="numeric"
+                      />
+                      <Text style={styles.dosageUnit}>{displayUnit}/{slot?.label.toLowerCase()}</Text>
+                    </View>
                   </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
+                );
+              })}
+            </View>
+          )}
 
-        {/* Nút lưu thay đổi */}
-        <TouchableOpacity
-          style={[styles.saveButton, !(name && dosage && selectedTimes.length > 0) && {backgroundColor: '#B6D5FA'}]}
-          onPress={handleUpdate}
-          disabled={!(name && dosage && selectedTimes.length > 0)}
-        >
-          <Feather name="edit" size={20} color={name && dosage && selectedTimes.length > 0 ? '#fff' : '#3B82F6'} />
-          <Text style={{color: name && dosage && selectedTimes.length > 0 ? '#fff' : '#3B82F6', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Lưu thay đổi</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          {/* Nút lưu thay đổi */}
+          <TouchableOpacity
+            style={[styles.saveButton, !(name && dosage && selectedTimes.length > 0) && {backgroundColor: '#B6D5FA'}]}
+            onPress={handleUpdate}
+            disabled={!(name && dosage && selectedTimes.length > 0)}
+          >
+            <Feather name="edit" size={20} color={name && dosage && selectedTimes.length > 0 ? '#fff' : '#3B82F6'} />
+            <Text style={{color: name && dosage && selectedTimes.length > 0 ? '#fff' : '#3B82F6', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Lưu thay đổi</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -273,7 +284,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F6F8FB',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingTop: 48,
+    paddingBottom: 20,
   },
   card: {
     backgroundColor: '#fff',
@@ -403,4 +421,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default EditMedicineScreen
+export default EditMedicineScreen;

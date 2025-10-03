@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import AppointmentsService from '../api/Appointments';
 
@@ -51,98 +51,113 @@ const EditAppointmentScreen = ({ route, navigation }: any) => {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.title}>Chỉnh sửa lịch hẹn khám bệnh</Text>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.card}>
+          <Text style={styles.title}>Chỉnh sửa lịch hẹn khám bệnh</Text>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Tiêu đề lịch hẹn</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Nhập tiêu đề lịch hẹn"
-            value={appointmentTitle}
-            onChangeText={setAppointmentTitle}
-          />
-        </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Tiêu đề lịch hẹn</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Nhập tiêu đề lịch hẹn"
+              value={appointmentTitle}
+              onChangeText={setAppointmentTitle}
+              placeholderTextColor="#B6D5FA"
+            />
+          </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Bệnh viện</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Chọn bệnh viện"
-            value={hospital}
-            onChangeText={setHospital}
-          />
-        </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Bệnh viện</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Chọn bệnh viện"
+              value={hospital}
+              onChangeText={setHospital}
+              placeholderTextColor="#B6D5FA"
+            />
+          </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Địa điểm</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Nhập địa điểm"
-            value={location}
-            onChangeText={setLocation}
-          />
-        </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Địa điểm</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Nhập địa điểm"
+              value={location}
+              onChangeText={setLocation}
+              placeholderTextColor="#B6D5FA"
+            />
+          </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Ngày hẹn</Text>
-          <TouchableOpacity 
-            style={styles.timeInput}
-            onPress={() => setShowDatePicker(true)}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Ngày hẹn</Text>
+            <TouchableOpacity 
+              style={styles.timeInput}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={styles.timeText}>
+                {selectedDate.toLocaleDateString('vi-VN')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Thời gian</Text>
+            <TouchableOpacity 
+              style={styles.timeInput}
+              onPress={() => setShowTimePicker(true)}
+            >
+              <Text style={styles.timeText}>
+                {selectedTime || 'Chọn thời gian'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Ghi chú (không bắt buộc)</Text>
+            <TextInput
+              style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
+              placeholder="Nhập ghi chú"
+              value={note}
+              onChangeText={setNote}
+              multiline
+              placeholderTextColor="#B6D5FA"
+            />
+          </View>
+
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={handleUpdate}
           >
-            <Text style={styles.timeText}>
-              {selectedDate.toLocaleDateString('vi-VN')}
-            </Text>
+            <Text style={styles.buttonText}>Lưu thay đổi</Text>
           </TouchableOpacity>
-        </View>
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Thời gian</Text>
-          <TouchableOpacity 
-            style={styles.timeInput}
-            onPress={() => setShowTimePicker(true)}
-          >
-            <Text style={styles.timeText}>
-              {selectedTime || 'Chọn thời gian'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+          <DateTimePickerModal
+            isVisible={showDatePicker}
+            mode="date"
+            onConfirm={handleDateConfirm}
+            onCancel={() => setShowDatePicker(false)}
+            minimumDate={new Date()}
+          />
 
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Ghi chú (không bắt buộc)</Text>
-          <TextInput
-            style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
-            placeholder="Nhập ghi chú"
-            value={note}
-            onChangeText={setNote}
-            multiline
+          <DateTimePickerModal
+            isVisible={showTimePicker}
+            mode="time"
+            onConfirm={handleTimeConfirm}
+            onCancel={() => setShowTimePicker(false)}
           />
         </View>
-
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={handleUpdate}
-        >
-          <Text style={styles.buttonText}>Lưu thay đổi</Text>
-        </TouchableOpacity>
-
-        <DateTimePickerModal
-          isVisible={showDatePicker}
-          mode="date"
-          onConfirm={handleDateConfirm}
-          onCancel={() => setShowDatePicker(false)}
-          minimumDate={new Date()}
-        />
-
-        <DateTimePickerModal
-          isVisible={showTimePicker}
-          mode="time"
-          onConfirm={handleTimeConfirm}
-          onCancel={() => setShowTimePicker(false)}
-        />
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -150,6 +165,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F6F8FB',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
   },
   card: {
     backgroundColor: '#fff',

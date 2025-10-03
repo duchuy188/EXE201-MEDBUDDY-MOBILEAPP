@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import HomeScreen from '../screen/HomeScreen';
 import BottomTabNavigator from './BottomTabNavigator';
+import RelativeTabNavigator from './RelativeNavigator'; // Thêm import này
 import LoginScreen from '../screen/LoginScreen';
 import LoginFormScreen from '../screen/LoginFormScreen';
 import RegisterTypeScreen from '../screen/RegisterTypeScreen';
@@ -25,6 +26,11 @@ export default function RootNavigator() {
         <Stack.Screen
           name="MainTab"
           component={BottomTabNavigator}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="RelativeTab"
+          component={RelativeTabNavigator}
           options={{ headerShown: false }}
         />
         <Stack.Screen name="RegisterType" component={RegisterTypeScreen} options={{ headerShown: false }} />

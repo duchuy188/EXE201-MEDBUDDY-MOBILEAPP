@@ -15,6 +15,8 @@ export interface Reminder {
   createdAt?: string;
   status?: 'pending' | 'completed' | 'snoozed';
   snoozeTime?: string;
+  createdBy?: string; // ObjectId của người tạo lịch
+  createdByType?: 'patient' | 'relative'; // Loại người tạo
 }
 
 class ReminderService {

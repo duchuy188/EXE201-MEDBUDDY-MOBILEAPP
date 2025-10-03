@@ -1,22 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Modal, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { useRoute, useNavigation } from '@react-navigation/native';
-import AppointmentService from '../api/Appointments';
+import AppointmentsService from '../api/Appointments';
 
-const AddAppointmentScreen = () => {
-  const route = useRoute();
-  const navigation = useNavigation();
-  const { token, userId } = route.params as { token: string; userId: string };
-  const [appointmentTitle, setAppointmentTitle] = useState('');
-  const [hospital, setHospital] = useState('');
-  const [location, setLocation] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedTime, setSelectedTime] = useState('');
-  const [note, setNote] = useState('');
+const EditAppointmentRelative = ({ route, navigation }: any) => {
+  const { appointment, token } = route.params;
+  const [appointmentTitle, setAppointmentTitle] = useState(appointment.title);
+  const [hospital, setHospital] = useState(appointment.hospital);
+  const [location, setLocation] = useState(appointment.location);
+  const [selectedDate, setSelectedDate] = useState(new Date(appointment.date));
+  const [selectedTime, setSelectedTime] = useState(appointment.time);
+  const [note, setNote] = useState(appointment.notes || '');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  
+
   const handleTimeConfirm = (date: Date) => {
     const formattedTime = date.toLocaleTimeString('en-US', {
       hour: '2-digit',
@@ -32,44 +29,24 @@ const AddAppointmentScreen = () => {
     setShowDatePicker(false);
   };
 
-  const handleAddAppointment = async () => {
+  const handleUpdate = async () => {
     if (!appointmentTitle || !hospital || !location || !selectedTime) {
       Alert.alert('Thông báo', 'Vui lòng điền đầy đủ thông tin');
       return;
     }
-
     try {
-      const appointmentData = {
+      await AppointmentsService.updateAppointment(appointment._id, {
         title: appointmentTitle,
         hospital,
         location,
         date: selectedDate.toISOString(),
         time: selectedTime,
         notes: note,
-        userId: userId,
-        status: 'pending' as 'pending'
-      };
-
-      const response = await AppointmentService.addAppointment(appointmentData, token);
-      
-      if (response) {
-        Alert.alert(
-          'Thành công',
-          'Đã thêm lịch hẹn mới',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.goBack()
-            }
-          ]
-        );
-      }
+      }, token);
+      Alert.alert('Thành công', 'Cập nhật lịch hẹn thành công!');
+      navigation.goBack();
     } catch (error) {
-      console.error('Error adding appointment:', error);
-      Alert.alert(
-        'Lỗi',
-        'Không thể thêm lịch hẹn. Vui lòng thử lại sau.'
-      );
+      Alert.alert('Lỗi', 'Cập nhật thất bại!');
     }
   };
 
@@ -83,9 +60,10 @@ const AddAppointmentScreen = () => {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         <View style={styles.card}>
-          <Text style={styles.title}>Thêm lịch hẹn khám bệnh</Text>
+          <Text style={styles.title}>Chỉnh sửa lịch hẹn khám bệnh</Text>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Tiêu đề lịch hẹn</Text>
@@ -94,6 +72,7 @@ const AddAppointmentScreen = () => {
               placeholder="Nhập tiêu đề lịch hẹn"
               value={appointmentTitle}
               onChangeText={setAppointmentTitle}
+              placeholderTextColor="#B6D5FA"
             />
           </View>
 
@@ -104,6 +83,7 @@ const AddAppointmentScreen = () => {
               placeholder="Chọn bệnh viện"
               value={hospital}
               onChangeText={setHospital}
+              placeholderTextColor="#B6D5FA"
             />
           </View>
 
@@ -114,6 +94,7 @@ const AddAppointmentScreen = () => {
               placeholder="Nhập địa điểm"
               value={location}
               onChangeText={setLocation}
+              placeholderTextColor="#B6D5FA"
             />
           </View>
 
@@ -149,14 +130,15 @@ const AddAppointmentScreen = () => {
               value={note}
               onChangeText={setNote}
               multiline
+              placeholderTextColor="#B6D5FA"
             />
           </View>
 
           <TouchableOpacity
             style={styles.addButton}
-            onPress={handleAddAppointment}
+            onPress={handleUpdate}
           >
-            <Text style={styles.buttonText}>Thêm lịch hẹn</Text>
+            <Text style={styles.buttonText}>Lưu thay đổi</Text>
           </TouchableOpacity>
 
           <DateTimePickerModal
@@ -255,4 +237,4 @@ const styles = StyleSheet.create({
   }
 });
 
-export default AddAppointmentScreen;
+export default EditAppointmentRelative;

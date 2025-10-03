@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput, Alert, ActivityIndicator, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons, FontAwesome5, FontAwesome, Feather } from '@expo/vector-icons';
 import bloodPressureService, { BloodPressure } from '../api/bloodPressure';
+import RelativePatientService from '../api/RelativePatient';
 import { useRoute } from '@react-navigation/native';
 
 interface HomeScreenProps {
@@ -11,19 +11,19 @@ interface HomeScreenProps {
   onLogout?: () => void;
 }
 
-
 const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout }) => {
   const [systolic, setSystolic] = useState('');
   const [diastolic, setDiastolic] = useState('');
   const [showNotification, setShowNotification] = useState(false);
   const [loading, setLoading] = useState(false);
   const [bpHistory, setBpHistory] = useState<BloodPressure[]>([]);
+  const [relatives, setRelatives] = useState<any[]>([]);
+  const [loadingRelatives, setLoadingRelatives] = useState(false);
   const route = useRoute();
-  // Lấy token và userId từ navigation params
-  // @ts-ignore
+  
   const token = route.params?.token || '';
-  // @ts-ignore
   const userId = route.params?.userId || '';
+
   // Debug log
   React.useEffect(() => {
     console.log('HomeScreen params:', route.params);
@@ -35,6 +35,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
   useEffect(() => {
     if (!token) return;
     fetchBpHistory();
+    fetchRelatives();
   }, [token]);
 
   const fetchBpHistory = async () => {
@@ -47,6 +48,68 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
     } finally {
       setLoading(false);
     }
+  };
+
+  // Lấy danh sách người thân
+  const fetchRelatives = async () => {
+    if (!token) return;
+    setLoadingRelatives(true);
+    try {
+      const data = await RelativePatientService.getRelativesOfPatient(token);
+      setRelatives(data || []);
+    } catch (e) {
+      console.error('Lỗi khi lấy danh sách người thân:', e);
+    } finally {
+      setLoadingRelatives(false);
+    }
+  };
+
+  // Hàm gọi điện
+  const handleCallPhone = (phoneNumber: string) => {
+    if (!phoneNumber) {
+      Alert.alert('Lỗi', 'Không có số điện thoại để gọi');
+      return;
+    }
+    
+    const phone = phoneNumber.replace(/\s/g, ''); // Loại bỏ khoảng trắng
+    const phoneUrl = `tel:${phone}`;
+    
+    Linking.canOpenURL(phoneUrl)
+      .then((supported) => {
+        if (!supported) {
+          Alert.alert('Lỗi', 'Thiết bị không hỗ trợ gọi điện');
+        } else {
+          return Linking.openURL(phoneUrl);
+        }
+      })
+      .catch((err) => {
+        console.error('Lỗi khi gọi điện:', err);
+        Alert.alert('Lỗi', 'Không thể thực hiện cuộc gọi');
+      });
+  };
+
+  // Hàm nhắn tin SMS
+  const handleSendSMS = (phoneNumber: string) => {
+    if (!phoneNumber) {
+      Alert.alert('Lỗi', 'Không có số điện thoại để nhắn tin');
+      return;
+    }
+    
+    const phone = phoneNumber.replace(/\s/g, ''); // Loại bỏ khoảng trắng
+    const smsUrl = `sms:${phone}`;
+    
+    Linking.canOpenURL(smsUrl)
+      .then((supported) => {
+        if (!supported) {
+          Alert.alert('Lỗi', 'Thiết bị không hỗ trợ nhắn tin');
+        } else {
+          return Linking.openURL(smsUrl);
+        }
+      })
+      .catch((err) => {
+        console.error('Lỗi khi nhắn tin:', err);
+        Alert.alert('Lỗi', 'Không thể mở ứng dụng nhắn tin');
+      });
   };
 
   const handleSaveBloodPressure = async () => {
@@ -323,30 +386,238 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
           </View>
 
           {/* Bảng điều khiển gia đình */}
-<View style={{
-  backgroundColor: '#fff',
-  borderRadius: 16,
-  padding: 18,
-  marginHorizontal: 20,
-  marginBottom: 18,
-  borderWidth: 1.5,
-  borderColor: '#B6D5FA',
-  flexDirection: 'column',
-  shadowColor: '#F0F6FF',
-  shadowOpacity: 0.08,
-  shadowRadius: 6,
-  elevation: 1
-}}>
-  <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 6}}>
-    <FontAwesome5 name="users" size={22} color="#3B82F6" style={{marginRight: 8}} />
-    <Text style={{fontWeight: 'bold', fontSize: 17, color: '#1E293B'}}>
-      Bảng điều khiển gia đình (demo)
-    </Text>
-  </View>
-  <Text style={{color: '#64748B', fontSize: 15}}>
-    Theo dõi sức khỏe người thân trong thời gian thực.
-  </Text>
-</View>
+          <View style={{
+            backgroundColor: '#fff',
+            borderRadius: 16,
+            padding: 18,
+            marginHorizontal: 20,
+            marginBottom: 18,
+            borderWidth: 1.5,
+            borderColor: '#B6D5FA',
+            flexDirection: 'column',
+            shadowColor: '#F0F6FF',
+            shadowOpacity: 0.08,
+            shadowRadius: 6,
+            elevation: 1
+          }}>
+            <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 12}}>
+              <FontAwesome5 name="users" size={22} color="#3B82F6" style={{marginRight: 8}} />
+              <Text style={{fontWeight: 'bold', fontSize: 17, color: '#1E293B'}}>
+                Bảng điều khiển gia đình
+              </Text>
+            </View>
+            
+            {loadingRelatives ? (
+              <View style={{alignItems: 'center', paddingVertical: 20}}>
+                <ActivityIndicator size="small" color="#3B82F6" />
+                <Text style={{color: '#64748B', marginTop: 8}}>Đang tải danh sách người thân...</Text>
+              </View>
+            ) : relatives.length > 0 ? (
+              <View>
+                {relatives.map((item, index) => {
+                  const relative = item.relative; // Lấy thông tin người thân từ object relative
+                  return (
+                    <View key={item._id || index} style={{
+                      backgroundColor: '#F8FAFC',
+                      borderRadius: 16,
+                      padding: 16,
+                      marginBottom: 12,
+                      borderWidth: 1,
+                      borderColor: '#E2E8F0',
+                      shadowColor: '#000',
+                      shadowOpacity: 0.05,
+                      shadowRadius: 4,
+                      elevation: 2
+                    }}>
+                      <View style={{flexDirection: 'row', alignItems: 'flex-start'}}>
+                        {/* Avatar */}
+                        {relative?.avatar && relative.avatar.trim() !== '' ? (
+                          <Image 
+                            source={{ uri: relative.avatar }}
+                            style={{
+                              width: 48,
+                              height: 48,
+                              borderRadius: 24,
+                              marginRight: 12,
+                              backgroundColor: '#E2E8F0'
+                            }}
+                          />
+                        ) : (
+                          <View style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 24,
+                            backgroundColor: '#3B82F6',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginRight: 12
+                          }}>
+                            <Text style={{
+                              color: '#fff',
+                              fontSize: 18,
+                              fontWeight: 'bold'
+                            }}>
+                              {relative?.fullName ? relative.fullName.charAt(0).toUpperCase() : 'T'}
+                            </Text>
+                          </View>
+                        )}
+                        
+                        {/* Thông tin người thân */}
+                        <View style={{flex: 1}}>
+                          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4}}>
+                            <View style={{flex: 1}}>
+                             <Text style={{
+                                fontSize: 16,
+                                fontWeight: 'bold',
+                                color: '#1E293B',
+                                lineHeight: 20
+                              }}>
+                                Tên:
+                                {relative?.fullName || 'Người thân'}
+                              </Text>
+                              <Text style={{
+                                fontSize: 14,
+                                color: '#64748B',
+                                marginTop: 2
+                              }}>
+                                Người thân
+                              </Text>
+                            </View>
+                          </View>
+                          
+                          {/* Email và số điện thoại */}
+                        
+                          <Text style={{
+                            fontSize: 12,
+                            color: '#3B82F6',
+                            marginBottom: 4
+                          }}>
+                            Email: 
+                            {relative?.email || ''}
+                          </Text>
+                          <Text style={{
+                            fontSize: 12,
+                            color: '#64748B',
+                            marginBottom: 8
+                          }}>
+                            SĐT:
+                            {relative?.phoneNumber || ''}
+                          </Text>
+                          
+                          {/* Uống thuốc hôm nay */}
+                          <View style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            marginBottom: 12
+                          }}>
+                            <Text style={{
+                              fontSize: 13,
+                              color: '#64748B',
+                              marginRight: 8
+                            }}>
+                              Đang theo dõi
+                            </Text>
+                            <View style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              backgroundColor: '#D1FAE5',
+                              paddingHorizontal: 6,
+                              paddingVertical: 2,
+                              borderRadius: 6
+                            }}>
+                              <Text style={{
+                                fontSize: 12,
+                                fontWeight: 'bold',
+                                color: '#059669',
+                                marginRight: 4
+                              }}>
+                                ✓ Hoạt động
+                              </Text>
+                            </View>
+                          </View>
+                          
+                          {/* Buttons */}
+                          <View style={{
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            gap: 8
+                          }}>
+                            <TouchableOpacity 
+                              style={{
+                                flex: 1,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: '#fff',
+                                borderWidth: 1,
+                                borderColor: '#3B82F6',
+                                borderRadius: 8,
+                                paddingVertical: 8,
+                                paddingHorizontal: 12
+                              }}
+                              onPress={() => handleCallPhone(relative?.phoneNumber)}
+                            >
+                              <Ionicons name="call" size={16} color="#3B82F6" style={{marginRight: 4}} />
+                              <Text style={{
+                                fontSize: 14,
+                                fontWeight: '600',
+                                color: '#3B82F6'
+                              }}>
+                                Gọi
+                              </Text>
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity 
+                              style={{
+                                flex: 1,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: '#fff',
+                                borderWidth: 1,
+                                borderColor: '#3B82F6',
+                                borderRadius: 8,
+                                paddingVertical: 8,
+                                paddingHorizontal: 12
+                              }}
+                              onPress={() => handleSendSMS(relative?.phoneNumber)}
+                            >
+                              <Ionicons name="chatbubble" size={16} color="#3B82F6" style={{marginRight: 4}} />
+                              <Text style={{
+                                fontSize: 14,
+                                fontWeight: '600',
+                                color: '#3B82F6'
+                              }}>
+                                Nhắn tin
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={{alignItems: 'center', paddingVertical: 20}}>
+                <Ionicons name="people-outline" size={48} color="#B6D5FA" />
+                <Text style={{color: '#64748B', fontSize: 15, textAlign: 'center', marginTop: 8}}>
+                  Chưa có người thân nào theo dõi sức khỏe của bạn.
+                </Text>
+                <TouchableOpacity style={{
+                  backgroundColor: '#3B82F6',
+                  borderRadius: 8,
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  marginTop: 12
+                }}>
+                  <Text style={{color: '#fff', fontSize: 14, fontWeight: 'bold'}}>
+                    Mời người thân
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         </>
       ) : (
         <>

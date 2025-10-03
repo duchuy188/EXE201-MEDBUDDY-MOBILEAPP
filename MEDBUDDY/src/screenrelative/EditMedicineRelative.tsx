@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Platform, KeyboardAvoidingView } from 'react-native';
-import { FontAwesome5, Feather, MaterialIcons } from '@expo/vector-icons';
-import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import MedicationService from '../api/Medication';
-import { useRoute, useNavigation } from '@react-navigation/native';
+
+import { useState } from 'react';
+import { FontAwesome5, Feather } from '@expo/vector-icons';
+import { Alert, ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 
 const timeSlots = [
   { id: 'morning', label: 'Sáng', icon: '🌅' },
@@ -18,33 +18,49 @@ const unitMapping: { [key: string]: string } = {
   'gói': 'gói'
 };
 
-const AddMedicineScreen: React.FC = () => {
-  const navigation = useNavigation();
-  const [medicineName, setMedicineName] = useState('');
-  const [dosage, setDosage] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [minQuantity, setMinQuantity] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedTimes, setSelectedTimes] = useState<string[]>([]);
-  const [selectedUnit, setSelectedUnit] = useState('viên');
-  const [showUnitPicker, setShowUnitPicker] = useState(false);
-  const [timeDosages, setTimeDosages] = useState<{ [key: string]: string }>({
-    morning: '',
-    afternoon: '',
-    evening: ''
-  });
-
-  const handleCaptureMedicine = () => {
-    // @ts-ignore
-    navigation.navigate('PhotoCapture', { token, userId });
+const EditMedicineRelative = ({ route, navigation }: any) => {
+  const { medicine } = route.params;
+  
+  // Parse existing data
+  const parseQuantity = (qty: string) => {
+    if (!qty) return { value: '', unit: 'viên' };
+    const match = qty.match(/^(\d+)\s*(\w+)$/);
+    if (match) {
+      return { value: match[1], unit: match[2] === 'ml' ? 'lọ' : match[2] };
+    }
+    return { value: qty, unit: 'viên' };
   };
 
-  const route = useRoute();
-  // @ts-ignore
-  const token = route.params?.token || '';
-  // @ts-ignore
-  const userId = route.params?.userId || '';
+  const parsedQty = parseQuantity(medicine.quantity);
+  
+  // Parse times từ medicine.times array
+  const initialTimeDosages: { [key: string]: string } = {};
+  const initialSelectedTimes: string[] = [];
+  const timeMapping: { [key: string]: string } = {
+    'Sáng': 'morning',
+    'Chiều': 'afternoon',
+    'Tối': 'evening'
+  };
+
+  if (medicine.times && Array.isArray(medicine.times)) {
+    medicine.times.forEach((t: any) => {
+      const timeId = timeMapping[t.time];
+      if (timeId) {
+        initialSelectedTimes.push(timeId);
+        // Extract số từ dosage, vd: "1 ml" -> "1"
+        const dosageMatch = t.dosage.match(/^(\d+)/);
+        initialTimeDosages[timeId] = dosageMatch ? dosageMatch[1] : '';
+      }
+    });
+  }
+
+  const [name, setName] = useState(medicine.name || '');
+  const [dosage, setDosage] = useState(parsedQty.value);
+  const [selectedUnit, setSelectedUnit] = useState(parsedQty.unit);
+  const [showUnitPicker, setShowUnitPicker] = useState(false);
+  const [note, setNote] = useState(medicine.note || '');
+  const [selectedTimes, setSelectedTimes] = useState<string[]>(initialSelectedTimes);
+  const [timeDosages, setTimeDosages] = useState<{ [key: string]: string }>(initialTimeDosages);
 
   const toggleTimeSlot = (timeId: string) => {
     setSelectedTimes(prev =>
@@ -61,17 +77,13 @@ const AddMedicineScreen: React.FC = () => {
     }));
   };
 
-  const handleAddMedicine = async () => {
-    if (!medicineName || !dosage) {
+  const handleUpdate = async () => {
+    if (!name || !dosage) {
       Alert.alert('Vui lòng nhập đầy đủ thông tin thuốc!');
       return;
     }
     if (selectedTimes.length === 0) {
       Alert.alert('Vui lòng chọn ít nhất một thời gian uống!');
-      return;
-    }
-    if (!token || !userId) {
-      Alert.alert('Lỗi', 'Không tìm thấy thông tin đăng nhập. Vui lòng đăng nhập lại.');
       return;
     }
 
@@ -87,9 +99,9 @@ const AddMedicineScreen: React.FC = () => {
       return sum + (parseFloat(timeDosages[timeId]) || 0);
     }, 0);
     const totalQuantity = parseFloat(dosage) || 0;
+    const displayUnit = unitMapping[selectedUnit];
 
     if (totalDosage > totalQuantity) {
-      const displayUnit = unitMapping[selectedUnit];
       Alert.alert(
         'Lỗi liều lượng', 
         `Tổng liều lượng các buổi (${totalDosage} ${displayUnit}) vượt quá tổng số lượng (${totalQuantity} ${displayUnit})!\n\nVui lòng giảm liều lượng hoặc tăng tổng số lượng.`
@@ -98,10 +110,8 @@ const AddMedicineScreen: React.FC = () => {
     }
 
     try {
-      const displayUnit = unitMapping[selectedUnit];
-      
       // Map timeId sang tên tiếng Việt cho API
-      const timeMapping: { [key: string]: 'Sáng' | 'Chiều' | 'Tối' } = {
+      const timeReverseMapping: { [key: string]: 'Sáng' | 'Chiều' | 'Tối' } = {
         morning: 'Sáng',
         afternoon: 'Chiều',
         evening: 'Tối'
@@ -109,38 +119,25 @@ const AddMedicineScreen: React.FC = () => {
 
       // Tạo mảng times theo format API
       const times = selectedTimes.map(timeId => ({
-        time: timeMapping[timeId],
+        time: timeReverseMapping[timeId],
         dosage: `${timeDosages[timeId]} ${displayUnit}`
       }));
 
-      const dosageDetails = times.map(t => `${t.dosage}/${t.time.toLowerCase()}`).join(', ');
+      const token = await AsyncStorage.getItem('token');
+      if (!token) throw new Error('Không tìm thấy token');
+      
+      await MedicationService.updateMedication(medicine._id, {
+        name,
+        form: selectedUnit,
+        quantity: `${dosage} ${displayUnit}`,
+        times: times,
+        note: note || undefined,
+      }, token);
 
-      const data = {
-        userId,
-        name: medicineName,
-        form: selectedUnit, // viên, lọ, hộp...
-        quantity: `${dosage} ${displayUnit}`, // Tổng số lượng: "30 ml" hoặc "30 viên"
-        times: times, // [{time: 'Sáng', dosage: '1 ml'}, ...]
-        note: expiryDate || undefined,
-      };
-      
-      console.log('Data gửi lên API:', JSON.stringify(data, null, 2));
-      
-      await MedicationService.addMedication(data, token);
-      Alert.alert(
-        'Thêm thuốc thành công', 
-        `Tên: ${medicineName}\nTổng số: ${dosage} ${displayUnit}\nLiều lượng: ${dosageDetails}\nGhi chú: ${expiryDate || 'Không có'}`
-      );
-      setMedicineName('');
-      setDosage('');
-      setQuantity('');
-      setMinQuantity('');
-      setExpiryDate('');
-      setSelectedTimes([]);
-      setSelectedUnit('viên');
-      setTimeDosages({ morning: '', afternoon: '', evening: '' });
-    } catch (error: any) {
-      Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể thêm thuốc.');
+      Alert.alert('Thành công', 'Đã cập nhật thông tin thuốc');
+      navigation.goBack();
+    } catch (err) {
+      Alert.alert('Lỗi', 'Cập nhật thuốc thất bại!');
     }
   };
 
@@ -150,28 +147,28 @@ const AddMedicineScreen: React.FC = () => {
     <KeyboardAvoidingView 
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
     >
       <ScrollView 
-        style={styles.scrollView}
+        style={styles.scrollView} 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.card}>
-          <Text style={styles.title}>Thêm thuốc mới</Text>
+          <Text style={styles.title}>Chỉnh sửa thông tin thuốc</Text>
           {/* Tên thuốc */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Tên thuốc</Text>
             <TextInput
               style={styles.input}
               placeholder="VD: Amlodipine"
-              value={medicineName}
-              onChangeText={setMedicineName}
+              value={name}
+              onChangeText={setName}
               placeholderTextColor="#B6D5FA"
             />
           </View>
-          {/* Số lượng */}
+          {/* Tổng số lượng */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Tổng số lượng</Text>
             <View style={{flexDirection: 'row', gap: 8, alignItems: 'center'}}>
@@ -217,8 +214,8 @@ const AddMedicineScreen: React.FC = () => {
             <TextInput
               style={styles.input}
               placeholder="Nhập ghi chú"
-              value={expiryDate}
-              onChangeText={setExpiryDate}
+              value={note}
+              onChangeText={setNote}
               placeholderTextColor="#B6D5FA"
               keyboardType="default"
             />
@@ -268,25 +265,15 @@ const AddMedicineScreen: React.FC = () => {
             </View>
           )}
 
-          {/* Nút thêm thuốc */}
+          {/* Nút lưu thay đổi */}
           <TouchableOpacity
-            style={[styles.addBtn, !(medicineName && dosage && selectedTimes.length > 0) && {backgroundColor: '#B6D5FA'}]}
-            onPress={handleAddMedicine}
-            disabled={!(medicineName && dosage && selectedTimes.length > 0)}
+            style={[styles.saveButton, !(name && dosage && selectedTimes.length > 0) && {backgroundColor: '#B6D5FA'}]}
+            onPress={handleUpdate}
+            disabled={!(name && dosage && selectedTimes.length > 0)}
           >
-            <Feather name="plus" size={20} color={medicineName && dosage && selectedTimes.length > 0 ? '#fff' : '#3B82F6'} />
-            <Text style={{color: medicineName && dosage && selectedTimes.length > 0 ? '#fff' : '#3B82F6', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Thêm thuốc</Text>
+            <Feather name="edit" size={20} color={name && dosage && selectedTimes.length > 0 ? '#fff' : '#3B82F6'} />
+            <Text style={{color: name && dosage && selectedTimes.length > 0 ? '#fff' : '#3B82F6', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Lưu thay đổi</Text>
           </TouchableOpacity>
-        
-          {/* Nút chụp ảnh thuốc */}
-          <TouchableOpacity
-            style={styles.captureBtn}
-            onPress={handleCaptureMedicine}
-          >
-            <MaterialIcons name="photo-camera" size={20} color="#3B82F6" />
-            <Text style={{color: '#3B82F6', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Chụp ảnh thuốc</Text>
-          </TouchableOpacity>
-
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -305,18 +292,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingTop: 48,
     paddingBottom: 20,
-  },
-  captureBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F0F6FF',
-    borderRadius: 12,
-    paddingVertical: 14,
-    marginTop: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#B6D5FA',
   },
   card: {
     backgroundColor: '#fff',
@@ -355,16 +330,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1E293B',
   },
-  dateInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0F6FF',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#B6D5FA',
-    padding: 12,
-    minHeight: 48,
-  },
   timeBtn: {
     flex: 1,
     backgroundColor: '#F0F6FF',
@@ -379,7 +344,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#B6D5FA',
     borderColor: '#3B82F6',
   },
-  addBtn: {
+  saveButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -456,4 +421,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AddMedicineScreen;
+export default EditMedicineRelative;

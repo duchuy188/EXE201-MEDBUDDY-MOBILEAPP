@@ -60,6 +60,7 @@ const ForgotPasswordScreen = ({ route, navigation }: any) => {
           Nhập email của bạn để nhận mã OTP đặt lại mật khẩu
         </Text>
         
+        <Text style={styles.label}>Email </Text>
         <TextInput
           style={styles.input}
           placeholder="Nhập email của bạn"
@@ -125,6 +126,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 20,
   },
+  label: {
+    fontSize: 15,
+    color: '#1E3A5F',
+    marginBottom: 6,
+    marginLeft: 2,
+    fontWeight: '500',
+  },
   input: {
     width: '100%',
     borderWidth: 1,
@@ -134,6 +142,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     fontSize: 16,
     backgroundColor: '#F7FAFC',
+    color: '#1E3A5F',
   },
   message: {
     marginBottom: 15,

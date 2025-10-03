@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -9,50 +10,55 @@ const LoginScreen = ({ navigation }: any) => {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Icon lớn */}
-      <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.iconCircle}>
-        <Ionicons name="heart-outline" size={48} color="#fff" />
-      </LinearGradient>
-      {/* Tiêu đề */}
-      <Text style={styles.title}>HAP MEDBUDDY</Text>
-      <Text style={styles.subtitle}>Chọn loại tài khoản để đăng nhập</Text>
-
-      {/* Card Người bệnh */}
-      <View style={styles.card}>
-        <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.cardIconWrap}>
-          <Ionicons name="person-outline" size={36} color="#fff" />
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Icon lớn */}
+        <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.iconCircle}>
+          <Ionicons name="heart-outline" size={48} color="#fff" />
         </LinearGradient>
-        <Text style={styles.cardTitle}>Người bệnh</Text>
-        <Text style={styles.cardDesc}>Theo dõi thuốc và huyết áp của bạn</Text>
-        <TouchableOpacity style={styles.loginBtn} onPress={() => handleLoginPress('patient')}>
-          <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.loginBtnGradient}>
-            <Text style={styles.loginBtnText}>Đăng nhập</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+        {/* Tiêu đề */}
+        <Text style={styles.title}>HAP MEDBUDDY</Text>
+        <Text style={styles.subtitle}>Chọn loại tài khoản để đăng nhập</Text>
 
-      {/* Card Người thân */}
-      <View style={styles.card}>
-        <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.cardIconWrap}>
-          <MaterialCommunityIcons name="shield-account-outline" size={36} color="#fff" />
-        </LinearGradient>
-        <Text style={styles.cardTitle}>Người thân</Text>
-        <Text style={styles.cardDesc}>Theo dõi sức khỏe người thân yêu</Text>
-        <TouchableOpacity style={styles.loginBtn} onPress={() => handleLoginPress('relative')}>
-          <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.loginBtnGradient}>
-            <Text style={styles.loginBtnText}>Đăng nhập</Text>
+        {/* Card Người bệnh */}
+        <View style={styles.card}>
+          <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.cardIconWrap}>
+            <Ionicons name="person-outline" size={36} color="#fff" />
           </LinearGradient>
-        </TouchableOpacity>
-      </View>
-      {/* Đăng ký */}
-      <View style={styles.registerWrap}>
-        <Text style={styles.registerText}>Chưa có tài khoản?</Text>
-        <TouchableOpacity style={styles.registerBtn} onPress={() => navigation.navigate('RegisterType')}>
-          <Text style={styles.registerBtnText}>Đăng ký ngay</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+          <Text style={styles.cardTitle}>Người bệnh</Text>
+          <Text style={styles.cardDesc}>Theo dõi thuốc và huyết áp của bạn</Text>
+          <TouchableOpacity style={styles.loginBtn} onPress={() => handleLoginPress('patient')}>
+            <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.loginBtnGradient}>
+              <Text style={styles.loginBtnText}>Đăng nhập</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
+        {/* Card Người thân */}
+        <View style={styles.card}>
+          <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.cardIconWrap}>
+            <MaterialCommunityIcons name="shield-account-outline" size={36} color="#fff" />
+          </LinearGradient>
+          <Text style={styles.cardTitle}>Người thân</Text>
+          <Text style={styles.cardDesc}>Theo dõi sức khỏe người thân yêu</Text>
+          <TouchableOpacity style={styles.loginBtn} onPress={() => handleLoginPress('relative')}>
+            <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.loginBtnGradient}>
+              <Text style={styles.loginBtnText}>Đăng nhập</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+        {/* Đăng ký */}
+        <View style={styles.registerWrap}>
+          <Text style={styles.registerText}>Chưa có tài khoản?</Text>
+          <TouchableOpacity style={styles.registerBtn} onPress={() => navigation.navigate('RegisterType')}>
+            <Text style={styles.registerBtnText}>Đăng ký ngay</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -60,8 +66,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F0F8FF',
+  },
+  scrollContainer: {
+    flexGrow: 1,
     alignItems: 'center',
     paddingTop: 48,
+    paddingBottom: 30,
   },
   iconCircle: {
     width: 80,

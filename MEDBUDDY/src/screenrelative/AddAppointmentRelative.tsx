@@ -4,7 +4,7 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import AppointmentService from '../api/Appointments';
 
-const AddAppointmentScreen = () => {
+const AddAppointmentRelative = () => {
   const route = useRoute();
   const navigation = useNavigation();
   const { token, userId } = route.params as { token: string; userId: string };
@@ -255,4 +255,4 @@ const styles = StyleSheet.create({
   }
 });
 
-export default AddAppointmentScreen;
+export default AddAppointmentRelative;

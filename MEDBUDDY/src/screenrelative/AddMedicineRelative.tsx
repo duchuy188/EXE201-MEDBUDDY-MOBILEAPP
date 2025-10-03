@@ -18,7 +18,7 @@ const unitMapping: { [key: string]: string } = {
   'gói': 'gói'
 };
 
-const AddMedicineScreen: React.FC = () => {
+const AddMedicineRelative: React.FC = () => {
   const navigation = useNavigation();
   const [medicineName, setMedicineName] = useState('');
   const [dosage, setDosage] = useState('');
@@ -456,4 +456,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AddMedicineScreen;
+export default AddMedicineRelative;

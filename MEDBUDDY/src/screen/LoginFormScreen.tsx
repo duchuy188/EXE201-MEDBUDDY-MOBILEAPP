@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import messaging from '@react-native-firebase/messaging';
-import { Ionicons } from '@expo/vector-icons'; // Thêm dòng này
+import { Ionicons } from '@expo/vector-icons';
 
 import AuthService from '../api/authService';
 import NotificationService, { SaveTokenRequest } from '../api/Notifications';
@@ -14,7 +14,7 @@ const LoginFormScreen = ({ route, navigation }: any) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false); // Thêm state này
+  const [showPassword, setShowPassword] = useState(false);
 
   if (!accountType) {
     return (
@@ -45,28 +45,6 @@ const LoginFormScreen = ({ route, navigation }: any) => {
 
         if (result.user?._id) {
           await AsyncStorage.setItem('userId', result.user._id);
-
-          try {
-            // 🚀 Lấy deviceToken từ Firebase
-            await messaging().requestPermission();
-            const deviceToken = await messaging().getToken();
-
-            if (deviceToken) {
-              await AsyncStorage.setItem('deviceToken', deviceToken);
-
-              // Gửi deviceToken lên backend
-              const saveTokenData: SaveTokenRequest = {
-                userId: result.user._id,
-                deviceToken,
-              };
-              const response = await NotificationService.saveToken(saveTokenData, result.accessToken);
-              console.log('>>> Gửi deviceToken thành công:', deviceToken, response);
-            } else {
-              console.warn('>>> Không lấy được deviceToken!');
-            }
-          } catch (err) {
-            console.warn('>>> Lỗi khi lấy hoặc gửi deviceToken:', err);
-          }
         }
       }
 
@@ -80,13 +58,43 @@ const LoginFormScreen = ({ route, navigation }: any) => {
 
       if (isLoginSuccess) {
         const apiRole = result.user?.role;
-        if (
-          (accountType === 'patient' && apiRole === 'patient') ||
-          (accountType === 'relative' && (apiRole === 'relative' || apiRole === 'family'))
-        ) {
+        
+        if (accountType === 'patient' && apiRole === 'patient') {
+          // 🚀 Chỉ gửi deviceToken khi role là patient
+          try {
+            await messaging().requestPermission();
+            const deviceToken = await messaging().getToken();
+
+            if (deviceToken) {
+              await AsyncStorage.setItem('deviceToken', deviceToken);
+
+              // Gửi deviceToken lên backend cho patient
+              const saveTokenData: SaveTokenRequest = {
+                userId: result.user._id,
+                deviceToken,
+              };
+              const response = await NotificationService.saveToken(saveTokenData, result.accessToken);
+              console.log('>>> Gửi deviceToken thành công cho patient:', deviceToken, response);
+            } else {
+              console.warn('>>> Không lấy được deviceToken!');
+            }
+          } catch (err) {
+            console.warn('>>> Lỗi khi lấy hoặc gửi deviceToken:', err);
+          }
+
           setError('');
           navigation.replace('MainTab', {
-            userType: apiRole === 'family' ? 'relative' : apiRole,
+            userType: 'patient',
+            token: result.accessToken,
+            userId: result.user?._id,
+          });
+        } else if (accountType === 'relative' && (apiRole === 'relative' || apiRole === 'family')) {
+          // ❌ Không gửi deviceToken cho relative
+          console.log('>>> Relative đăng nhập thành công - không gửi deviceToken');
+          
+          setError('');
+          navigation.replace('RelativeTab', {
+            userType: 'relative',
             token: result.accessToken,
             userId: result.user?._id,
           });
@@ -104,77 +112,88 @@ const LoginFormScreen = ({ route, navigation }: any) => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.contentContainer}>
-        <Image 
-          source={require('../../assets/top_7_app_nhac_nho_uong_thuoc_giup_ban_quan_ly_suc_khoe_hieu_qua_32782764ba.jpg')}
-          style={styles.topImage}
-          resizeMode="cover"
-        />
-        <Text style={styles.title}>
-          Đăng nhập {accountType === 'patient' ? 'Người bệnh' : 'Người thân'}
-        </Text>
-
-        {/* Email label + input */}
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Nhập email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-
-        {/* Mật khẩu label + input + icon con mắt */}
-        <Text style={styles.label}>Mật khẩu</Text>
-        <View style={styles.passwordContainer}>
-          <TextInput
-            style={styles.inputPassword}
-            placeholder="Nhập mật khẩu"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
+      <ScrollView 
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.contentContainer}>
+          <Image 
+            source={require('../../assets/top_7_app_nhac_nho_uong_thuoc_giup_ban_quan_ly_suc_khoe_hieu_qua_32782764ba.jpg')}
+            style={styles.topImage}
+            resizeMode="cover"
           />
-          <TouchableOpacity
-            style={styles.eyeIcon}
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            <Ionicons
-              name={showPassword ? 'eye' : 'eye-off'}
-              size={22}
-              color="#4A90C2"
+          <Text style={styles.title}>
+            Đăng nhập {accountType === 'patient' ? 'Người bệnh' : 'Người thân'}
+          </Text>
+
+          {/* Email label + input */}
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Nhập email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+
+          {/* Mật khẩu label + input + icon con mắt */}
+          <Text style={styles.label}>Mật khẩu</Text>
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.inputPassword}
+              placeholder="Nhập mật khẩu"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
             />
+            <TouchableOpacity
+              style={styles.eyeIcon}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Ionicons
+                name={showPassword ? 'eye' : 'eye-off'}
+                size={22}
+                color="#4A90C2"
+              />
+            </TouchableOpacity>
+          </View>
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <TouchableOpacity 
+            style={styles.forgotPassword}
+            onPress={() => navigation.navigate('ForgotPassword', { accountType })}
+          >
+            <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.loginBtn} onPress={handleLogin} disabled={loading}>
+            <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.loginBtnGradient}>
+              <Text style={styles.loginBtnText}>
+                {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>Quay lại</Text>
           </TouchableOpacity>
         </View>
-
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-        <TouchableOpacity 
-          style={styles.forgotPassword}
-          onPress={() => navigation.navigate('ForgotPassword', { accountType })}
-        >
-          <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.loginBtn} onPress={handleLogin} disabled={loading}>
-          <LinearGradient colors={["#4A90C2", "#7ED6F5"]} style={styles.loginBtnGradient}>
-            <Text style={styles.loginBtnText}>
-              {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-            </Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>Quay lại</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F0F8FF' },
+  scrollContainer: { flexGrow: 1 },
   contentContainer: { flex: 1, padding: 20, justifyContent: 'center' },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F0F8FF' },
   errorCenter: { color: '#f44336', fontSize: 16, marginBottom: 12 },

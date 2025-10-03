@@ -16,6 +16,8 @@ export interface Medication {
   times: MedicationTime[]; // Mảng các buổi uống và liều lượng
   expirationDate?: string;
   createdAt?: string;
+  createdBy?: string; // ID của người tạo thuốc (ObjectId reference to User)
+  createdByType?: 'patient' | 'relative'; // Loại người tạo
 }
 
 class MedicationService {
