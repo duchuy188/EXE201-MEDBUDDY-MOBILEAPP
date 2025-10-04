@@ -29,7 +29,7 @@ interface Package {
   updatedAt: string;
 }
 
-const PackageRelative = () => {
+const PackageScreen = () => {
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -303,7 +303,7 @@ const PackageRelative = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F0F6FF',
   },
   centerContainer: {
     flex: 1,
@@ -419,4 +419,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default PackageRelative;
+export default PackageScreen;

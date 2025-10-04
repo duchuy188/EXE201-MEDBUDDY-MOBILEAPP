@@ -14,7 +14,7 @@ import ArticleListRelative from '../screenrelative/ArticleListRelative';
 import MedicationsRelative from '../screenrelative/MedicationsRelative';
 import AppointmentsRelative from '../screenrelative/AppointmentsRelative';
 import AddAppointmentRelative from '../screenrelative/AddAppointmentRelative';
-import MedicationScheduleRelative from '../screenrelative/MedicationScheduleRelative';
+// import MedicationScheduleRelative from '../screenrelative/MedicationScheduleRelative';
 import AddReminderRelative from '../screenrelative/AddReminderRelative';
 import EditAppointmentRelative from '../screenrelative/EditAppointmentRelative';
 import EditMedicineRelative from '../screenrelative/EditMedicineRelative';
@@ -24,6 +24,7 @@ import ConfirmRelativeOTPRelative from '../screenrelative/ConfirmRelativeOTPRela
 import HealthTrackingRelative from '../screenrelative/HealthTrackingRelative';
 import EditReminderRelative from '../screenrelative/EditReminderRelative';
 import PackageRelative from '../screenrelative/PackageRelative';
+import RemindersRelative from '../screenrelative/RemindersRelative';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -77,11 +78,11 @@ export default function RelativeTabNavigator({ route }: any) {
             component={AddMedicineRelative}
             initialParams={{ userType, token, userId }}
           />
-          <Tab.Screen
+          {/* <Tab.Screen
             name="Lịch chăm sóc"
             component={MedicationScheduleRelative}
             initialParams={{ userType, token, userId }}
-          />
+          /> */}
           <Tab.Screen
             name="Báo cáo sức khỏe"
             component={HealthStatisticsRelative}
@@ -182,6 +183,12 @@ export default function RelativeTabNavigator({ route }: any) {
         name="PackageScreen"
         component={PackageRelative}
         options={{ headerShown: true, title: 'Gói dịch vụ người thân' }}
+      />
+      <Stack.Screen 
+        name="MedicationSchedule" 
+        component={RemindersRelative} 
+        initialParams={{ token, userId }}
+        options={{ headerShown: true, title: 'Lịch hẹn uống thuốc' }} 
       />
     </Stack.Navigator>
   );

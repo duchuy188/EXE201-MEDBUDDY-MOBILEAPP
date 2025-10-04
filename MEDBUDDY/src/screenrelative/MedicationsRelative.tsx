@@ -136,7 +136,7 @@ const MedicationsRelative = ({ route, navigation }: any) => {
     } catch (error: any) {
       console.error('Error fetching patients:', error);
       console.error('Error details:', error.response?.data || error.message);
-      Alert.alert('Lỗi', `Không thể lấy danh sách bệnh nhân: ${error.response?.data?.message || error.message}`);
+      Alert.alert('Lỗi', `Không thể lấy danh sách người bệnh: ${error.response?.data?.message || error.message}`);
     }
   };
 
@@ -167,7 +167,7 @@ const MedicationsRelative = ({ route, navigation }: any) => {
     try {
       const token = await AsyncStorage.getItem('token');
       if (!token || !selectedPatient?._id) {
-        Alert.alert('Lỗi', 'Không tìm thấy thông tin xác thực hoặc bệnh nhân');
+        Alert.alert('Lỗi', 'Không tìm thấy thông tin xác thực hoặc người bệnh');
         return;
       }
 
@@ -262,7 +262,7 @@ const MedicationsRelative = ({ route, navigation }: any) => {
       {/* Patient Selector */}
       <View style={styles.patientSelectorContainer}>
         <View style={styles.selectorHeaderRow}>
-          <Text style={styles.selectorLabel}>Chọn bệnh nhân:</Text>
+          <Text style={styles.selectorLabel}>Chọn người bệnh:</Text>
           <TouchableOpacity
             style={styles.refreshButton}
             onPress={() => {
@@ -283,7 +283,7 @@ const MedicationsRelative = ({ route, navigation }: any) => {
               ? (selectedPatient.fullName 
                   ? `${selectedPatient.fullName}` 
                   : selectedPatient.email)
-              : 'Chọn bệnh nhân'
+              : 'Chọn người bệnh'
             }
           </Text>
           <MaterialIcons name="arrow-drop-down" size={24} color="#4A7BA7" />
@@ -300,7 +300,7 @@ const MedicationsRelative = ({ route, navigation }: any) => {
         <View style={styles.modalOverlay}>
           <View style={styles.patientModal}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chọn bệnh nhân</Text>
+              <Text style={styles.modalTitle}>Chọn người bệnh</Text>
               <TouchableOpacity onPress={() => setShowPatientSelector(false)}>
                 <MaterialIcons name="close" size={24} color="#374151" />
               </TouchableOpacity>
@@ -329,14 +329,14 @@ const MedicationsRelative = ({ route, navigation }: any) => {
                   )}
                   {item.dateOfBirth && (
                     <Text style={styles.patientBirth}>
-                      Sinh: {new Date(item.dateOfBirth).toLocaleDateString('vi-VN')}
+                      Sinh nhật: {new Date(item.dateOfBirth).toLocaleDateString('vi-VN')}
                     </Text>
                   )}
                 </TouchableOpacity>
               )}
               ListEmptyComponent={
                 <View style={styles.emptyPatientsContainer}>
-                  <Text style={styles.emptyPatientsText}>Chưa có bệnh nhân nào</Text>
+                  <Text style={styles.emptyPatientsText}>Chưa có người bệnh nào</Text>
                   <TouchableOpacity
                     style={styles.addPatientButton}
                     onPress={() => {
@@ -344,7 +344,7 @@ const MedicationsRelative = ({ route, navigation }: any) => {
                       navigation.navigate('AddRelative');
                     }}
                   >
-                    <Text style={styles.addPatientButtonText}>+ Thêm bệnh nhân mới</Text>
+                    <Text style={styles.addPatientButtonText}>+ Thêm người bệnh mới</Text>
                   </TouchableOpacity>
                 </View>
               }
@@ -359,11 +359,11 @@ const MedicationsRelative = ({ route, navigation }: any) => {
             source={require('../../assets/pill-icon.png')}
             style={styles.icon}
           />
-          <Text style={styles.emptyMessage}>Vui lòng chọn bệnh nhân để xem danh sách thuốc</Text>
+          <Text style={styles.emptyMessage}>Vui lòng chọn người bệnh để xem danh sách thuốc</Text>
           <Text style={styles.emptySubMessage}>
             {patients.length === 0 
-              ? 'Chưa có bệnh nhân nào được thêm. Hãy thêm bệnh nhân mới để bắt đầu.'
-              : 'Hãy chọn một bệnh nhân từ danh sách trên.'
+              ? 'Chưa có người bệnh nào được thêm. Hãy thêm người bệnh mới để bắt đầu.'
+              : 'Hãy chọn một người bệnh từ danh sách trên.'
             }
           </Text>
           {patients.length === 0 && (
@@ -372,7 +372,7 @@ const MedicationsRelative = ({ route, navigation }: any) => {
               onPress={() => navigation.navigate('AddRelative')}
             >
               <MaterialIcons name="person-add" size={24} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={styles.addPatientMainButtonText}>Thêm bệnh nhân đầu tiên</Text>
+              <Text style={styles.addPatientMainButtonText}>Thêm người bệnh đầu tiên</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -488,7 +488,7 @@ const MedicationsRelative = ({ route, navigation }: any) => {
                 // Xóa thuốc
                 (async () => {
                   try {
-                    if (!modalMedication?._id || !selectedPatient?._id) throw new Error('Không tìm thấy thông tin thuốc hoặc bệnh nhân');
+                    if (!modalMedication?._id || !selectedPatient?._id) throw new Error('Không tìm thấy thông tin thuốc hoặc người bệnh');
                     const token = await AsyncStorage.getItem('token');
                     if (!token) throw new Error('Không tìm thấy token');
                     await RelativePatientService.deletePatientMedication(selectedPatient._id, modalMedication._id, token);
@@ -566,7 +566,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#F0F6FF',
   },
   title: {
     fontSize: 20,
@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#fff',
   },
   itemName: {
     fontSize: 18,

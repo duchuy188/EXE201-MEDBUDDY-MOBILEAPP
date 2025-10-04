@@ -110,7 +110,7 @@ const EditAppointmentRelative = ({ route, navigation }: any) => {
     const patientToUse = selectedPatient || currentSelectedPatient;
     
     if (!patientToUse) {
-      Alert.alert('Thông báo', 'Vui lòng chọn bệnh nhân');
+      Alert.alert('Thông báo', 'Vui lòng chọn người bệnh');
       return;
     }
 
@@ -155,7 +155,7 @@ const EditAppointmentRelative = ({ route, navigation }: any) => {
           {!selectedPatient && (
             <View style={styles.inputGroup}>
               <View style={styles.selectorHeaderRow}>
-                <Text style={styles.label}>Chọn bệnh nhân:</Text>
+                <Text style={styles.label}>Chọn người bệnh:</Text>
                 <TouchableOpacity
                   style={styles.refreshButton}
                   onPress={fetchPatients}
@@ -171,7 +171,7 @@ const EditAppointmentRelative = ({ route, navigation }: any) => {
                 <Text style={styles.patientSelectorText}>
                   {currentSelectedPatient 
                     ? currentSelectedPatient.fullName || currentSelectedPatient.email
-                    : 'Chọn bệnh nhân'
+                    : 'Chọn người bệnh'
                   }
                 </Text>
                 <MaterialIcons name="arrow-drop-down" size={24} color="#3B82F6" />
@@ -179,18 +179,12 @@ const EditAppointmentRelative = ({ route, navigation }: any) => {
             </View>
           )}
 
-          {/* Hiển thị thông tin bệnh nhân đã chọn */}
+          {/* Hiển thị thông tin người bệnh đã chọn */}
           {selectedPatient && (
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Bệnh nhân:</Text>
+              <Text style={styles.label}>Người bệnh:</Text>
               <View style={styles.selectedPatientInfo}>
                 <Text style={styles.selectedPatientName}>{selectedPatient.fullName}</Text>
-                {selectedPatient.email && (
-                  <Text style={styles.selectedPatientDetail}>📧 {selectedPatient.email}</Text>
-                )}
-                {selectedPatient.phone && (
-                  <Text style={styles.selectedPatientDetail}>📱 {selectedPatient.phone}</Text>
-                )}
               </View>
             </View>
           )}
@@ -298,7 +292,7 @@ const EditAppointmentRelative = ({ route, navigation }: any) => {
         <View style={styles.modalOverlay}>
           <View style={styles.patientModalContent}>
             <View style={styles.patientModalHeader}>
-              <Text style={styles.patientModalTitle}>Chọn bệnh nhân</Text>
+              <Text style={styles.patientModalTitle}>Chọn người bệnh</Text>
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={() => setShowPatientModal(false)}
@@ -340,7 +334,7 @@ const EditAppointmentRelative = ({ route, navigation }: any) => {
               )}
               ListEmptyComponent={
                 <View style={styles.emptyList}>
-                  <Text style={styles.emptyListText}>Không có bệnh nhân nào</Text>
+                  <Text style={styles.emptyListText}>Không có người bệnh nào</Text>
                 </View>
               }
             />

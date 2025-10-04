@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { User } from '../api/user';
 import UserService from '../api/user';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 
 const UserDetailRelative = ({ navigation, route }: any) => {
@@ -16,6 +16,12 @@ const UserDetailRelative = ({ navigation, route }: any) => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  // State cho date picker
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(
+    user?.dateOfBirth ? new Date(user.dateOfBirth) : new Date()
+  );
+  
   const user = route.params?.user;
   const [firstName, setFirstName] = useState(user?.fullName?.split(' ')[0] || '');
   const [lastName, setLastName] = useState(user?.fullName?.split(' ').slice(1).join(' ') || '');
@@ -28,6 +34,7 @@ const UserDetailRelative = ({ navigation, route }: any) => {
   const [loading, setLoading] = useState(false);
   const [avatarModalVisible, setAvatarModalVisible] = useState(false);
   const [avatar, setAvatar] = useState(user?.avatar || '');
+
 
   const handleEdit = () => setIsEditing(true);
 
@@ -105,8 +112,25 @@ const UserDetailRelative = ({ navigation, route }: any) => {
     }
   };
 
+  // Hàm xử lý khi chọn ngày
+  const handleDateChange = (event: any, date?: Date) => {
+    setShowDatePicker(false);
+    if (date) {
+      setSelectedDate(date);
+      const formattedDate = date.toISOString().substring(0, 10);
+      setBirth(formattedDate);
+    }
+  };
+
+  // Hàm mở date picker
+  const openDatePicker = () => {
+    if (isEditing) {
+      setShowDatePicker(true);
+    }
+  };
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F0F6FF' }}>
       <TouchableOpacity style={styles.backArrow} onPress={() => navigation.goBack()}>
         <Ionicons name="arrow-back" size={28} color="#222" />
       </TouchableOpacity>
@@ -196,16 +220,40 @@ const UserDetailRelative = ({ navigation, route }: any) => {
               keyboardType="phone-pad"
             />
             <Text style={styles.label}>Ngày sinh</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: isEditing ? '#f8f8f8' : '#eee' }]}
-              placeholder="Ngày sinh (YYYY-MM-DD)"
-              value={birth}
-              onChangeText={setBirth}
-              editable={isEditing}
-            />
+            <TouchableOpacity 
+              style={[
+                styles.input, 
+                styles.datePickerButton,
+                { backgroundColor: isEditing ? '#f8f8f8' : '#eee' }
+              ]} 
+              onPress={openDatePicker}
+              disabled={!isEditing}
+            >
+              <Text style={[
+                styles.dateText, 
+                { color: birth ? '#222' : '#999' }
+              ]}>
+                {birth || 'Chọn ngày sinh'}
+              </Text>
+              {isEditing && (
+                <Ionicons name="calendar-outline" size={20} color="#666" />
+              )}
+            </TouchableOpacity>
+            
+            {showDatePicker && (
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleDateChange}
+                maximumDate={new Date()}
+                minimumDate={new Date(1920, 0, 1)}
+              />
+            )}
+            
             {!isEditing && (
               <TouchableOpacity style={styles.changePasswordBtn} onPress={() => setPasswordModalVisible(true)}>
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Thay đổi mật khẩu</Text>
+                <Text style={{ color: '#2563EB', fontWeight: 'bold', fontSize: 16 }}>Thay đổi mật khẩu</Text>
               </TouchableOpacity>
             )}
             
@@ -315,7 +363,7 @@ const UserDetailRelative = ({ navigation, route }: any) => {
                       }}
                       disabled={loading}
                     >
-                      <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Lưu</Text>
+                      <Text style={{ color: '#2563EB', fontWeight: 'bold', fontSize: 16 }}>Lưu</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.cancelBtn, { width: '100%', marginTop: 8 }]} 
@@ -339,7 +387,7 @@ const UserDetailRelative = ({ navigation, route }: any) => {
             {isEditing && (
               <>
                 <TouchableOpacity style={[styles.saveBtn, loading && { opacity: 0.7 }]} onPress={handleSave} disabled={loading}>
-                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Lưu</Text>
+                  <Text style={{ color: '#2563EB', fontWeight: 'bold', fontSize: 16 }}>Lưu</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.cancelBtn, { width: '100%', marginTop: 8 }]} onPress={() => { setIsEditing(false); }}>
                   <Text style={styles.cancelText}>Hủy</Text>
@@ -474,7 +522,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   changePasswordBtn: {
-    backgroundColor: '#183153',
+    backgroundColor: '#B6D5FA',
     borderRadius: 8,
     alignItems: 'center',
     paddingVertical: 14,
@@ -510,7 +558,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   saveBtn: {
-    backgroundColor: '#183153',
+    backgroundColor: '#B6D5FA',
     borderRadius: 8,
     alignItems: 'center',
     paddingVertical: 14,
@@ -522,6 +570,17 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     backgroundColor: '#e8eaf6',
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    height: 50,
+  },
+  dateText: {
+    fontSize: 16,
+    color: '#222',
   },
 });
 

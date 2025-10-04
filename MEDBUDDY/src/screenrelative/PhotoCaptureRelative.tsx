@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -115,12 +114,12 @@ const PhotoCaptureRelative: React.FC = () => {
             <Feather name="camera" size={48} color="#B6D5FA" style={{alignSelf: 'center'}} />
             <Text style={styles.desc}>Chụp ảnh hóa đơn thuốc để AI tự động nhận diện và thêm vào kho</Text>
             <TouchableOpacity style={styles.btn} onPress={pickImage}>
-              <Feather name="camera" size={18} color="#fff" />
+              <Feather name="camera" size={18} color="#2563EB" />
               <Text style={styles.btnText}>Chụp ảnh</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.btn, styles.btnOutline]} onPress={chooseFromLibrary}>
               <Feather name="image" size={18} color="#3B82F6" />
-              <Text style={[styles.btnText, {color: '#3B82F6'}]}>Chọn từ thư viện</Text>
+              <Text style={[styles.btnText, {color: '#2563EB'}]}>Chọn từ thư viện</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.tipCard}>
@@ -206,12 +205,12 @@ const PhotoCaptureRelative: React.FC = () => {
                   setExtractedData({ ...extractedData, medicines: editableMedicines });
                   handleAddToInventory();
                 }}>
-                  <Feather name="check-circle" size={18} color="#fff" />
+                  <Feather name="check-circle" size={18} color="#2563EB" />
                   <Text style={styles.btnText}>Thêm vào kho</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.btn, styles.btnOutline, {flex: 1, marginLeft: 8}]} onPress={handleRetake}>
-                  <Feather name="camera" size={18} color="#3B82F6" />
-                  <Text style={[styles.btnText, {color: '#3B82F6'}]}>Chụp lại</Text>
+                  <Feather name="camera" size={18} color="#2563EB" />
+                  <Text style={[styles.btnText, {color: '#2563EB'}]}>Chụp lại</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -242,9 +241,29 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: 'bold', color: '#1E293B', marginBottom: 18, textAlign: 'center' },
   card: { backgroundColor: '#fff', borderRadius: 18, padding: 22, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: '#B6D5FA' },
   desc: { color: '#64748B', fontSize: 15, textAlign: 'center', marginVertical: 12 },
-  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#3B82F6', borderRadius: 10, paddingVertical: 12, marginTop: 10 },
-  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16, marginLeft: 8 },
-  btnOutline: { backgroundColor: '#F0F6FF', borderWidth: 1, borderColor: '#3B82F6' },
+  btn: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    backgroundColor: '#B6D5FA', 
+    borderRadius: 12, 
+    paddingVertical: 16, 
+    paddingHorizontal: 24,
+    marginTop: 10,
+    width: '100%',
+    minHeight: 52
+  },
+  btnText: { 
+    color: '#2563EB', 
+    fontWeight: 'bold', 
+    fontSize: 16, 
+    marginLeft: 8 
+  },
+  btnOutline: { 
+    backgroundColor: '#F0F6FF', 
+    borderWidth: 1, 
+    borderColor: '#B6D5FA' 
+  },
   tipCard: { backgroundColor: '#E0F2FE', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#B6D5FA' },
   tipTitle: { fontWeight: 'bold', color: '#1E293B', marginBottom: 6 },
   tip: { color: '#3B82F6', fontSize: 14 },

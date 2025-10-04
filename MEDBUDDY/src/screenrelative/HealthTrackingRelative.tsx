@@ -152,14 +152,14 @@ const HealthTrackingRelative = ({ navigation }: any) => {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color="#000000ff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Người thân</Text>
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => navigation.navigate('AddRelative')}
         >
-          <Ionicons name="add" size={24} color="#fff" />
+          <Ionicons name="add" size={24} color="#000000ff" />
         </TouchableOpacity>
       </View>
 
@@ -276,10 +276,10 @@ const HealthTrackingRelative = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F0F6FF',
   },
   header: {
-    backgroundColor: '#4A7BA7',
+    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerTitle: {
-    color: '#fff',
+    color: '#000000ff',
     fontSize: 20,
     fontWeight: '600',
   },
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   userCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,

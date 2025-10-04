@@ -188,7 +188,7 @@ const AddReminderRelative = () => {
 
   const handleAddReminder = async () => {
     if (!selectedPatient) {
-      Alert.alert('Thông báo', 'Vui lòng chọn bệnh nhân');
+      Alert.alert('Thông báo', 'Vui lòng chọn người bệnh');
       return;
     }
 
@@ -270,7 +270,7 @@ const AddReminderRelative = () => {
 
       Alert.alert(
         'Thành công', 
-        `Đã thêm lịch nhắc uống thuốc cho bệnh nhân ${selectedPatient.fullName}`,
+        `Đã thêm lịch nhắc uống thuốc cho người bệnh ${selectedPatient.fullName}`,
         [
           {
             text: 'OK',
@@ -391,17 +391,17 @@ const AddReminderRelative = () => {
         <View style={styles.card}>
           <Text style={styles.title}>Thêm lịch nhắc uống thuốc</Text>
 
-          {/* Chỉ hiển thị chọn bệnh nhân nếu chưa có selectedPatient từ params */}
+          {/* Chỉ hiển thị chọn người bệnh nếu chưa có selectedPatient từ params */}
           {!paramSelectedPatient && (
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Chọn bệnh nhân</Text>
+              <Text style={styles.label}>Chọn người bệnh</Text>
               <TouchableOpacity 
                 style={[styles.input, { minHeight: 48, justifyContent: 'center' }]}
                 onPress={() => setShowPatientModal(true)}
               >
                 <View style={styles.patientSelector}>
                   <Text style={[styles.patientSelectorText, !selectedPatient && styles.placeholderText]}>
-                    {selectedPatient ? selectedPatient.fullName : 'Chọn bệnh nhân'}
+                    {selectedPatient ? selectedPatient.fullName : 'Chọn người bệnh'}
                   </Text>
                   <MaterialIcons name="arrow-drop-down" size={24} color="#64748B" />
                 </View>
@@ -409,10 +409,10 @@ const AddReminderRelative = () => {
             </View>
           )}
 
-          {/* Hiển thị thông tin bệnh nhân đã chọn nếu có từ params */}
+          {/* Hiển thị thông tin người bệnh đã chọn nếu có từ params */}
           {paramSelectedPatient && (
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Bệnh nhân</Text>
+              <Text style={styles.label}>Người bệnh</Text>
               <View style={[styles.input, { minHeight: 48, justifyContent: 'center', backgroundColor: '#F8FAFC' }]}>
                 <Text style={{ fontSize: 16, color: '#1E293B', fontWeight: '600' }}>
                   {selectedPatient?.fullName}
@@ -594,7 +594,7 @@ const AddReminderRelative = () => {
           >
             <Text style={styles.buttonText}>
               {!selectedPatient 
-                ? 'Chọn bệnh nhân để thêm lịch nhắc'
+                ? 'Chọn người bệnh để thêm lịch nhắc'
                 : Object.keys(selectedTimes).length > 0 
                   ? `Thêm ${Object.keys(selectedTimes).length} lịch nhắc cho ${selectedPatient.fullName}` 
                   : 'Thêm lịch nhắc'}
@@ -611,7 +611,7 @@ const AddReminderRelative = () => {
             <View style={styles.modalOverlay}>
               <View style={styles.modalContent}>
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Chọn bệnh nhân</Text>
+                  <Text style={styles.modalTitle}>Chọn người bệnh</Text>
                   <TouchableOpacity
                     style={styles.closeButton}
                     onPress={() => setShowPatientModal(false)}
@@ -650,7 +650,7 @@ const AddReminderRelative = () => {
                   )}
                   ListEmptyComponent={
                     <View style={styles.emptyList}>
-                      <Text style={styles.emptyText}>Không có bệnh nhân nào</Text>
+                      <Text style={styles.emptyText}>Không có người bệnh nào</Text>
                     </View>
                   }
                 />

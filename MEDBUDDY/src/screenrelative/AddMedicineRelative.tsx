@@ -96,7 +96,7 @@ const AddMedicineRelative: React.FC = () => {
       setPatients(patientsList);
     } catch (error: any) {
       console.error('Error fetching patients:', error);
-      Alert.alert('Lỗi', 'Không thể lấy danh sách bệnh nhân');
+      Alert.alert('Lỗi', 'Không thể lấy danh sách ngưởi bệnh');
     }
   };
 
@@ -130,7 +130,7 @@ const AddMedicineRelative: React.FC = () => {
       return;
     }
     if (!selectedPatient) {
-      Alert.alert('Lỗi', 'Vui lòng chọn bệnh nhân trước khi thêm thuốc.');
+      Alert.alert('Lỗi', 'Vui lòng chọn người bệnh trước khi thêm thuốc.');
       return;
     }
     if (!token) {
@@ -193,7 +193,7 @@ const AddMedicineRelative: React.FC = () => {
       await RelativePatientService.createMedicationForPatient(selectedPatient._id, data, token);
       Alert.alert(
         'Thêm thuốc thành công', 
-        `Bệnh nhân: ${selectedPatient.fullName}\nTên: ${medicineName}\nTổng số: ${dosage} ${displayUnit}\nLiều lượng: ${dosageDetails}\nGhi chú: ${expiryDate || 'Không có'}`
+        `Người bệnh: ${selectedPatient.fullName}\nTên: ${medicineName}\nTổng số: ${dosage} ${displayUnit}\nLiều lượng: ${dosageDetails}\nGhi chú: ${expiryDate || 'Không có'}`
       );
       setMedicineName('');
       setDosage('');
@@ -228,7 +228,7 @@ const AddMedicineRelative: React.FC = () => {
           
           {/* Patient Selector */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Chọn bệnh nhân</Text>
+            <Text style={styles.label}>Chọn người bệnh</Text>
             <TouchableOpacity
               style={styles.patientSelector}
               onPress={() => setShowPatientSelector(true)}
@@ -236,7 +236,7 @@ const AddMedicineRelative: React.FC = () => {
               <Text style={styles.patientSelectorText}>
                 {selectedPatient 
                   ? (selectedPatient.fullName || selectedPatient.email)
-                  : 'Chọn bệnh nhân'
+                  : 'Chọn nguời bệnh'
                 }
               </Text>
               <MaterialIcons name="arrow-drop-down" size={24} color="#4A7BA7" />
@@ -383,7 +383,7 @@ const AddMedicineRelative: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.patientModal}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chọn bệnh nhân</Text>
+              <Text style={styles.modalTitle}>Chọn người bệnh</Text>
               <TouchableOpacity onPress={() => setShowPatientSelector(false)}>
                 <MaterialIcons name="close" size={24} color="#374151" />
               </TouchableOpacity>
@@ -418,7 +418,7 @@ const AddMedicineRelative: React.FC = () => {
               )}
               ListEmptyComponent={
                 <View style={styles.emptyPatientsContainer}>
-                  <Text style={styles.emptyPatientsText}>Chưa có bệnh nhân nào</Text>
+                  <Text style={styles.emptyPatientsText}>Chưa có người bệnh nào</Text>
                   <TouchableOpacity
                     style={styles.addPatientButton}
                     onPress={() => {
@@ -427,7 +427,7 @@ const AddMedicineRelative: React.FC = () => {
                       navigation.navigate('AddRelative');
                     }}
                   >
-                    <Text style={styles.addPatientButtonText}>+ Thêm bệnh nhân mới</Text>
+                    <Text style={styles.addPatientButtonText}>+ Thêm người bệnh mới</Text>
                   </TouchableOpacity>
                 </View>
               }

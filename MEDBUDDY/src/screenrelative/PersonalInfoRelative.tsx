@@ -74,6 +74,12 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
       )
     },
     {
+      id: 'medication-schedule',
+      title: 'Lịch hẹn uống thuốc',
+      icon: 'time',
+      bgColor: '#F59E0B'
+    },
+    {
       id: 'health-trackers',
       title: 'Theo dõi sức khỏe & Đo lường',
       icon: 'pulse',
@@ -136,6 +142,8 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
         if (item.id === 'medications') {
           const medications = await fetchMedications();
           navigation.navigate('MedicationsScreen', { medications });
+          } else if (item.id === 'medication-schedule') {
+          navigation.navigate('MedicationSchedule');
         } else if (item.id === 'help-center') {
           navigation.navigate('HelpCenter');
         } else if (item.id === 'appointments') {
@@ -174,7 +182,7 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      {/* <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.userInfo}>
             {loading ? (
@@ -190,7 +198,7 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
           </View>
           <Ionicons name="add" size={24} color="#fff" />
         </View>
-      </View>
+      </View> */}
 
       {/* Main Content */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -247,7 +255,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     marginHorizontal: 16,
-    marginBottom: 32,
+    marginBottom: 100,
     marginTop: 8,
   },
   logoutText: {
@@ -256,8 +264,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   container: {
+    top: 50,
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F0F6FF',
   },
   header: {
     backgroundColor: '#4A7BA7',
@@ -293,7 +302,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   createAccountCard: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     marginVertical: 16,
@@ -348,7 +357,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   menuItem: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,

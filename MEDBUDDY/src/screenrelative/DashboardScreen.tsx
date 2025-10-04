@@ -57,32 +57,24 @@ interface DashboardScreenProps {
   return (
     <ScrollView style={styles.container}>
       {/* Header */}
-      <View style={styles.headerContainer}>
-        <LinearGradient 
-          colors={["#3B82F6", "#60A5FA"]} 
-          style={styles.headerGradient}
-        >
+      <View style={{marginBottom: 18}}>
+        <LinearGradient colors={userType === 'patient' ? ["#F0F6FF", "#F0F6FF"] : ["#F7B2B7", "#A8E6CF"]} style={styles.headerGradient}>
           <View style={styles.headerContent}>
             <View>
-              <Text style={styles.greeting}>
-                {userType === 'patient' ? 'Chào buổi sáng!' : 'Theo dõi người thân'}
-              </Text>
-              <Text style={styles.subtitle}>
-                {userType === 'patient' ? 'Hôm nay bạn cảm thấy thế nào?' : 'Tình trạng sức khỏe của mẹ'}
-              </Text>
+              <Text style={[styles.greeting, {color: '#1E293B'}]}>{userType === 'patient' ? 'Chào buổi sáng!' : 'Theo dõi người thân'}</Text>
+              <Text style={[styles.username, {color: '#3B82F6'}]}>{userType === 'patient' ? 'Bạn cảm thấy thế nào?' : 'Mẹ Nguyễn Thị Lan'}</Text>
             </View>
-            <View style={styles.headerIcons}>
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
               {userType === 'patient' && (
-                <TouchableOpacity
-                  style={styles.notificationBtn}
-                  onPress={() => setShowNotification(!showNotification)}
-                >
-                  <Ionicons name="notifications" size={24} color="#FFD600" />
-                  <View style={styles.notificationBadge} />
+                <TouchableOpacity onPress={() => setShowNotification(!showNotification)} style={{marginRight: 10}}>
+                  <View>
+                    <Ionicons name="notifications" size={28} color="#3B82F6" />
+                    <View style={{position: 'absolute', top: -2, right: -2, width: 10, height: 10, backgroundColor: '#F04438', borderRadius: 5}} />
+                  </View>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity onPress={onLogout} style={styles.profileBtn}>
-                <Ionicons name="person-circle" size={28} color="#fff" />
+              <TouchableOpacity onPress={onLogout}>
+                <Ionicons name="person-circle" size={32} color="#3B82F6" />
               </TouchableOpacity>
             </View>
           </View>

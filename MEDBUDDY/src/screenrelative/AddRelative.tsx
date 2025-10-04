@@ -55,7 +55,7 @@ const AddRelative = ({ navigation }: any) => {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color="#000000ff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thêm người bệnh</Text>
         <View style={styles.backButton} />
@@ -94,10 +94,10 @@ const AddRelative = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F0F6FF',
   },
   header: {
-    backgroundColor: '#4A7BA7',
+    backgroundColor: '#000000ff',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

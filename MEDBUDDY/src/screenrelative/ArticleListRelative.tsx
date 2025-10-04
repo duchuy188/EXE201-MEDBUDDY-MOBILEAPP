@@ -32,7 +32,7 @@ const ArticleListRelative = ({ route, navigation }: any) => {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => nav.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#2563EB" />
+          <Ionicons name="arrow-back" size={24} color="#000000ff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{category?.title || 'Danh sách bài viết'}</Text>
       </View>
@@ -80,14 +80,14 @@ const ArticleListRelative = ({ route, navigation }: any) => {
 
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 24 },
+  container: { flex: 1, backgroundColor: '#F0F6FF', padding: 24 },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, paddingTop: 36 },
   backBtn: { marginRight: 12, padding: 4 },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#2563EB', flex: 1 },
+  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#000000ff', flex: 1 },
   desc: { fontSize: 16, color: '#374151', marginBottom: 8 },
   info: { fontSize: 14, color: '#6B7280', marginBottom: 16 },
   articleItem: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#fff',
     borderRadius: 8,
     padding: 16,
     marginBottom: 12,
