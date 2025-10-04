@@ -73,15 +73,25 @@ const AppSettingsScreen = ({ navigation }: any) => {
               </TouchableOpacity>
             </View>
           </View>
-          <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuTitle}>Xem lịch xử thanh toán</Text>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>
+<TouchableOpacity 
+  style={styles.menuItem}
+  onPress={() => navigation.navigate('PackageHistory')}
+>
+  <Text style={styles.menuTitle}>Xem lịch sử thanh toán</Text>
+  <Ionicons name="chevron-forward" size={20} color="#999" />
+</TouchableOpacity>
         </View>
 
         {/* CÀI ĐẶT NÂNG CAO */}
 <View style={styles.section}>
   <Text style={styles.sectionHeader}>CÀI ĐẶT NÂNG CAO</Text>
+    <TouchableOpacity
+    style={styles.menuItem}
+    onPress={() => navigation.navigate('CurrentPackage')}
+  >
+    <Text style={styles.menuTitle}>Xem gói hiện tại</Text>
+    <Ionicons name="chevron-forward" size={20} color="#999" />
+  </TouchableOpacity>
   <TouchableOpacity
     style={styles.menuItem}
     onPress={() => navigation.navigate('PackageScreen')}
@@ -256,7 +266,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F0F6FF',
   },
   fontSizeControl: {
     flexDirection: 'row',

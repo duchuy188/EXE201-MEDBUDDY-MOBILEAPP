@@ -275,7 +275,7 @@ const AddMedicineScreen: React.FC = () => {
             disabled={!(medicineName && dosage && selectedTimes.length > 0)}
           >
             <Feather name="plus" size={20} color={medicineName && dosage && selectedTimes.length > 0 ? '#fff' : '#3B82F6'} />
-            <Text style={{color: medicineName && dosage && selectedTimes.length > 0 ? '#fff' : '#3B82F6', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Thêm thuốc</Text>
+            <Text style={{color: medicineName && dosage && selectedTimes.length > 0 ? '#fff' : '#2563EB', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Thêm thuốc</Text>
           </TouchableOpacity>
         
           {/* Nút chụp ảnh thuốc */}
@@ -284,7 +284,7 @@ const AddMedicineScreen: React.FC = () => {
             onPress={handleCaptureMedicine}
           >
             <MaterialIcons name="photo-camera" size={20} color="#3B82F6" />
-            <Text style={{color: '#3B82F6', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Chụp ảnh thuốc</Text>
+            <Text style={{color: '#2563EB', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Chụp ảnh thuốc</Text>
           </TouchableOpacity>
 
         </View>

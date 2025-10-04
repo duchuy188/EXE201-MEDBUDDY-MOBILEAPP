@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#F0F6FF',
   },
   title: {
     fontSize: 20,
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#fff',
   },
   itemName: {
     fontSize: 18,

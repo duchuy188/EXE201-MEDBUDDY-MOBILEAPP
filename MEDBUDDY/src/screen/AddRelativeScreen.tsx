@@ -55,7 +55,7 @@ const AddRelativeScreen = ({ navigation }: any) => {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color="#000000ff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thêm người thân</Text>
         <View style={styles.backButton} />
@@ -94,10 +94,10 @@ const AddRelativeScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F0F6FF',
   },
   header: {
-    backgroundColor: '#4A7BA7',
+    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerTitle: {
-    color: '#fff',
+    color: '#000000ff',
     fontSize: 20,
     fontWeight: '600',
   },

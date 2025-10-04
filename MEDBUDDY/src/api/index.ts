@@ -43,23 +43,52 @@ apiClient.interceptors.response.use(
   async (error) => {
     console.error('Response Error:', error.response?.data || error.message);
     
+    const originalRequest = error.config;
+    
     // Xử lý các lỗi phổ biến
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !originalRequest._retry) {
       // Token expired hoặc unauthorized
-      console.log('Unauthorized access - might need to login again');
+      console.log('Token expired - attempting refresh...');
+      originalRequest._retry = true;
+      
       const refreshToken = await AsyncStorage.getItem('refreshToken');
       if (refreshToken) {
         try {
-          const res = await axios.post('YOUR_API_URL/api/auth/refresh-token', { refreshToken });
+          // Sửa URL refresh token
+          const res = await axios.post(`${BASE_URL}/api/auth/refresh-token`, { 
+            refreshToken 
+          });
+          
           const newAccessToken = res.data.accessToken;
+          const newRefreshToken = res.data.refreshToken;
+          
+          // Lưu token mới
           await AsyncStorage.setItem('token', newAccessToken);
-          error.config.headers.Authorization = `Bearer ${newAccessToken}`;
-          return apiClient.request(error.config);
-        } catch (err) {
+          if (newRefreshToken) {
+            await AsyncStorage.setItem('refreshToken', newRefreshToken);
+          }
+          
+          // Retry request với token mới
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+          console.log('Token refreshed successfully, retrying request...');
+          
+          return apiClient.request(originalRequest);
+        } catch (refreshError) {
+          console.error('Refresh token failed:', refreshError);
+          
+          // Refresh token cũng expired, clear storage và redirect login
           await AsyncStorage.removeItem('token');
           await AsyncStorage.removeItem('refreshToken');
-          // Có thể điều hướng về màn hình đăng nhập ở đây
+          await AsyncStorage.removeItem('userId');
+          await AsyncStorage.removeItem('deviceToken');
+          
+          // Có thể emit event để redirect về login
+          // NavigationService.navigate('Login');
+          console.log('Refresh token expired - need to login again');
         }
+      } else {
+        console.log('No refresh token found');
+        await AsyncStorage.clear();
       }
     } else if (error.response?.status === 404) {
       console.log('API endpoint not found');

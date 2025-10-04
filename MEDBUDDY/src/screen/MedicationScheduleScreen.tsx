@@ -710,7 +710,7 @@ const MedicationScheduleScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F6F8FB', // Màu xanh rất nhạt
   },
   modalOverlay: {
     flex: 1,
@@ -787,6 +787,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+    backgroundColor: '#F6F8FB',
   },
   title: {
     fontSize: 20,
@@ -797,7 +798,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
-    backgroundColor: '#fff',
+    backgroundColor: '#F6F8FB',
     minHeight: 80,
   },
   dateContainer: {
@@ -808,7 +809,7 @@ const styles = StyleSheet.create({
     height: 70,
     marginHorizontal: 4,
     borderRadius: 12,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#B6D5FA',
   },
   selectedDate: {
     backgroundColor: '#00A3FF',
@@ -838,7 +839,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#F6F8FB',
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
@@ -858,7 +859,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   activeTabText: {
-    color: '#fff',
+    color: '#402727ff',
   },
   emptyStateContainer: {
     flex: 1,
@@ -924,7 +925,7 @@ const styles = StyleSheet.create({
   medicationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#cdd9e7ff',
     padding: 16,
     borderRadius: 12,
     marginBottom: 8,
@@ -967,13 +968,13 @@ const styles = StyleSheet.create({
   bottomButtonContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#F6F8FB',
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
     alignItems: 'center',
   },
   addButton: {
-    backgroundColor: '#00A3FF',
+    backgroundColor: '#B6D5FA',
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 25,
@@ -987,7 +988,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   addButtonText: {
-    color: '#fff',
+    color: '#2563EB',
     fontSize: 16,
     fontWeight: '600',
   },

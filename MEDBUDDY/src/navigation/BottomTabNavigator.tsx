@@ -3,7 +3,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HomeScreen from '../screen/HomeScreen';
-import DashboardScreen from '../screenrelative/DashboardScreen';
 import AddMedicineScreen from '../screen/AddMedicineScreen';
 import PhotoCaptureScreen from '../screen/PhotoCaptureScreen';
 import { Ionicons, MaterialIcons, FontAwesome5, AntDesign } from '@expo/vector-icons';
@@ -24,8 +23,10 @@ import AddRelativeScreen from '../screen/AddRelativeScreen';
 import ConfirmRelativeOTPScreen from '../screen/ConfirmRelativeOTPScreen';
 import HealthTrackingScreen from '../screen/HealthTrackingScreen';
 import EditReminderScreen from '../screen/EditReminderScreen';
+import RemindersScreen from '../screen/RemindersScreen';
 import PackageScreen from '../screen/PackageScreen'; // Import the new screen
-
+import PackageHistoryScreen from '../screen/PackageHistoryScreen';
+import CurrentPackageScreen from '../screen/CurrentPackageScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -187,6 +188,23 @@ export default function BottomTabNavigator({ route }: any) {
         component={PackageScreen}
         options={{ headerShown: true, title: 'Gói dịch vụ' }}
       />
+      <Stack.Screen 
+        name="MedicationSchedule" 
+        component={RemindersScreen} 
+        initialParams={{ token, userId }}
+        options={{ headerShown: true, title: 'Lịch hẹn uống thuốc' }} 
+      />
+      <Stack.Screen 
+  name="PackageHistory" 
+  component={PackageHistoryScreen}
+   initialParams={{ token, userId }}
+  options={{ headerShown: false }}
+/>
+<Stack.Screen 
+  name="CurrentPackage" 
+  component={CurrentPackageScreen}
+  options={{ headerShown: false }}
+/>
     </Stack.Navigator>
   );
 }

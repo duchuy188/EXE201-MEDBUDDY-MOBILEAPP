@@ -20,19 +20,37 @@ const EditReminderScreen = () => {
     const route = useRoute();
     const { token, userId, medication, deviceToken, reminder, reminderId } = route.params as any;
 
+		// Debug log để xem cấu trúc dữ liệu
+		console.log('EditReminderScreen - reminder data:', JSON.stringify(reminder, null, 2));
+		console.log('EditReminderScreen - reminderId:', reminderId);
+
 		// Lấy tên thuốc từ medication hoặc reminder.medicationId
 		const [medicationName, setMedicationName] = useState(
-			medication?.name || reminder?.medicationId?.name || ''
+			medication?.name || reminder?.medicationId?.name || 'Thuốc không xác định'
 		);
 
 		// Lấy thời gian nhắc từ reminder
 		const getInitialSelectedTimes = () => {
+			if (reminder?.times && Array.isArray(reminder.times)) {
+				// Nếu có array times với format [{ time: 'Sáng' }, { time: 'Chiều' }]
+				const timesMap: Record<string, string> = {};
+				reminder.times.forEach((timeObj: any, index: number) => {
+					if (reminder.repeatTimes && reminder.repeatTimes[index]) {
+						const slot = timeObj.time === 'Sáng' ? 'morning' : 
+									timeObj.time === 'Chiều' ? 'afternoon' : 'evening';
+						timesMap[slot] = reminder.repeatTimes[index].time;
+					}
+				});
+				return timesMap;
+			}
+			
 			if (reminder?.time && reminder?.timeLabel) {
 				// Nếu chỉ có 1 thời gian
 				return {
 					[reminder.timeLabel === 'Sáng' ? 'morning' : reminder.timeLabel === 'Chiều' ? 'afternoon' : 'evening']: reminder.time
 				};
 			}
+			
 			// Nếu có nhiều thời gian (ví dụ: reminder.selectedTimes)
 			if (reminder?.selectedTimes) {
 				return reminder.selectedTimes;
@@ -58,7 +76,7 @@ const EditReminderScreen = () => {
 			minute: '2-digit',
 			hour12: false,
 		});
-		setSelectedTimes(prev => ({...prev, [currentTimeSlot]: formattedTime}));
+		setSelectedTimes((prev: Record<string, string>) => ({...prev, [currentTimeSlot]: formattedTime}));
 		setShowTimePicker(false);
 	};
 
@@ -102,49 +120,35 @@ const handleUpdateReminder = async () => {
         return;
     }
     try {
-        // Lấy times gốc và repeatTimes gốc
-        const originalTimes = reminder?.times || [];
-        const originalRepeatTimes = reminder?.repeatTimes || [];
-        
-        // Map selectedTimes về slot để so sánh
-        const updatedTimesMap = new Map();
-        Object.entries(selectedTimes).forEach(([slotKey, time]) => {
+        // Tạo times array từ selectedTimes
+        const timesArray = Object.entries(selectedTimes).map(([slotKey, time]) => {
             const slotLabel = slotKey === 'morning' ? 'Sáng' : slotKey === 'afternoon' ? 'Chiều' : 'Tối';
-            updatedTimesMap.set(slotLabel, time);
+            return { time: slotLabel };
         });
-        
-        // Merge: duyệt qua originalTimes và giữ/update repeatTimes tương ứng
-        const repeatTimesArr = originalTimes.map((originalTime, index) => {
-            const slot = originalTime.time; // "Sáng", "Tối"
-            
-            // Nếu có update cho slot này, dùng time mới
-            if (updatedTimesMap.has(slot)) {
-                return {
-                    time: updatedTimesMap.get(slot),
-                    taken: false
-                };
-            }
-            
-            // Không có update, giữ nguyên repeatTime gốc
-            return originalRepeatTimes[index] || {
-                time: originalTime.time,
-                taken: false
-            };
+
+        // Tạo repeatTimes array từ selectedTimes  
+        const repeatTimesArray = Object.entries(selectedTimes).map(([slotKey, time]) => {
+            return { time, taken: false };
         });
 
         const reminderData: any = {
-            medicationId: medication?._id,
-            repeatTimes: repeatTimesArr,
+            medicationId: reminder?.medicationId?._id || reminder?.medicationId,
+            times: timesArray,
+            repeatTimes: repeatTimesArray,
             startDate: startDate.toISOString().split('T')[0],
             endDate: endDate.toISOString().split('T')[0],
             reminderType,
             note,
             voice: reminderType === 'voice' ? voiceType : undefined,
+            isActive: true
         };
+        
+        console.log('Updating reminder with data:', JSON.stringify(reminderData, null, 2));
         
         await ReminderService.updateReminder(reminderId, reminderData, token);
         Alert.alert('Thành công', 'Đã cập nhật lịch nhắc uống thuốc');
     } catch (error: any) {
+        console.error('Error updating reminder:', error);
         Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể cập nhật lịch nhắc');
     }
 };

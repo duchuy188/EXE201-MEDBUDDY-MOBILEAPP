@@ -3,70 +3,58 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Modal, RefreshControl } from 'react-native';
 import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AppointmentsService from '../api/Appointments';
+import ReminderService, { Reminder } from '../api/Reminders';
+import MedicationService from '../api/Medication'; // Sửa từ Medications thành Medication
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Define Appointment type
-type Appointment = {
-  _id: string;
-  title: string;
-  hospital: string;
-  location: string;
-  date: string;
-  time: string;
-  notes?: string;
-  status: string;
-};
-
-const AppointmentsScreen = ({ navigation }: any) => {
-  // Add type definition for appointments
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+const RemindersScreen = ({ navigation }: any) => {
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [selectedReminder, setSelectedReminder] = useState<Reminder | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
-    fetchAppointments().then(() => setRefreshing(false));
+    fetchReminders().then(() => setRefreshing(false));
   }, []);
 
-  const fetchAppointments = async () => {
+  const fetchReminders = async () => {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('token');
       console.log('Current token:', token);
       
       if (token) {
-        console.log('Fetching appointments...');
-        const response = await AppointmentsService.getAppointments(token);
+        console.log('Fetching reminders...');
+        const response = await ReminderService.getReminders(token);
         console.log('Full API response:', JSON.stringify(response, null, 2));
         
         // Kiểm tra cấu trúc response
         if (response) {
           if (Array.isArray(response)) {
             console.log('Response is an array, setting directly');
-            setAppointments(response);
+            setReminders(response);
           } else if (response.data && Array.isArray(response.data)) {
             console.log('Response has data array, setting from data');
-            setAppointments(response.data);
-          } else if (response.appointments && Array.isArray(response.appointments)) {
-            console.log('Response has appointments array, setting from appointments');
-            setAppointments(response.appointments);
+            setReminders(response.data);
+          } else if (response.reminders && Array.isArray(response.reminders)) {
+            console.log('Response has reminders array, setting from reminders');
+            setReminders(response.reminders);
           } else {
             console.log('Invalid response structure:', response);
-            setAppointments([]);
+            setReminders([]);
           }
         } else {
           console.log('No response data');
-          setAppointments([]);
+          setReminders([]);
         }
       } else {
         console.log('No token found');
-        setAppointments([]);
+        setReminders([]);
       }
     } catch (error) {
-      console.error('Error fetching appointments:', error);
+      console.error('Error fetching reminders:', error);
       if (error instanceof Error) {
         console.error('Error message:', error.message);
         // @ts-ignore
@@ -77,41 +65,49 @@ const AppointmentsScreen = ({ navigation }: any) => {
           console.error('Error status:', error.response.status);
         }
       }
-      setAppointments([]);
+      setReminders([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAppointments();
+    fetchReminders();
   }, []);
 
   useFocusEffect(
     React.useCallback(() => {
-      fetchAppointments();
+      fetchReminders();
     }, [])
   );
 
-  const renderAppointment = ({ item }: { item: Appointment }) => (
+  const formatTimes = (times: { time: string }[]) => {
+    return times.map(t => t.time).join(', ');
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('vi-VN');
+  };
+
+  const renderReminder = ({ item }: { item: Reminder }) => (
     <TouchableOpacity
-      style={styles.appointmentCard}
+      style={styles.reminderCard}
       onPress={() => {
-        setSelectedAppointment(item);
+        setSelectedReminder(item);
         setModalVisible(true);
       }}
     >
       <View style={styles.cardContent}>
         <View style={styles.iconContainer}>
-          <Ionicons name="calendar" size={24} color="#fff" />
+          <Ionicons name="time" size={24} color="#fff" />
         </View>
         <View style={styles.textContainer}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          <Text style={styles.cardSubtitle}>Bệnh viện: {item.hospital}</Text>
-          <Text style={styles.cardSubtitle}>Địa điểm: {item.location}</Text>
-          <Text style={styles.cardSubtitle}>Ngày: {new Date(item.date).toLocaleDateString()} - Giờ: {item.time}</Text>
-          <Text style={styles.cardSubtitle}>Ghi chú: {item.notes || 'Không có ghi chú'}</Text>
-          <Text style={styles.cardSubtitle}>Trạng thái: {item.status}</Text>
+          <Text style={styles.cardTitle}>Lịch nhắc uống thuốc</Text>
+          <Text style={styles.cardSubtitle}>Thời gian: {formatTimes(item.times)}</Text>
+          <Text style={styles.cardSubtitle}>Từ ngày: {formatDate(item.startDate)} - Đến ngày: {formatDate(item.endDate)}</Text>
+          <Text style={styles.cardSubtitle}>Loại: {item.reminderType === 'voice' ? 'Giọng nói' : 'Thông thường'}</Text>
+          <Text style={styles.cardSubtitle}>Ghi chú: {item.note || 'Không có ghi chú'}</Text>
+          <Text style={styles.cardSubtitle}>Trạng thái: {item.isActive ? 'Đang hoạt động' : 'Tạm dừng'}</Text>
         </View>
         <Ionicons name="chevron-forward" size={20} color="#999" />
       </View>
@@ -121,36 +117,48 @@ const AppointmentsScreen = ({ navigation }: any) => {
   return (
     <SafeAreaView style={styles.container}>
       {loading ? (
-        <ActivityIndicator size="large" color="#2563EB" style={styles.loader} />
-      ) : appointments.length > 0 ? (
+        <ActivityIndicator size="large" color="#F59E0B" style={styles.loader} />
+      ) : reminders.length > 0 ? (
         <FlatList
-          data={appointments}
-          renderItem={renderAppointment}
-          keyExtractor={(item) => item._id}
+          data={reminders}
+          renderItem={renderReminder}
+          keyExtractor={(item) => item._id || ''}
+          contentContainerStyle={{ paddingBottom: 100 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#2563EB']}
+              colors={['#F59E0B']}
             />
           }
         />
       ) : (
         <View style={styles.emptyContainer}>
-          <Ionicons name="calendar" size={64} color="#D1D5DB" />
-          <Text style={styles.emptyText}>Không có cuộc hẹn nào</Text>
+          <Ionicons name="time" size={64} color="#D1D5DB" />
+          <Text style={styles.emptyText}>Không có lịch nhắc nào</Text>
         </View>
       )}
       <TouchableOpacity style={styles.addButton} onPress={async () => {
+        console.log('Add button pressed'); // Debug log
         const token = await AsyncStorage.getItem('token');
-        const userId = await AsyncStorage.getItem('userId');
-        navigation.navigate('AddAppointment', { token, userId });
+        console.log('Token found:', !!token); // Debug log
+        if (token) {
+          try {
+            console.log('Fetching medications...'); // Debug log
+            const medications = await MedicationService.getMedications(token);
+            console.log('Medications fetched:', medications?.length || 0); // Debug log
+            console.log('Navigating to MedicationsScreen...'); // Debug log
+            navigation.navigate('MedicationsScreen', { medications });
+          } catch (error) {
+            console.error('Error fetching medications:', error);
+          }
+        }
       }}>
         <Ionicons name="add-circle-outline" size={24} color="#fff" />
-        <Text style={styles.addButtonText}>Thêm lịch tái khám</Text>
+        <Text style={styles.addButtonText}>Thêm lịch nhắc</Text>
       </TouchableOpacity>
 
-      {/* Modal chi tiết cuộc hẹn */}
+      {/* Modal chi tiết lịch nhắc */}
       <Modal
         visible={modalVisible}
         animationType="slide"
@@ -167,53 +175,63 @@ const AppointmentsScreen = ({ navigation }: any) => {
             style={styles.modalContent}
             onPress={(e) => e.stopPropagation()}
           >
-            {selectedAppointment && (
+            {selectedReminder && (
               <React.Fragment>
                 <View style={{ alignItems: 'center', marginBottom: 16 }}>
-                  <Ionicons name="calendar" size={48} color="#2563EB" />
+                  <Ionicons name="time" size={48} color="#F59E0B" />
                 </View>
-                <Text style={styles.modalTitle}>{selectedAppointment.title}</Text>
+                <Text style={styles.modalTitle}>Chi tiết lịch nhắc</Text>
                 <View style={styles.modalRow}>
-                  <Ionicons name="business" size={20} color="#2563EB" style={styles.modalIcon}/>
-                  <Text style={styles.modalText}>Bệnh viện: {selectedAppointment.hospital}</Text>
-                </View>
-                <View style={styles.modalRow}>
-                  <Ionicons name="location" size={20} color="#2563EB" style={styles.modalIcon}/>
-                  <Text style={styles.modalText}>Địa điểm: {selectedAppointment.location}</Text>
+                  <Ionicons name="time" size={20} color="#F59E0B" style={styles.modalIcon}/>
+                  <Text style={styles.modalText}>Thời gian: {formatTimes(selectedReminder.times)}</Text>
                 </View>
                 <View style={styles.modalRow}>
-                  <Ionicons name="calendar" size={20} color="#2563EB" style={styles.modalIcon}/>
-                  <Text style={styles.modalText}>Ngày: {new Date(selectedAppointment.date).toLocaleDateString()} - Giờ: {selectedAppointment.time}</Text>
+                  <Ionicons name="calendar" size={20} color="#F59E0B" style={styles.modalIcon}/>
+                  <Text style={styles.modalText}>Từ ngày: {formatDate(selectedReminder.startDate)}</Text>
                 </View>
                 <View style={styles.modalRow}>
-                  <Ionicons name="document-text" size={20} color="#2563EB" style={styles.modalIcon}/>
-                  <Text style={styles.modalText}>Ghi chú: {selectedAppointment.notes || 'Không có ghi chú'}</Text>
+                  <Ionicons name="calendar" size={20} color="#F59E0B" style={styles.modalIcon}/>
+                  <Text style={styles.modalText}>Đến ngày: {formatDate(selectedReminder.endDate)}</Text>
                 </View>
                 <View style={styles.modalRow}>
-                  <Ionicons name="alert-circle" size={20} color="#2563EB" style={styles.modalIcon}/>
-                  <Text style={styles.modalText}>Trạng thái: {selectedAppointment.status}</Text>
+                  <Ionicons name="volume-high" size={20} color="#F59E0B" style={styles.modalIcon}/>
+                  <Text style={styles.modalText}>Loại: {selectedReminder.reminderType === 'voice' ? 'Giọng nói' : 'Thông thường'}</Text>
+                </View>
+                {selectedReminder.voice && (
+                  <View style={styles.modalRow}>
+                    <Ionicons name="person" size={20} color="#F59E0B" style={styles.modalIcon}/>
+                    <Text style={styles.modalText}>Giọng nói: {selectedReminder.voice}</Text>
+                  </View>
+                )}
+                <View style={styles.modalRow}>
+                  <Ionicons name="document-text" size={20} color="#F59E0B" style={styles.modalIcon}/>
+                  <Text style={styles.modalText}>Ghi chú: {selectedReminder.note || 'Không có ghi chú'}</Text>
+                </View>
+                <View style={styles.modalRow}>
+                  <Ionicons name="checkmark-circle" size={20} color="#F59E0B" style={styles.modalIcon}/>
+                  <Text style={styles.modalText}>Trạng thái: {selectedReminder.isActive ? 'Đang hoạt động' : 'Tạm dừng'}</Text>
                 </View>
                 <View style={styles.modalActions}>
                   <View style={{ alignItems: 'center' }}>
                     <TouchableOpacity style={styles.modalActionBtn} onPress={() => setModalVisible(false)}>
-                      <Ionicons name="close" size={28} color="#2563EB" />
+                      <Ionicons name="close" size={28} color="#F59E0B" />
                     </TouchableOpacity>
-                    <Text style={{ color: '#2563EB', marginTop: 4, fontWeight: '500', fontSize: 14 }}>Đóng</Text>
+                    <Text style={{ color: '#F59E0B', marginTop: 4, fontWeight: '500', fontSize: 14 }}>Đóng</Text>
                   </View>
                   <View style={{ alignItems: 'center' }}>
                     <TouchableOpacity
                       style={styles.modalActionBtn}
                       onPress={async () => {
-                        if (!selectedAppointment) return;
+                        if (!selectedReminder) return;
                         const token = await AsyncStorage.getItem('token');
                         if (!token) return;
                         try {
-                          await AppointmentsService.deleteAppointment(selectedAppointment._id, token);
+                          await ReminderService.deleteReminder(selectedReminder._id!, token);
                           setModalVisible(false);
-                          setSelectedAppointment(null);
-                          fetchAppointments();
+                          setSelectedReminder(null);
+                          fetchReminders();
                         } catch (error) {
-                          console.error('Error deleting appointment:', error);
+                          console.error('Error deleting reminder:', error);
                         }
                       }}
                     >
@@ -225,20 +243,21 @@ const AppointmentsScreen = ({ navigation }: any) => {
                     <TouchableOpacity
                       style={styles.modalActionBtn}
                       onPress={async () => {
-                        if (!selectedAppointment) return;
+                        if (!selectedReminder) return;
                         const token = await AsyncStorage.getItem('token');
                         const userId = await AsyncStorage.getItem('userId');
                         setModalVisible(false);
-                        navigation.navigate('EditAppointment', {
-                          appointment: selectedAppointment,
+                        navigation.navigate('EditReminder', {
+                          reminder: selectedReminder,
+                          reminderId: selectedReminder._id,
                           token,
                           userId,
                         });
                       }}
                     >
-                      <Ionicons name="pencil" size={28} color="#2563EB" />
+                      <Ionicons name="pencil" size={28} color="#F59E0B" />
                     </TouchableOpacity>
-                    <Text style={{ color: '#2563EB', marginTop: 4, fontWeight: '500', fontSize: 14 }}>Chỉnh sửa</Text>
+                    <Text style={{ color: '#F59E0B', marginTop: 4, fontWeight: '500', fontSize: 14 }}>Chỉnh sửa</Text>
                   </View>
                 </View>
               </React.Fragment>
@@ -309,20 +328,22 @@ const styles = StyleSheet.create({
   loader: {
     marginTop: 20,
   },
-  appointmentCard: {
+  reminderCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    marginHorizontal: 16,
   },
   cardContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   iconContainer: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#F59E0B',
     borderRadius: 8,
     padding: 12,
     marginRight: 16,
@@ -339,6 +360,7 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     fontSize: 14,
     color: '#6B7280',
+    marginBottom: 2,
   },
   emptyContainer: {
     flex: 1,
@@ -352,9 +374,9 @@ const styles = StyleSheet.create({
   },
   addButton: {
     position: 'absolute',
-    bottom: 40,
+    bottom: 30,
     alignSelf: 'center',
-    backgroundColor: '#2563EB',
+    backgroundColor: '#F59E0B',
     borderRadius: 25,
     paddingVertical: 16,
     paddingHorizontal: 32,
@@ -375,7 +397,7 @@ const styles = StyleSheet.create({
   modalRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   modalIcon: {
     marginRight: 8,
@@ -399,4 +421,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AppointmentsScreen;
+export default RemindersScreen;

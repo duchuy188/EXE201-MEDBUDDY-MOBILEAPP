@@ -69,8 +69,8 @@ const HelpCenterScreen = () => {
     <View style={styles.container}>
       {/* Header */}
       <Appbar.Header style={styles.header}>
-        <Appbar.Action icon="arrow-left" color="#fff" onPress={() => navigation.goBack()} />
-        <Appbar.Content title="Trung tâm trợ giúp" color="#fff" />
+        <Appbar.Action icon="arrow-left" color="#000000ff" onPress={() => navigation.goBack()} />
+        <Appbar.Content title="Trung tâm trợ giúp" color="#000000ff" />
       </Appbar.Header>
 
       {/* Search */}
@@ -110,8 +110,8 @@ const HelpCenterScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  header: { backgroundColor: "#2563EB" },
+  container: { flex: 1, backgroundColor: "#F0F6FF" },
+  header: { backgroundColor: "#fff" },
   searchBar: { margin: 16, borderRadius: 12 },
   card: {
     marginBottom: 12,

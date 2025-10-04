@@ -53,7 +53,7 @@ const ConfirmRelativeOTPScreen = ({ route, navigation }: any) => {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color="#000000ff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Xác nhận OTP</Text>
         <View style={styles.backButton} />
@@ -61,7 +61,7 @@ const ConfirmRelativeOTPScreen = ({ route, navigation }: any) => {
 
       <View style={styles.content}>
         <View style={styles.infoContainer}>
-          <Ionicons name="information-circle-outline" size={24} color="#4A7BA7" />
+          <Ionicons name="information-circle-outline" size={24} color="#3B82F6" />
           <Text style={styles.infoText}>
             Vui lòng nhập mã OTP đã được gửi đến email của bạn để xác nhận kết nối với người thân
           </Text>
@@ -99,10 +99,10 @@ const ConfirmRelativeOTPScreen = ({ route, navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F0F6FF',
   },
   header: {
-    backgroundColor: '#4A7BA7',
+    backgroundColor: '#FFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerTitle: {
-    color: '#fff',
+    color: '#000000ff',
     fontSize: 20,
     fontWeight: '600',
   },
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   },
   infoContainer: {
     flexDirection: 'row',
-    backgroundColor: '#EBF5FF',
+    backgroundColor: '#fff',
     padding: 16,
     borderRadius: 8,
     marginBottom: 24,
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     marginLeft: 12,
-    color: '#4A7BA7',
+    color: '#3B82F6',
     fontSize: 14,
     lineHeight: 20,
   },
