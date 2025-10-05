@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import messaging from '@react-native-firebase/messaging';
+// import messaging from '@react-native-firebase/messaging'; // ❌ Comment để test trên Expo Go
 import { Ionicons } from '@expo/vector-icons';
 
 import AuthService from '../api/authService';
@@ -62,24 +62,36 @@ const LoginFormScreen = ({ route, navigation }: any) => {
         if (accountType === 'patient' && apiRole === 'patient') {
           // 🚀 Chỉ gửi deviceToken khi role là patient
           try {
-            await messaging().requestPermission();
-            const deviceToken = await messaging().getToken();
+            // ⚠️ Wrap Firebase messaging trong try-catch để không crash trên Expo Go
+            console.log('>>> Attempting to get device token for patient...');
+            
+            // Thử import động Firebase messaging (chỉ hoạt động trên dev build)
+            const messagingModule = await import('@react-native-firebase/messaging').catch(() => null);
+            
+            if (messagingModule) {
+              const messaging = messagingModule.default;
+              await messaging().requestPermission();
+              const deviceToken = await messaging().getToken();
 
-            if (deviceToken) {
-              await AsyncStorage.setItem('deviceToken', deviceToken);
+              if (deviceToken) {
+                await AsyncStorage.setItem('deviceToken', deviceToken);
 
-              // Gửi deviceToken lên backend cho patient
-              const saveTokenData: SaveTokenRequest = {
-                userId: result.user._id,
-                deviceToken,
-              };
-              const response = await NotificationService.saveToken(saveTokenData, result.accessToken);
-              console.log('>>> Gửi deviceToken thành công cho patient:', deviceToken, response);
+                // Gửi deviceToken lên backend cho patient
+                const saveTokenData: SaveTokenRequest = {
+                  userId: result.user._id,
+                  deviceToken,
+                };
+                const response = await NotificationService.saveToken(saveTokenData, result.accessToken);
+                console.log('>>> Gửi deviceToken thành công cho patient:', deviceToken, response);
+              } else {
+                console.warn('>>> Không lấy được deviceToken!');
+              }
             } else {
-              console.warn('>>> Không lấy được deviceToken!');
+              console.log('>>> Firebase Messaging không khả dụng trên Expo Go - bỏ qua deviceToken');
             }
           } catch (err) {
-            console.warn('>>> Lỗi khi lấy hoặc gửi deviceToken:', err);
+            console.warn('>>> Firebase Messaging không khả dụng (Expo Go) hoặc lỗi:', err);
+            // Không hiển thị lỗi cho user, vẫn cho phép đăng nhập
           }
 
           setError('');
@@ -230,7 +242,7 @@ const styles = StyleSheet.create({
     padding: 15,
     fontSize: 16,
     backgroundColor: '#F7FAFC',
-    paddingRight: 40, // Để chừa chỗ cho icon
+    paddingRight: 40,
   },
   eyeIcon: {
     position: 'absolute',
