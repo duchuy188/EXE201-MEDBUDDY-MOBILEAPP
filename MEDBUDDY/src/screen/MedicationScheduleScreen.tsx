@@ -28,19 +28,31 @@ interface DetailedReminder {
     _id: string;
     name?: string;
     dosage?: string;
+    quantity?: string; // Thêm quantity
     form?: string;
   };
   times: { time: string; _id?: string }[];
   startDate: string;
   endDate: string;
   reminderType: 'normal' | 'voice';
-  repeatTimes?: { time: string; taken?: boolean; _id?: string }[];
+  repeatTimes?: { 
+    time: string; 
+    taken?: boolean; 
+    _id?: string;
+    status?: 'pending' | 'on_time' | 'late' | 'missed' | 'skipped' | 'snoozed'; // Thêm status
+  }[];
   note?: string;
   voice?: 'banmai' | 'lannhi' | 'leminh' | 'myan' | 'thuminh' | 'giahuy' | 'linhsan';
   isActive?: boolean;
   createdAt?: string;
   status?: 'pending' | 'completed' | 'snoozed';
   snoozeTime?: string;
+}
+
+interface UpdateReminderStatusPayload {
+  action: 'take' | 'skip' | 'snooze';
+  time?: string;
+  status?: 'pending' | 'on_time' | 'late' | 'missed' | 'skipped' | 'snoozed';
 }
 
 interface FlattenedReminder {
@@ -52,11 +64,12 @@ interface FlattenedReminder {
   endDate: string;
   note?: string;
   isActive?: boolean;
-  status?: string;
+  status?: 'pending' | 'on_time' | 'late' | 'missed' | 'skipped' | 'snoozed'; // Cập nhật status
   medicationId?: {
     _id: string;
     name?: string;
     dosage?: string;
+    quantity?: string;
     form?: string;
   };
   taken?: boolean;
@@ -84,20 +97,198 @@ const MedicationScheduleScreen = () => {
   const fetchReminders = async () => {
     try {
       const remindersData = await ReminderService.getReminders(token);
+      console.log('Raw reminders data:', remindersData);
+      
       const detailedReminders = await Promise.all(
-        remindersData.map((reminder: any) => 
-          ReminderService.getReminderById(reminder._id, token)
-        )
+        remindersData.map(async (reminder: any) => {
+          const detailData = await ReminderService.getReminderById(reminder._id, token);
+          console.log('Detail data for reminder', reminder._id, ':', detailData);
+          
+          // Lấy thêm status details từ API
+          try {
+            console.log('=== Calling getReminderStatus for', reminder._id, '===');
+            const statusResponse = await ReminderService.getReminderStatus(reminder._id, token);
+            console.log('=== Status response for reminder', reminder._id, ':', statusResponse, '===');
+            
+            // Kiểm tra các cấu trúc response khác nhau
+            let statusDetails = null;
+            
+            if (statusResponse?.statusDetails) {
+              statusDetails = statusResponse.statusDetails;
+            } else if (statusResponse?.data?.statusDetails) {
+              statusDetails = statusResponse.data.statusDetails;
+            } else if (Array.isArray(statusResponse)) {
+              statusDetails = statusResponse;
+            } else if (statusResponse?.success && statusResponse?.data) {
+              statusDetails = statusResponse.data;
+            }
+            
+            console.log('Processed status details:', statusDetails);
+            
+            if (statusDetails && Array.isArray(statusDetails) && detailData.repeatTimes) {
+              detailData.repeatTimes = detailData.repeatTimes.map((rt: any) => {
+                const statusDetail = statusDetails.find((sd: any) => sd.time === rt.time);
+                console.log(`Matching time ${rt.time}:`, statusDetail);
+                
+                if (statusDetail) {
+                  return {
+                    ...rt,
+                    taken: statusDetail.taken,
+                    status: statusDetail.status,
+                    takenAt: statusDetail.takenAt,
+                  };
+                }
+                return rt;
+              });
+              
+              console.log('Updated repeatTimes with status:', detailData.repeatTimes);
+            } else {
+              console.log('No valid status details found or not array format');
+            }
+          } catch (statusError) {
+            console.error('=== Error fetching status for reminder', reminder._id, '===');
+            console.error('Status error message:', statusError.message);
+            if (statusError.response) {
+              console.error('Status error response status:', statusError.response.status);
+              console.error('Status error response data:', statusError.response.data);
+            }
+          }
+          
+          return detailData;
+        })
       );
-      console.log('Fetched reminders:', detailedReminders);
+      
+      console.log('Final detailed reminders with status:', detailedReminders);
       setReminders(detailedReminders);
     } catch (error) {
       console.error('Error fetching reminders:', error);
     }
   };
 
+  const isToday = (date: Date): boolean => {
+    const today = new Date();
+    return (
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    );
+  };
+
+  const handleReminderAction = async (action: 'take' | 'skip' | 'snooze') => {
+    if (!selectedReminder || 'hospital' in selectedReminder) return;
+
+    try {
+      const reminderId = selectedReminder._id.split('-')[0];
+      
+      // Xác định trạng thái dựa trên thời gian và action
+      let status: 'on_time' | 'late' | 'skipped' | 'snoozed' = 'on_time';
+      
+      if (action === 'take') {
+        const now = new Date();
+        const [hours, minutes] = selectedReminder.time.split(':').map(Number);
+        const reminderTime = new Date();
+        reminderTime.setHours(hours, minutes, 0, 0);
+        
+        const timeDiff = now.getTime() - reminderTime.getTime();
+        const minutesDiff = timeDiff / (1000 * 60);
+        
+        if (minutesDiff > 30) { // Nếu uống muộn hơn 30 phút
+          status = 'late';
+        }
+      } else if (action === 'skip') {
+        status = 'skipped';
+      } else if (action === 'snooze') {
+        status = 'snoozed';
+      }
+      
+      const payload: UpdateReminderStatusPayload = {
+        action: action,
+        time: selectedReminder.time,
+        status: status
+      };
+
+      await ReminderService.updateReminderStatus(reminderId, payload, token);
+      
+      const actionMessages = {
+        take: status === 'on_time' 
+          ? 'Đã đánh dấu đã uống thuốc đúng giờ' 
+          : 'Đã đánh dấu đã uống thuốc (muộn)',
+        skip: 'Đã bỏ qua lần uống này',
+        snooze: 'Sẽ nhắc lại sau 5 phút'
+      };
+      
+      Alert.alert('Thành công', actionMessages[action]);
+      setIsModalVisible(false);
+      fetchReminders();
+    } catch (error) {
+      console.error('Error updating reminder status:', error);
+      Alert.alert('Lỗi', 'Không thể cập nhật trạng thái. Vui lòng thử lại');
+    }
+  };
+
+  const flattenReminders = (reminders: DetailedReminder[]): FlattenedReminder[] => {
+    console.log('=== FLATTEN REMINDERS CALLED ===');
+    const flattened: FlattenedReminder[] = [];
+    
+    reminders.forEach(reminder => {
+      console.log('Processing reminder:', reminder);
+      console.log('repeatTimes:', reminder.repeatTimes);
+      console.log('times:', reminder.times);
+      
+      if (reminder.repeatTimes && reminder.repeatTimes.length > 0) {
+        reminder.repeatTimes.forEach((repeatTime, index) => {
+          const timeLabel = reminder.times[index]?.time || 'Không xác định';
+          
+          // SỬ DỤNG DỮ LIỆU THỰC TỪ API - KHÔNG HARDCODE
+          const status = repeatTime.status || 'pending';
+          const taken = repeatTime.taken || false;
+          
+          console.log(`=== API DATA - Time: ${repeatTime.time}, Status: ${status}, Taken: ${taken} ===`);
+          
+          const flattenedItem = {
+            _id: `${reminder._id}-${index}-${repeatTime.time || 'none'}`,
+            userId: reminder.userId,
+            time: repeatTime.time || 'Chưa đặt giờ',
+            timeLabel: timeLabel,
+            startDate: reminder.startDate,
+            endDate: reminder.endDate,
+            note: reminder.note,
+            isActive: reminder.isActive,
+            status: status,
+            medicationId: reminder.medicationId,
+            taken: taken
+          };
+          
+          console.log('=== FLATTENED ITEM FROM API ===:', flattenedItem);
+          flattened.push(flattenedItem);
+        });
+      } 
+      else if (reminder.times && reminder.times.length > 0) {
+        reminder.times.forEach((timeItem, index) => {
+          flattened.push({
+            _id: `${reminder._id}-${index}-${timeItem.time}`,
+            userId: reminder.userId,
+            time: 'Chưa đặt giờ cụ thể',
+            timeLabel: timeItem.time,
+            startDate: reminder.startDate,
+            endDate: reminder.endDate,
+            note: reminder.note,
+            isActive: reminder.isActive,
+            status: 'pending',
+            medicationId: reminder.medicationId,
+            taken: false
+          });
+        });
+      }
+    });
+    
+    console.log('=== FINAL FLATTENED ARRAY FROM API ===:', flattened);
+    return flattened;
+  };
+
   useEffect(() => {
     fetchReminders();
+    // testGetReminderStatus(); // Xóa dòng này
   }, [token]);
 
   const fetchAppointments = async () => {
@@ -127,57 +318,34 @@ const MedicationScheduleScreen = () => {
     }
   }, [activeTab]);
 
-  const flattenReminders = (reminders: DetailedReminder[]): FlattenedReminder[] => {
-    const flattened: FlattenedReminder[] = [];
-    
-    reminders.forEach(reminder => {
-      console.log('Processing reminder:', reminder);
-      console.log('repeatTimes:', reminder.repeatTimes);
-      console.log('times:', reminder.times);
-      
-      if (reminder.repeatTimes && reminder.repeatTimes.length > 0) {
-        reminder.repeatTimes.forEach((repeatTime, index) => {
-          const timeLabel = reminder.times[index]?.time || 'Không xác định';
-          
-          flattened.push({
-            _id: `${reminder._id}-${index}-${repeatTime.time || 'none'}`,
-            userId: reminder.userId,
-            time: repeatTime.time || 'Chưa đặt giờ',
-            timeLabel: timeLabel,
-            startDate: reminder.startDate,
-            endDate: reminder.endDate,
-            note: reminder.note,
-            isActive: reminder.isActive,
-            status: reminder.status,
-            medicationId: reminder.medicationId,
-            taken: repeatTime.taken
-          });
-        });
-      } 
-      else if (reminder.times && reminder.times.length > 0) {
-        reminder.times.forEach((timeItem, index) => {
-          flattened.push({
-            _id: `${reminder._id}-${index}-${timeItem.time}`,
-            userId: reminder.userId,
-            time: 'Chưa đặt giờ cụ thể',
-            timeLabel: timeItem.time,
-            startDate: reminder.startDate,
-            endDate: reminder.endDate,
-            note: reminder.note,
-            isActive: reminder.isActive,
-            status: reminder.status,
-            medicationId: reminder.medicationId,
-            taken: false
-          });
-        });
+  // Hàm lấy màu và icon theo trạng thái
+  const getStatusDisplay = (status?: string, taken?: boolean) => {
+    if (status === 'on_time' || status === 'late') {
+      if (status === 'on_time') {
+        return { color: '#12B76A', icon: '✓', text: 'Đã uống đúng giờ' };
       }
-    });
+      if (status === 'late') {
+        return { color: '#F79009', icon: '⏰', text: 'Đã uống muộn' };
+      }
+    }
     
-    console.log('Flattened reminders:', flattened);
-    return flattened;
+    if (taken) {
+      return { color: '#12B76A', icon: '✓', text: 'Đã uống đúng giờ' };
+    }
+    if (status === 'skipped') {
+      return { color: '#F04438', icon: '✕', text: 'Đã bỏ qua' };
+    }
+    if (status === 'snoozed') {
+      return { color: '#7C3AED', icon: '⏰', text: 'Đã hoãn' };
+    }
+    if (status === 'missed') {
+      return { color: '#F04438', icon: '!', text: 'Đã bỏ lỡ' };
+    }
+    return { color: '#64748B', icon: '○', text: 'Chưa uống' };
   };
 
-  const getRemindersForSelectedDate = (): FlattenedReminder[] => {
+  // Sửa lại useMemo - đổi tên để tránh nhầm lẫn
+  const remindersForSelectedDate = React.useMemo((): FlattenedReminder[] => {
     const flattenedReminders = flattenReminders(reminders);
     
     return flattenedReminders.filter(reminder => {
@@ -191,12 +359,11 @@ const MedicationScheduleScreen = () => {
       
       return current >= startDate && current <= endDate && reminder.isActive !== false;
     });
-  };
+  }, [reminders, selectedDate]);
 
+  // Thay thế bằng useEffect đúng
   useEffect(() => {
-    const remindersForDate = getRemindersForSelectedDate();
-    
-    remindersForDate.forEach(reminder => {
+    remindersForSelectedDate.forEach(reminder => {
       if (reminder.time) {
         const date = new Date(selectedDate);
         const [hour, minute] = reminder.time.split(':').map(Number);
@@ -221,7 +388,7 @@ const MedicationScheduleScreen = () => {
         }
       }
     });
-  }, [reminders, selectedDate]);
+  }, [reminders, selectedDate, remindersForSelectedDate]);
 
   const getWeekDates = () => {
     const today = new Date();
@@ -297,8 +464,6 @@ const MedicationScheduleScreen = () => {
       (date.getMonth() + 1).toString().padStart(2, '0')
     }/${date.getFullYear()}`;
   };
-
-  const remindersForSelectedDate = getRemindersForSelectedDate();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -389,35 +554,52 @@ const MedicationScheduleScreen = () => {
             ).map(([time, remindersForTime]) => (
               <View key={`time-${time}`} style={styles.timeSection}>
                 <Text style={styles.timeHeader}>{time}</Text>
-                {remindersForTime.map((reminder, index) => (
-                  <TouchableOpacity 
-                    key={`${reminder._id}-${index}`}
-                    style={styles.medicationItem}
-                    onPress={() => {
-                      setSelectedReminder(reminder);
-                      setIsModalVisible(true);
-                    }}
-                  >
-                    <View style={[
-                      styles.medicationCircle,
-                      reminder.taken && styles.medicationCircleTaken
-                    ]} />
-                    <View style={styles.medicationInfo}>
-                      <Text style={styles.medicationName}>
-                        {reminder.medicationId?.name || 'Thuốc'} - {reminder.timeLabel}
-                      </Text>
-                      <Text style={styles.medicationDose}>
-                        {reminder.medicationId?.dosage}
-                      </Text>
-                      <Text style={styles.medicationNote}>
-                        {reminder.note || 'Không có ghi chú'}
-                      </Text>
-                      {reminder.taken && (
-                        <Text style={styles.takenStatus}>✓ Đã uống</Text>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                {remindersForTime.map((reminder, index) => {
+                  const statusDisplay = getStatusDisplay(reminder.status, reminder.taken);
+                  const isCompleted = reminder.taken || reminder.status === 'on_time' || reminder.status === 'late';
+                  const isSkipped = reminder.status === 'skipped';
+                  
+                  console.log(`=== RENDERING REMINDER FROM API - Time: ${reminder.time}, Status: ${reminder.status}, Taken: ${reminder.taken} ===`);
+                  console.log('Status display:', statusDisplay);
+                  
+                  return (
+                    <TouchableOpacity 
+                      key={`${reminder._id}-${index}`}
+                      style={[
+                        styles.medicationItem,
+                        { borderLeftColor: statusDisplay.color, borderLeftWidth: 4 }
+                      ]}
+                      onPress={() => {
+                        setSelectedReminder(reminder);
+                        setIsModalVisible(true);
+                      }}
+                    >
+                      <View style={[
+                        styles.medicationCircle,
+                        { backgroundColor: statusDisplay.color }
+                      ]} />
+                      <View style={styles.medicationInfo}>
+                        <Text style={styles.medicationName}>
+                          {reminder.medicationId?.name || 'Thuốc'} - {reminder.timeLabel}
+                        </Text>
+                        <Text style={styles.medicationDose}>
+                          {reminder.medicationId?.form || reminder.medicationId?.dosage || ''}
+                        </Text>
+                        <Text style={styles.medicationNote}>
+                          {reminder.note || 'Không có ghi chú'}
+                        </Text>
+                        <Text style={{
+                          color: statusDisplay.color, 
+                          fontSize: 12, 
+                          fontWeight: '600', 
+                          marginTop: 4
+                        }}>
+                          {statusDisplay.icon} {statusDisplay.text}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             ))}
           </ScrollView>
@@ -540,8 +722,16 @@ const MedicationScheduleScreen = () => {
         visible={isModalVisible}
         onRequestClose={() => setIsModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsModalVisible(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalContent}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {'hospital' in (selectedReminder || {}) ? 'Chi tiết lịch tái khám' : 'Chi tiết thuốc'}
@@ -608,100 +798,154 @@ const MedicationScheduleScreen = () => {
                         <Text style={styles.detailValue}>{selectedReminder.note}</Text>
                       </View>
                     )}
-                    {selectedReminder.taken !== undefined && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Trạng thái:</Text>
-                        <Text style={styles.detailValue}>
-                          {selectedReminder.taken ? '✓ Đã uống' : 'Chưa uống'}
-                        </Text>
-                      </View>
-                    )}
                   </>
                 )}
               </View>
             )}
             <View style={styles.actionButtons}>
-              <TouchableOpacity 
-                onPress={() => setIsModalVisible(false)} 
-                style={styles.actionButton}
-              >
-                <View style={styles.iconCircle}>
-                  <MaterialIcons name="close" size={28} color="#3B82F6" />
-                </View>
-                <Text style={[styles.actionLabel, { color: '#3B82F6' }]}>Đóng</Text>
-              </TouchableOpacity>
+              {(() => {
+                console.log('=== ACTION BUTTONS CONDITION CHECK ===');
+                console.log('selectedReminder:', selectedReminder ? {
+                  _id: selectedReminder._id,
+                  taken: selectedReminder.taken,
+                  status: selectedReminder.status,
+                  isHospital: 'hospital' in selectedReminder
+                } : null);
+                console.log('isToday:', isToday(selectedDate));
+                console.log('selectedDate:', selectedDate.toDateString());
+                console.log('today:', new Date().toDateString());
 
-              <TouchableOpacity 
-                onPress={async () => {
-                  Alert.alert(
-                    'Xác nhận xóa',
-                    'Bạn có chắc chắn muốn xóa mục này?',
-                    [
-                      { text: 'Hủy', style: 'cancel' },
-                      { 
-                        text: 'Xóa', 
-                        style: 'destructive',
-                        onPress: async () => {
-                          try {
-                            if (selectedReminder && 'hospital' in selectedReminder) {
-                              // Xóa lịch tái khám
-                              await AppointmentsService.deleteAppointment(selectedReminder._id, token);
-                              Alert.alert('Thành công', 'Đã xóa lịch tái khám');
-                              fetchAppointments();
-                            } else if (selectedReminder) {
-                              // Xóa lịch nhắc uống thuốc
-                              const reminderId = selectedReminder._id.split('-')[0];
-                              await ReminderService.deleteReminder(reminderId, token);
-                              Alert.alert('Thành công', 'Đã xóa lịch nhắc uống thuốc');
-                              fetchReminders();
+                // Logic hiển thị nút action - CHỈ hiển thị khi:
+                // 1. Không phải appointment
+                // 2. Là ngày hôm nay  
+                // 3. Chưa uống (taken = false)
+                // 4. Không phải trạng thái đã hoàn thành
+                const shouldShowActionButtons = selectedReminder && 
+                  !('hospital' in selectedReminder) && 
+                  isToday(selectedDate) && 
+                  !selectedReminder.taken && 
+                  selectedReminder.status !== 'on_time' && 
+                  selectedReminder.status !== 'late' && 
+                  selectedReminder.status !== 'skipped';
+
+                console.log('=== SHOULD SHOW ACTION BUTTONS:', shouldShowActionButtons, '===');
+
+                return shouldShowActionButtons;
+              })() ? (
+                <>
+                  <TouchableOpacity 
+                    onPress={() => handleReminderAction('take')}
+                    style={styles.actionButton}
+                  >
+                    <View style={[styles.iconCircle, { backgroundColor: '#DCFCE7' }]}>
+                      <MaterialIcons name="check-circle" size={28} color="#16A34A" />
+                    </View>
+                    <Text style={[styles.actionLabel, { color: '#16A34A' }]}>Đã uống</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    onPress={() => handleReminderAction('skip')}
+                    style={styles.actionButton}
+                  >
+                    <View style={[styles.iconCircle, { backgroundColor: '#FEE2E2' }]}>
+                      <MaterialIcons name="cancel" size={28} color="#DC2626" />
+                    </View>
+                    <Text style={[styles.actionLabel, { color: '#DC2626' }]}>Bỏ qua</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    onPress={() => handleReminderAction('snooze')}
+                    style={styles.actionButton}
+                  >
+                    <View style={[styles.iconCircle, { backgroundColor: '#FEF3C7' }]}>
+                      <MaterialIcons name="access-time" size={28} color="#D97706" />
+                    </View>
+                    <Text style={[styles.actionLabel, { color: '#D97706', fontSize: 12 }]}>Nhắc lại 5p</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity 
+                    onPress={() => setIsModalVisible(false)} 
+                    style={styles.actionButton}
+                  >
+                    <View style={styles.iconCircle}>
+                      <MaterialIcons name="close" size={28} color="#3B82F6" />
+                    </View>
+                    <Text style={[styles.actionLabel, { color: '#3B82F6' }]}>Đóng</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    onPress={async () => {
+                      Alert.alert(
+                        'Xác nhận xóa',
+                        'Bạn có chắc chắn muốn xóa mục này?',
+                        [
+                          { text: 'Hủy', style: 'cancel' },
+                          { 
+                            text: 'Xóa', 
+                            style: 'destructive',
+                            onPress: async () => {
+                              try {
+                                if (selectedReminder && 'hospital' in selectedReminder) {
+                                  await AppointmentsService.deleteAppointment(selectedReminder._id, token);
+                                  Alert.alert('Thành công', 'Đã xóa lịch tái khám');
+                                  fetchAppointments();
+                                } else if (selectedReminder) {
+                                  const reminderId = selectedReminder._id.split('-')[0];
+                                  await ReminderService.deleteReminder(reminderId, token);
+                                  Alert.alert('Thành công', 'Đã xóa lịch nhắc uống thuốc');
+                                  fetchReminders();
+                                }
+                                setIsModalVisible(false);
+                              } catch (error) {
+                                console.error('Error deleting:', error);
+                                Alert.alert('Lỗi', 'Không thể xóa. Vui lòng thử lại');
+                              }
                             }
-                            setIsModalVisible(false);
-                          } catch (error) {
-                            console.error('Error deleting:', error);
-                            Alert.alert('Lỗi', 'Không thể xóa. Vui lòng thử lại');
                           }
-                        }
-                      }
-                    ]
-                  );
-                }}
-                style={styles.actionButton}
-              >
-                <View style={styles.iconCircle}>
-                  <MaterialIcons name="delete" size={28} color="#EF4444" />
-                </View>
-                <Text style={[styles.actionLabel, { color: '#EF4444' }]}>Xóa</Text>
-              </TouchableOpacity>
+                        ]
+                      );
+                    }}
+                    style={styles.actionButton}
+                  >
+                    <View style={styles.iconCircle}>
+                      <MaterialIcons name="delete" size={28} color="#EF4444" />
+                    </View>
+                    <Text style={[styles.actionLabel, { color: '#EF4444' }]}>Xóa</Text>
+                  </TouchableOpacity>
 
-<TouchableOpacity 
-  onPress={() => {
-    setIsModalVisible(false);
-    if (selectedReminder && 'hospital' in selectedReminder) {
-      navigation.navigate('EditAppointment', { 
-        token, 
-        userId,
-        appointment: selectedReminder
-      });
-    } else if (selectedReminder) {
-      const reminderId = selectedReminder._id.split('-')[0];
-      navigation.navigate('EditReminder', { 
-        token, 
-        userId,
-        reminderId, // truyền đúng ObjectId
-        reminder: selectedReminder // truyền object để hiển thị thông tin
-      });
-    }
-  }}
-  style={styles.actionButton}
-> 
-  <View style={styles.iconCircle}>
-    <MaterialIcons name="edit" size={28} color="#3B82F6" />
-  </View>
-  <Text style={[styles.actionLabel, { color: '#3B82F6' }]}>Sửa</Text>
-</TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={() => {
+                      setIsModalVisible(false);
+                      if (selectedReminder && 'hospital' in selectedReminder) {
+                        navigation.navigate('EditAppointment', { 
+                          token, 
+                          userId,
+                          appointment: selectedReminder
+                        });
+                      } else if (selectedReminder) {
+                        const reminderId = selectedReminder._id.split('-')[0];
+                        navigation.navigate('EditReminder', { 
+                          token, 
+                          userId,
+                          reminderId,
+                          reminder: selectedReminder
+                        });
+                      }
+                    }}
+                    style={styles.actionButton}
+                  > 
+                    <View style={styles.iconCircle}>
+                      <MaterialIcons name="edit" size={28} color="#3B82F6" />
+                    </View>
+                    <Text style={[styles.actionLabel, { color: '#3B82F6' }]}>Sửa</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </SafeAreaView>
   );

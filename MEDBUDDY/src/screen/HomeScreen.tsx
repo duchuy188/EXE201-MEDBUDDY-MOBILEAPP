@@ -4,11 +4,50 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons, FontAwesome5, FontAwesome, Feather } from '@expo/vector-icons';
 import bloodPressureService, { BloodPressure } from '../api/bloodPressure';
 import RelativePatientService from '../api/RelativePatient';
+import ReminderService from '../api/Reminders';
 import { useRoute } from '@react-navigation/native';
 
 interface HomeScreenProps {
   userType?: 'patient' | 'family';
   onLogout?: () => void;
+}
+
+interface DetailedReminder {
+  _id: string;
+  userId: string;
+  medicationId?: {
+    _id: string;
+    name?: string;
+    dosage?: string;
+    quantity?: string; // Thêm quantity
+    form?: string;
+  };
+  times: { time: string; _id?: string }[];
+  startDate: string;
+  endDate: string;
+  reminderType: 'normal' | 'voice';
+  repeatTimes?: { 
+    time: string; 
+    taken?: boolean; 
+    _id?: string;
+    status?: 'pending' | 'on_time' | 'late' | 'missed' | 'skipped' | 'snoozed'; // Thêm status
+  }[];
+  note?: string;
+  voice?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  status?: 'pending' | 'completed' | 'snoozed';
+}
+
+interface FlattenedReminder {
+  _id: string;
+  time: string;
+  timeLabel: string;
+  medicationName: string;
+  dosage: string;
+  note?: string;
+  taken?: boolean;
+  status?: 'pending' | 'on_time' | 'late' | 'missed' | 'skipped' | 'snoozed';
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout }) => {
@@ -19,6 +58,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
   const [bpHistory, setBpHistory] = useState<BloodPressure[]>([]);
   const [relatives, setRelatives] = useState<any[]>([]);
   const [loadingRelatives, setLoadingRelatives] = useState(false);
+  const [reminders, setReminders] = useState<DetailedReminder[]>([]);
+  const [loadingReminders, setLoadingReminders] = useState(false);
   const route = useRoute();
   
   const token = route.params?.token || '';
@@ -31,11 +72,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
     console.log('HomeScreen userId:', userId);
   }, [route.params, token, userId]);
 
-  // Lấy lịch sử huyết áp khi vào màn hình
+  // Lấy dữ liệu khi vào màn hình
   useEffect(() => {
     if (!token) return;
     fetchBpHistory();
     fetchRelatives();
+    fetchReminders();
   }, [token]);
 
   const fetchBpHistory = async () => {
@@ -50,7 +92,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
     }
   };
 
-  // Lấy danh sách người thân
   const fetchRelatives = async () => {
     if (!token) return;
     setLoadingRelatives(true);
@@ -64,14 +105,236 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
     }
   };
 
-  // Hàm gọi điện
+  // Lấy danh sách lịch uống thuốc hôm nay với status
+  const fetchReminders = async () => {
+    if (!token) return;
+    setLoadingReminders(true);
+    try {
+      const remindersData = await ReminderService.getReminders(token);
+      console.log('Raw reminders data:', remindersData);
+      
+      const detailedReminders = await Promise.all(
+        remindersData.map(async (reminder: any) => {
+          const detailData = await ReminderService.getReminderById(reminder._id, token);
+          console.log('Detail data for reminder', reminder._id, ':', detailData);
+          
+          // Lấy thêm status details từ API mới
+          try {
+            const statusResponse = await ReminderService.getReminderStatus(reminder._id, token);
+            console.log('Status response for reminder', reminder._id, ':', statusResponse);
+            
+            // Kiểm tra structure của response
+            if (statusResponse && statusResponse.statusDetails) {
+              const statusDetails = statusResponse.statusDetails;
+              console.log('Status details:', statusDetails);
+              
+              if (detailData.repeatTimes && Array.isArray(detailData.repeatTimes)) {
+                detailData.repeatTimes = detailData.repeatTimes.map((rt: any) => {
+                  // Tìm statusDetail khớp với time
+                  const statusDetail = statusDetails.find((sd: any) => sd.time === rt.time);
+                  console.log(`Matching time ${rt.time}:`, statusDetail);
+                  
+                  if (statusDetail) {
+                    return {
+                      ...rt,
+                      taken: statusDetail.taken,
+                      status: statusDetail.status,
+                      takenAt: statusDetail.takenAt,
+                    };
+                  }
+                  return rt;
+                });
+                
+                console.log('Updated repeatTimes:', detailData.repeatTimes);
+              }
+            }
+          } catch (statusError) {
+            console.error('Error fetching status for reminder', reminder._id, ':', statusError);
+          }
+          
+          return detailData;
+        })
+      );
+      
+      console.log('Final detailed reminders:', detailedReminders);
+      setReminders(detailedReminders);
+    } catch (e) {
+      console.error('Lỗi khi lấy lịch uống thuốc:', e);
+    } finally {
+      setLoadingReminders(false);
+    }
+  };
+
+  // Flatten reminders - GIỐNG MedicationScheduleScreen
+  const flattenReminders = (reminders: DetailedReminder[]): FlattenedReminder[] => {
+    const flattened: FlattenedReminder[] = [];
+    
+    reminders.forEach(reminder => {
+      if (reminder.repeatTimes && reminder.repeatTimes.length > 0) {
+        reminder.repeatTimes.forEach((repeatTime, index) => {
+          const timeLabel = reminder.times[index]?.time || 'Không xác định';
+          
+          // Lấy dosage từ form thay vì quantity
+          let dosage = '';
+          if (reminder.medicationId?.form) {
+            dosage = reminder.medicationId.form;
+          }
+          
+          flattened.push({
+            _id: `${reminder._id}-${index}`,
+            time: repeatTime.time || 'Chưa đặt giờ',
+            timeLabel: timeLabel,
+            medicationName: reminder.medicationId?.name || 'Thuốc',
+            dosage: dosage,
+            note: reminder.note,
+            taken: repeatTime.taken,
+            status: repeatTime.status // Thêm status từ repeatTime
+          });
+        });
+      }
+    });
+    
+    return flattened;
+  };
+
+  // Lấy reminders cho hôm nay
+  const getTodayReminders = (): FlattenedReminder[] => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const flattenedReminders = flattenReminders(reminders);
+    
+    return flattenedReminders.filter(reminder => {
+      // Tìm reminder gốc để check startDate/endDate
+      const originalReminder = reminders.find(r => reminder._id.startsWith(r._id));
+      if (!originalReminder) return false;
+      
+      const startDate = new Date(originalReminder.startDate);
+      const endDate = new Date(originalReminder.endDate);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(0, 0, 0, 0);
+      
+      return today >= startDate && today <= endDate && originalReminder.isActive !== false;
+    });
+  };
+
+  // Đánh dấu đã uống thuốc
+  const handleMarkAsTaken = async (reminderId: string, time: string) => {
+    try {
+      const originalId = reminderId.split('-')[0];
+      const now = new Date();
+      const [hours, minutes] = time.split(':').map(Number);
+      const reminderTime = new Date();
+      reminderTime.setHours(hours, minutes, 0, 0);
+      
+      // Xác định trạng thái dựa trên thời gian
+      let status: 'on_time' | 'late' = 'on_time';
+      const timeDiff = now.getTime() - reminderTime.getTime();
+      const minutesDiff = timeDiff / (1000 * 60);
+      
+      if (minutesDiff > 30) { // Nếu uống muộn hơn 30 phút
+        status = 'late';
+      }
+
+      console.log('Updating reminder status:', {
+        reminderId: originalId,
+        payload: {
+          action: 'take',
+          time: time,
+          status: status,
+        }
+      });
+
+      const result = await ReminderService.updateReminderStatus(originalId, {
+        action: 'take',
+        time: time,
+        status: status,
+      }, token);
+
+      console.log('Update result:', result);
+      
+      Alert.alert(
+        'Thành công', 
+        status === 'on_time' 
+          ? 'Đã đánh dấu đã uống thuốc đúng giờ' 
+          : 'Đã đánh dấu đã uống thuốc (muộn)'
+      );
+      
+      // Refresh ngay lập tức
+      await fetchReminders();
+    } catch (e) {
+      console.error('Error updating reminder status:', e);
+      Alert.alert('Lỗi', `Không thể cập nhật trạng thái uống thuốc: ${e.message || e}`);
+    }
+  };
+
+  // Bỏ qua lần uống thuốc
+  const handleSkipMedication = async (reminderId: string, time: string) => {
+    try {
+      const originalId = reminderId.split('-')[0];
+      await ReminderService.updateReminderStatus(originalId, {
+        action: 'skip',
+        time: time,
+        status: 'skipped',
+      }, token);
+      Alert.alert('Đã bỏ qua', 'Đã đánh dấu bỏ qua lần uống thuốc này');
+      fetchReminders();
+    } catch (e) {
+      Alert.alert('Lỗi', 'Không thể cập nhật trạng thái');
+    }
+  };
+
+  // Hoãn lịch uống thuốc
+  const handleSnoozeMedication = async (reminderId: string, time: string) => {
+    try {
+      const originalId = reminderId.split('-')[0];
+      await ReminderService.updateReminderStatus(originalId, {
+        action: 'snooze',
+        time: time,
+        status: 'snoozed',
+      }, token);
+      Alert.alert('Đã hoãn', 'Sẽ nhắc lại sau 10 phút');
+      fetchReminders();
+    } catch (e) {
+      Alert.alert('Lỗi', 'Không thể hoãn lịch nhắc');
+    }
+  };
+
+  // Sửa lại hàm getStatusDisplay để debug
+  const getStatusDisplay = (status?: string, taken?: boolean) => {
+    console.log('getStatusDisplay - status:', status, 'taken:', taken);
+    
+    if (status === 'on_time' || status === 'late') {
+      if (status === 'on_time') {
+        return { color: '#12B76A', icon: '✓', text: 'Đã uống đúng giờ' };
+      }
+      if (status === 'late') {
+        return { color: '#F79009', icon: '⏰', text: 'Đã uống muộn' };
+      }
+    }
+    
+    if (taken) {
+      return { color: '#12B76A', icon: '✓', text: 'Đã uống đúng giờ' };
+    }
+    if (status === 'skipped') {
+      return { color: '#F04438', icon: '✕', text: 'Đã bỏ qua' };
+    }
+    if (status === 'snoozed') {
+      return { color: '#7C3AED', icon: '⏰', text: 'Đã hoãn' };
+    }
+    if (status === 'missed') {
+      return { color: '#F04438', icon: '!', text: 'Đã bỏ lỡ' };
+    }
+    return { color: '#64748B', icon: '○', text: 'Chưa uống' };
+  };
+
   const handleCallPhone = (phoneNumber: string) => {
     if (!phoneNumber) {
       Alert.alert('Lỗi', 'Không có số điện thoại để gọi');
       return;
     }
     
-    const phone = phoneNumber.replace(/\s/g, ''); // Loại bỏ khoảng trắng
+    const phone = phoneNumber.replace(/\s/g, '');
     const phoneUrl = `tel:${phone}`;
     
     Linking.canOpenURL(phoneUrl)
@@ -88,14 +351,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
       });
   };
 
-  // Hàm nhắn tin SMS
   const handleSendSMS = (phoneNumber: string) => {
     if (!phoneNumber) {
       Alert.alert('Lỗi', 'Không có số điện thoại để nhắn tin');
       return;
     }
     
-    const phone = phoneNumber.replace(/\s/g, ''); // Loại bỏ khoảng trắng
+    const phone = phoneNumber.replace(/\s/g, '');
     const smsUrl = `sms:${phone}`;
     
     Linking.canOpenURL(smsUrl)
@@ -116,7 +378,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
     if (systolic && diastolic) {
       const sys = Number(systolic);
       const dia = Number(diastolic);
-      // Kiểm tra giới hạn hợp lý
+      
       if (isNaN(sys) || isNaN(dia)) {
         Alert.alert('Lỗi', 'Vui lòng nhập số hợp lệ cho huyết áp.');
         return;
@@ -161,6 +423,147 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
     Alert.alert('Đã hẹn giờ nhắc lại', 'Hệ thống sẽ nhắc bạn đo huyết áp sau 10 phút');
     setShowNotification(false);
   };
+
+  // Tạm thời cập nhật local state khi bấm nút
+  const handleMarkAsTakenLocal = async (reminderId: string, time: string) => {
+    try {
+      const originalId = reminderId.split('-')[0];
+      
+      // Cập nhật local state trước để UI phản hồi ngay lập tức
+      setReminders(prevReminders => {
+        return prevReminders.map(reminder => {
+          if (reminder._id === originalId) {
+            return {
+              ...reminder,
+              repeatTimes: reminder.repeatTimes?.map(rt => {
+                if (rt.time === time) {
+                  return { ...rt, taken: true, status: 'on_time' };
+                }
+                return rt;
+              })
+            };
+          }
+          return reminder;
+        });
+      });
+
+      // Gọi API để cập nhật server
+      const now = new Date();
+      const [hours, minutes] = time.split(':').map(Number);
+      const reminderTime = new Date();
+      reminderTime.setHours(hours, minutes, 0, 0);
+      
+      let status: 'on_time' | 'late' = 'on_time';
+      const timeDiff = now.getTime() - reminderTime.getTime();
+      const minutesDiff = timeDiff / (1000 * 60);
+      
+      if (minutesDiff > 30) {
+        status = 'late';
+      }
+
+      await ReminderService.updateReminderStatus(originalId, {
+        action: 'take',
+        time: time,
+        status: status,
+      }, token);
+
+      // Refresh để lấy data mới từ server
+      await fetchReminders();
+      
+      Alert.alert(
+        'Thành công', 
+        status === 'on_time' 
+          ? 'Đã đánh dấu đã uống thuốc đúng giờ' 
+          : 'Đã đánh dấu đã uống thuốc (muộn)'
+      );
+      
+    } catch (e) {
+      console.error('Error updating reminder status:', e);
+      Alert.alert('Lỗi', 'Không thể cập nhật trạng thái uống thuốc');
+      // Refresh để đồng bộ lại với server
+      await fetchReminders();
+    }
+  };
+
+  const handleSkipMedicationLocal = async (reminderId: string, time: string) => {
+    try {
+      const originalId = reminderId.split('-')[0];
+      
+      // Cập nhật local state trước
+      setReminders(prevReminders => {
+        return prevReminders.map(reminder => {
+          if (reminder._id === originalId) {
+            return {
+              ...reminder,
+              repeatTimes: reminder.repeatTimes?.map(rt => {
+                if (rt.time === time) {
+                  return { ...rt, taken: false, status: 'skipped' };
+                }
+                return rt;
+              })
+            };
+          }
+          return reminder;
+        });
+      });
+
+      // Gọi API
+      await ReminderService.updateReminderStatus(originalId, {
+        action: 'skip',
+        time: time,
+        status: 'skipped',
+      }, token);
+
+      await fetchReminders();
+      Alert.alert('Đã bỏ qua', 'Đã đánh dấu bỏ qua lần uống thuốc này');
+      
+    } catch (e) {
+      console.error('Error skipping medication:', e);
+      Alert.alert('Lỗi', 'Không thể cập nhật trạng thái');
+      await fetchReminders();
+    }
+  };
+
+  const handleSnoozeMedicationLocal = async (reminderId: string, time: string) => {
+    try {
+      const originalId = reminderId.split('-')[0];
+      
+      // Cập nhật local state trước
+      setReminders(prevReminders => {
+        return prevReminders.map(reminder => {
+          if (reminder._id === originalId) {
+            return {
+              ...reminder,
+              repeatTimes: reminder.repeatTimes?.map(rt => {
+                if (rt.time === time) {
+                  return { ...rt, status: 'snoozed' };
+                }
+                return rt;
+              })
+            };
+          }
+          return reminder;
+        });
+      });
+
+      // Gọi API
+      await ReminderService.updateReminderStatus(originalId, {
+        action: 'snooze',
+        time: time,
+        status: 'snoozed',
+      }, token);
+
+      await fetchReminders();
+      Alert.alert('Đã hoãn', 'Sẽ nhắc lại sau 10 phút');
+      
+    } catch (e) {
+      console.error('Error snoozing medication:', e);
+      Alert.alert('Lỗi', 'Không thể hoãn lịch nhắc');
+      await fetchReminders();
+    }
+  };
+
+  const todayReminders = getTodayReminders();
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -250,7 +653,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
             shadowRadius: 8,
             elevation: 1
           }]}> 
-            <Text style={{fontWeight: 'bold', fontSize: 18, marginBottom: 10, color: '#1E293B', flexDirection: 'row', alignItems: 'center'}}>
+            <Text style={{fontWeight: 'bold', fontSize: 18, marginBottom: 10, color: '#1E293B'}}>
               <FontAwesome5 name="heartbeat" size={18} color="#3B82F6" />  Cập nhật huyết áp
             </Text>
             <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12}}>
@@ -280,8 +683,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
             <TouchableOpacity
               style={[styles.saveBtn, {
                 backgroundColor: systolic && diastolic ? '#3B82F6' : '#B6D5FA',
-                flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                borderRadius: 10, paddingVertical: 12, marginTop: 6, marginBottom: 0
+                borderRadius: 10,
+                paddingVertical: 12,
+                marginTop: 6,
               }]}
               onPress={handleSaveBloodPressure}
               disabled={!systolic || !diastolic}
@@ -298,18 +702,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
               ) : (
                 bpHistory && bpHistory.length > 0 ? (
                   bpHistory.slice(0, 3).map((item, idx) => {
-                    // Format ngày giờ (so sánh theo ngày, không tính giờ)
                     const date = item.measuredAt ? new Date(item.measuredAt) : null;
                     let label = '';
                     if (date) {
                       const now = new Date();
-                      // Lấy yyyy-mm-dd cho cả hai ngày
                       const getYMD = (d: Date) => d.getFullYear() + '-' + (d.getMonth()+1).toString().padStart(2, '0') + '-' + d.getDate().toString().padStart(2, '0');
                       const getDMY = (d: Date) => d.getDate().toString().padStart(2, '0') + '/' + (d.getMonth()+1).toString().padStart(2, '0') + '/' + d.getFullYear();
                       const ymdNow = getYMD(now);
                       const ymdDate = getYMD(date);
                       const dmyDate = getDMY(date);
-                      // Tính số ngày chênh lệch
                       const dateOnlyNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                       const dateOnlyDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
                       const diff = Math.round((dateOnlyNow.getTime() - dateOnlyDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -317,7 +718,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
                       else if (diff === 1) label = `Hôm qua - ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (${dmyDate})`;
                       else label = `${diff} ngày trước - ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} (${dmyDate})`;
                     }
-                    // Đánh giá huyết áp
+                    
                     let color = '#12B76A';
                     let reason = '';
                     const sys = item.systolic;
@@ -364,25 +765,104 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
             shadowRadius: 8,
             elevation: 1
           }]}> 
-            <Text style={{fontWeight: 'bold', fontSize: 18, marginBottom: 10, color: '#1E293B', flexDirection: 'row', alignItems: 'center'}}>
+            <Text style={{fontWeight: 'bold', fontSize: 18, marginBottom: 10, color: '#1E293B'}}>
               <Ionicons name="notifications" size={18} color="#3B82F6" />  Lịch uống thuốc hôm nay
             </Text>
-            <View style={{backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#B6D5FA'}}>
-              <View>
-                <Text style={{fontWeight: 'bold', color: '#12B76A'}}>Amlodipine 5mg</Text>
-                <Text style={{color: '#64748B', fontSize: 13}}>7:00 - Buổi sáng</Text>
+            
+            {loadingReminders ? (
+              <ActivityIndicator size="small" color="#3B82F6" />
+            ) : todayReminders && todayReminders.length > 0 ? (
+              todayReminders
+                .sort((a, b) => {
+                  const timeA = a.time.split(':').map(Number);
+                  const timeB = b.time.split(':').map(Number);
+                  return (timeA[0] * 60 + timeA[1]) - (timeB[0] * 60 + timeB[1]);
+                })
+                .map((reminder, index) => {
+                  console.log('Rendering reminder:', reminder);
+                  const statusDisplay = getStatusDisplay(reminder.status, reminder.taken);
+                  const isCompleted = reminder.taken || reminder.status === 'on_time' || reminder.status === 'late';
+                  const isSkipped = reminder.status === 'skipped';
+                  const isSnoozed = reminder.status === 'snoozed';
+                  
+                  console.log('Reminder display state:', {
+                    id: reminder._id,
+                    time: reminder.time,
+                    status: reminder.status,
+                    taken: reminder.taken,
+                    isCompleted,
+                    statusDisplay
+                  });
+                  
+                  return (
+                    <View 
+                      key={`${reminder._id}-${index}`}
+                      style={{
+                        backgroundColor: '#fff', 
+                        borderRadius: 12, 
+                        padding: 12, 
+                        marginBottom: 8, 
+                        borderWidth: 1, 
+                        borderColor: statusDisplay.color,
+                        opacity: isSkipped ? 0.7 : 1
+                      }}
+                    >
+                      <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                        <View style={{flex: 1}}>
+                          <Text style={{fontWeight: 'bold', color: statusDisplay.color}}>
+                            {reminder.medicationName} {reminder.dosage}
+                          </Text>
+                          <Text style={{color: '#64748B', fontSize: 13}}>
+                            {reminder.time} - {reminder.timeLabel}
+                          </Text>
+                          {reminder.note && (
+                            <Text style={{color: '#94A3B8', fontSize: 12, marginTop: 2}}>
+                              {reminder.note}
+                            </Text>
+                          )}
+                          <Text style={{color: statusDisplay.color, fontSize: 12, fontWeight: '600', marginTop: 4}}>
+                            {statusDisplay.icon} {statusDisplay.text}
+                          </Text>
+                        </View>
+                        
+                        {isCompleted ? (
+                          <Text style={{color: statusDisplay.color, fontSize: 22}}>{statusDisplay.icon}</Text>
+                        ) : isSkipped ? (
+                          <Text style={{color: statusDisplay.color, fontSize: 22}}>✕</Text>
+                        ) : (
+                          <View style={{flexDirection: 'row', gap: 4}}>
+                            <TouchableOpacity 
+                              style={{backgroundColor: '#3B82F6', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6}}
+                              onPress={() => handleMarkAsTakenLocal(reminder._id, reminder.time)}
+                            >
+                              <Text style={{color: '#fff', fontSize: 12, fontWeight: 'bold'}}>Uống</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                              style={{backgroundColor: '#F79009', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6}}
+                              onPress={() => handleSnoozeMedicationLocal(reminder._id, reminder.time)}
+                            >
+                              <Text style={{color: '#fff', fontSize: 12, fontWeight: 'bold'}}>Hoãn</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                              style={{backgroundColor: '#F04438', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6}}
+                              onPress={() => handleSkipMedicationLocal(reminder._id, reminder.time)}
+                            >
+                              <Text style={{color: '#fff', fontSize: 12, fontWeight: 'bold'}}>Bỏ qua</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })
+            ) : (
+              <View style={{backgroundColor: '#fff', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#B6D5FA', alignItems: 'center'}}>
+                <Ionicons name="calendar-outline" size={32} color="#B6D5FA" />
+                <Text style={{color: '#64748B', marginTop: 8, textAlign: 'center'}}>
+                  Chưa có lịch uống thuốc hôm nay
+                </Text>
               </View>
-              <Text style={{color: '#12B76A', fontSize: 22}}>✓</Text>
-            </View>
-            <View style={{backgroundColor: '#fff', borderRadius: 12, padding: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#B6D5FA'}}>
-              <View>
-                <Text style={{fontWeight: 'bold', color: '#3B82F6'}}>Candesartan 8mg</Text>
-                <Text style={{color: '#64748B', fontSize: 13}}>19:00 - Buổi tối</Text>
-              </View>
-              <TouchableOpacity style={{backgroundColor: '#B6D5FA', borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8}}>
-                <Text style={{color: '#3B82F6', fontSize: 14, fontWeight: 'bold'}}>Uống ngay</Text>
-              </TouchableOpacity>
-            </View>
+            )}
           </View>
 
           {/* Bảng điều khiển gia đình */}
@@ -394,7 +874,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
             marginBottom: 18,
             borderWidth: 1.5,
             borderColor: '#B6D5FA',
-            flexDirection: 'column',
             shadowColor: '#F0F6FF',
             shadowOpacity: 0.08,
             shadowRadius: 6,
@@ -415,7 +894,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
             ) : relatives.length > 0 ? (
               <View>
                 {relatives.map((item, index) => {
-                  const relative = item.relative; // Lấy thông tin người thân từ object relative
+                  const relative = item.relative;
                   return (
                     <View key={item._id || index} style={{
                       backgroundColor: '#F8FAFC',
@@ -430,7 +909,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
                       elevation: 2
                     }}>
                       <View style={{flexDirection: 'row', alignItems: 'flex-start'}}>
-                        {/* Avatar */}
                         {relative?.avatar && relative.avatar.trim() !== '' ? (
                           <Image 
                             source={{ uri: relative.avatar }}
@@ -462,37 +940,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
                           </View>
                         )}
                         
-                        {/* Thông tin người thân */}
                         <View style={{flex: 1}}>
-                          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4}}>
-                            <View style={{flex: 1}}>
-                             <Text style={{
-                                fontSize: 16,
-                                fontWeight: 'bold',
-                                color: '#1E293B',
-                                lineHeight: 20
-                              }}>
-                                Tên:
-                                {relative?.fullName || 'Người thân'}
-                              </Text>
-                              <Text style={{
-                                fontSize: 14,
-                                color: '#64748B',
-                                marginTop: 2
-                              }}>
-                                Người thân
-                              </Text>
-                            </View>
-                          </View>
-                          
-                          {/* Email và số điện thoại */}
-                        
+                          <Text style={{
+                            fontSize: 16,
+                            fontWeight: 'bold',
+                            color: '#1E293B',
+                            lineHeight: 20
+                          }}>
+                            {relative?.fullName || 'Người thân'}
+                          </Text>
                           <Text style={{
                             fontSize: 12,
                             color: '#3B82F6',
-                            marginBottom: 4
+                            marginTop: 4
                           }}>
-                            Email: 
                             {relative?.email || ''}
                           </Text>
                           <Text style={{
@@ -500,43 +961,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
                             color: '#64748B',
                             marginBottom: 8
                           }}>
-                            SĐT:
                             {relative?.phoneNumber || ''}
                           </Text>
                           
-                          {/* Uống thuốc hôm nay */}
-                          <View style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            marginBottom: 12
-                          }}>
-                            <Text style={{
-                              fontSize: 13,
-                              color: '#64748B',
-                              marginRight: 8
-                            }}>
-                              Đang theo dõi
-                            </Text>
-                            <View style={{
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              backgroundColor: '#D1FAE5',
-                              paddingHorizontal: 6,
-                              paddingVertical: 2,
-                              borderRadius: 6
-                            }}>
-                              <Text style={{
-                                fontSize: 12,
-                                fontWeight: 'bold',
-                                color: '#059669',
-                                marginRight: 4
-                              }}>
-                                ✓ Hoạt động
-                              </Text>
-                            </View>
-                          </View>
-                          
-                          {/* Buttons */}
                           <View style={{
                             flexDirection: 'row',
                             justifyContent: 'space-between',
@@ -621,9 +1048,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
         </>
       ) : (
         <>
-          {/* Giao diện người chăm sóc - Báo cáo tuần */}
           <View style={[styles.section, {backgroundColor: '#fff', borderRadius: 18, padding: 18, marginBottom: 18, borderWidth: 1, borderColor: '#A8E6CF'}]}>
-            <Text style={{fontWeight: 'bold', fontSize: 18, marginBottom: 10, flexDirection: 'row', alignItems: 'center'}}>
+            <Text style={{fontWeight: 'bold', fontSize: 18, marginBottom: 10}}>
               <FontAwesome5 name="heartbeat" size={18} color="#4CB8C4" />  Tổng kết tuần
             </Text>
             <View style={{backgroundColor: '#A8E6CF', borderRadius: 12, padding: 12, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
@@ -649,7 +1075,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
             </View>
           </View>
 
-          {/* Bảng điều khiển gia đình */}
           <View style={[styles.section, {backgroundColor: '#fff', borderRadius: 18, padding: 18, marginBottom: 18, borderWidth: 1, borderColor: '#A0A4A8'}]}>
             <Text style={{fontWeight: 'bold', fontSize: 18, marginBottom: 10}}>
               <FontAwesome5 name="users" size={18} color="#4CB8C4" />  Bảng điều khiển gia đình (demo)
@@ -661,7 +1086,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
     </ScrollView>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {

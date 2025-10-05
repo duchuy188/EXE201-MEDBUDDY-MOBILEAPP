@@ -30,10 +30,10 @@ export interface Reminder {
   createdByType?: 'patient' | 'relative';
 }
 
-export interface UpdateReminderStatusPayload {
+interface UpdateReminderStatusPayload {
   action: 'take' | 'skip' | 'snooze';
-  time?: string; // Thời gian cụ thể nếu cần
-  snoozeMinutes?: number; // Số phút hoãn lại nếu action là 'snooze'
+  time?: string;
+  status?: 'pending' | 'on_time' | 'late' | 'missed' | 'skipped' | 'snoozed';
 }
 
 class ReminderService {
@@ -84,13 +84,30 @@ class ReminderService {
     return res.data;
   }
 
-  // Cập nhật trạng thái lần uống cụ thể (take/skip/snooze)
+  // Cập nhật trạng thái lịch uống thuốc (bỏ static)
   async updateReminderStatus(
     id: string, 
-    payload: UpdateReminderStatusPayload
+    payload: UpdateReminderStatusPayload,
+    token: string
   ): Promise<{ success: boolean; data: any }> {
-    const res = await apiClient.patch(`/reminders/${id}/status`, payload);
+    const res = await apiClient.patch(`/reminders/${id}/status`, payload, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     return res.data;
+  }
+
+  // Xem trạng thái các lần uống hôm nay (bỏ static)
+  async getReminderStatus(id: string, token: string): Promise<any> {
+    try {
+      const res = await apiClient.get(`/reminders/${id}/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      console.log('getReminderStatus response:', res.data);
+      return res.data;
+    } catch (error) {
+      console.error('getReminderStatus error:', error);
+      throw error;
+    }
   }
 }
 
