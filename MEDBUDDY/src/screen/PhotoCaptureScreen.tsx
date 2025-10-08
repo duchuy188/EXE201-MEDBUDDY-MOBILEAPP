@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { medicationServiceWithOCR } from '../api/Medication';
 import OrcService from '../api/orc';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 
 const PhotoCaptureScreen: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -12,6 +13,7 @@ const PhotoCaptureScreen: React.FC = () => {
   const [editableMedicines, setEditableMedicines] = useState<any[]>([]);
   const [token, setToken] = useState<string | null>(null);
   const route = useRoute();
+  const navigation = useNavigation();
 
   React.useEffect(() => {
     // Ưu tiên lấy token từ route.params, fallback AsyncStorage nếu không có
@@ -47,8 +49,33 @@ const PhotoCaptureScreen: React.FC = () => {
       if (ocrResult?.medicines) {
         setEditableMedicines(ocrResult.medicines.map((med: any) => ({ ...med })));
       }
-    } catch (error) {
-      Alert.alert('Lỗi', 'Không thể nhận diện ảnh. Vui lòng thử lại.');
+    } catch (error: any) {
+      // Thử lấy thông tin lỗi từ nhiều trường hợp khác nhau
+      const errObj = error?.response?.data || error?.response || error || {};
+      console.log('OCR ERROR:', errObj);
+
+      if (
+        errObj?.error === 'FEATURE_ACCESS_DENIED' ||
+        errObj?.message?.includes('không có quyền sử dụng') ||
+        errObj?.requiredFeature === 'Phân tích đơn thuốc'
+      ) {
+        Alert.alert(
+          'Tính năng bị giới hạn',
+          'Xin vui lòng nâng cấp gói hiện tại để sử dụng tính năng này.',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('PackageScreen'),
+            },
+            {
+              text: 'Hủy',
+              style: 'cancel',
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Lỗi', 'Không thể nhận diện ảnh. Vui lòng thử lại.');
+      }
     }
     setIsProcessing(false);
   };
@@ -89,10 +116,30 @@ const PhotoCaptureScreen: React.FC = () => {
 
 
 
-  const handleAddToInventory = () => {
-    Alert.alert('Thêm vào kho thành công!', 'Thông tin thuốc đã được thêm vào kho.');
-    setCapturedImage(null);
-    setExtractedData(null);
+  const handleAddToInventory = async () => {
+    try {
+      if (!token) {
+        Alert.alert('Lỗi', 'Không tìm thấy token xác thực.');
+        return;
+      }
+      // @ts-ignore
+      const userId = route.params?.userId || '';
+      // Giả sử bạn đã có biến cloudinaryUrl là link ảnh trên Cloudinary
+      const cloudinaryUrl = extractedData?.imageUrl || ''; // hoặc lấy từ nơi bạn upload ảnh
+      const data = {
+        userId,
+        medicines: editableMedicines,
+        imageUrl: cloudinaryUrl, // truyền link ảnh Cloudinary vào đây
+        rawText: extractedData?.rawText || '',
+      };
+      await medicationServiceWithOCR.saveMedicationsFromOCR(data, token);
+      Alert.alert('Thêm vào kho thành công!', 'Thông tin thuốc đã được thêm vào kho.');
+      setCapturedImage(null);
+      setExtractedData(null);
+      setEditableMedicines([]);
+    } catch (error) {
+      Alert.alert('Lỗi', 'Không thể lưu thuốc vào kho. Vui lòng thử lại.');
+    }
   };
 
   const handleRetake = () => {
@@ -156,6 +203,17 @@ const PhotoCaptureScreen: React.FC = () => {
                 >
                   {editableMedicines.map((med: any, idx: number) => (
                     <View key={idx} style={styles.medicineItem}>
+                      {/* Nút xóa thuốc */}
+                      <TouchableOpacity
+                        style={{position: 'absolute', top: 8, right: 8, zIndex: 1}}
+                        onPress={() => {
+                          const newMeds = editableMedicines.filter((_, i) => i !== idx);
+                          setEditableMedicines(newMeds);
+                        }}
+                      >
+                        <Feather name="trash-2" size={20} color="#EF4444" />
+                      </TouchableOpacity>
+                      {/* Các trường thông tin thuốc */}
                       <TextInput
                         style={[styles.input, {fontWeight: 'bold', marginBottom: 4}]}
                         value={med.name}
@@ -166,26 +224,51 @@ const PhotoCaptureScreen: React.FC = () => {
                         }}
                         placeholder="Tên thuốc"
                       />
-                      <TextInput
-                        style={styles.input}
-                        value={med.quantity}
-                        onChangeText={text => {
-                          const newMeds = [...editableMedicines];
-                          newMeds[idx].quantity = text;
-                          setEditableMedicines(newMeds);
-                        }}
-                        placeholder="Số lượng"
-                      />
-                      <TextInput
-                        style={styles.input}
-                        value={med.usage || ''}
-                        onChangeText={text => {
-                          const newMeds = [...editableMedicines];
-                          newMeds[idx].usage = text;
-                          setEditableMedicines(newMeds);
-                        }}
-                        placeholder="HDSD"
-                      />
+                      <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                        <TextInput
+                          style={[styles.input, {flex: 1}]}
+                          value={med.quantity}
+                          onChangeText={text => {
+                            // Chỉ cho nhập số
+                            if (/^\d*$/.test(text)) {
+                              const newMeds = [...editableMedicines];
+                              newMeds[idx].quantity = text;
+                              setEditableMedicines(newMeds);
+                            }
+                          }}
+                          placeholder="Số lượng"
+                          keyboardType="numeric"
+                        />
+                        <TouchableOpacity
+                          style={[styles.input, {width: 80, marginLeft: 8, justifyContent: 'center'}]}
+                          onPress={() => {
+                            const newMeds = [...editableMedicines];
+                            newMeds[idx].showUnitPicker = !newMeds[idx].showUnitPicker;
+                            setEditableMedicines(newMeds);
+                          }}
+                        >
+                          <Text style={{color: '#64748B'}}>{med.form || 'Đơn vị'}</Text>
+                          <Feather name="chevron-down" size={18} color="#64748B" />
+                        </TouchableOpacity>
+                      </View>
+                      {med.showUnitPicker && (
+                        <View style={{backgroundColor: '#F0F6FF', borderRadius: 8, marginTop: 4, borderWidth: 1, borderColor: '#B6D5FA'}}>
+                          {['viên', 'lọ', 'ống', 'gói'].map(unit => (
+                            <TouchableOpacity
+                              key={unit}
+                              style={{padding: 10}}
+                              onPress={() => {
+                                const newMeds = [...editableMedicines];
+                                newMeds[idx].form = unit;
+                                newMeds[idx].showUnitPicker = false;
+                                setEditableMedicines(newMeds);
+                              }}
+                            >
+                              <Text style={{color: med.form === unit ? '#2563EB' : '#1E293B'}}>{unit}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
                       <TextInput
                         style={styles.input}
                         value={med.note || ''}
@@ -196,6 +279,17 @@ const PhotoCaptureScreen: React.FC = () => {
                         }}
                         placeholder="Ghi chú"
                       />
+                      {/* Nếu có times, hiển thị thêm */}
+                      {Array.isArray(med.times) && med.times.length > 0 && (
+                        <View style={{marginTop: 6}}>
+                          <Text style={{fontWeight: 'bold', color: '#2563EB'}}>Thời gian uống:</Text>
+                          {med.times.map((t: any, i: number) => (
+                            <Text key={i} style={{color: '#64748B', marginLeft: 8}}>
+                              • {t}
+                            </Text>
+                          ))}
+                        </View>
+                      )}
                     </View>
                   ))}
                 </ScrollView>

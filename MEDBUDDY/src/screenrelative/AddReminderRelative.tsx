@@ -71,6 +71,8 @@ const AddReminderRelative = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(paramSelectedPatient || null);
   const [showPatientModal, setShowPatientModal] = useState(false);
+  const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (!token || token === 'undefined' || token === null) {
@@ -291,7 +293,16 @@ const AddReminderRelative = () => {
       );
     } catch (error: any) {
       console.error('Error adding reminder:', error);
-      Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể thêm lịch nhắc');
+      const msg = error?.response?.data?.message || error?.message || 'Không thể thêm lịch nhắc';
+      console.error('Error adding reminder (message):', msg);
+      // If server returns 403 or message indicates missing package, show upgrade modal
+      const status = error?.response?.status;
+      if (status === 403 || /chưa có gói|mua gói|vui lòng mua gói/i.test(String(msg))) {
+        setUpgradeMessage(msg);
+        setUpgradeModalVisible(true);
+      } else {
+        Alert.alert('Lỗi', msg);
+      }
     }
   };
 
@@ -658,6 +669,51 @@ const AddReminderRelative = () => {
             </View>
           </Modal>
 
+          {/* Upgrade modal shown when server returns 403 asking to buy plan (NEW) */}
+          <Modal
+            visible={upgradeModalVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setUpgradeModalVisible(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.patientModal, { maxHeight: 240 }] }>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Không thể tạo lịch hẹn</Text>
+                  <TouchableOpacity onPress={() => setUpgradeModalVisible(false)}>
+                    <MaterialIcons name="close" size={22} color="#374151" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={{ paddingTop: 8 }}>
+                  <Text style={{ color: '#374151', fontSize: 15, lineHeight: 22 }}>
+                    {upgradeMessage || 'Vui lòng mua gói để sử dụng tính năng này.'}
+                  </Text>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 }}>
+                    <TouchableOpacity
+                      onPress={() => setUpgradeModalVisible(false)}
+                      style={{ paddingHorizontal: 12, paddingVertical: 8, marginRight: 10 }}
+                    >
+                      <Text style={{ color: '#6B7280' }}>Đóng</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        setUpgradeModalVisible(false);
+                        // @ts-ignore
+                        navigation.navigate('PackageScreen');
+                      }}
+                      style={{ backgroundColor: '#4A7BA7', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
+                    >
+                      <Text style={{ color: '#fff', fontWeight: '600' }}>Mua gói</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
           <DateTimePickerModal
             isVisible={showTimePicker}
             mode="time"
@@ -927,6 +983,13 @@ const styles = StyleSheet.create({
     padding: 20,
     width: '90%',
     maxHeight: '70%',
+  },
+  patientModal: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    width: '90%',
+    alignSelf: 'center',
   },
   modalHeader: {
     flexDirection: 'row',

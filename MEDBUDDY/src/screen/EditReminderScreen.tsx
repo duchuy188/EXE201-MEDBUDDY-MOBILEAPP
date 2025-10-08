@@ -157,6 +157,33 @@ const handleUpdateReminder = async () => {
 			{ key: 'afternoon', label: '🌤️ Buổi chiều' },
 			{ key: 'evening', label: '🌙 Buổi tối' },
 		];
+
+		// Determine which slots to show based on reminder.times labels or reminder.repeatTimes
+		const allowedSlots = (() => {
+			const labels = reminder?.times && Array.isArray(reminder.times)
+				? reminder.times.map((t: any) => (t.time || '').toLowerCase())
+				: null;
+			if (labels && labels.length > 0) {
+				return timeSlots.filter(slot => {
+					const keyLabel = slot.key === 'morning' ? 'sáng' : slot.key === 'afternoon' ? 'chiều' : 'tối';
+					return labels.includes(keyLabel);
+				});
+			}
+			// fallback: if only repeatTimes exist, derive slots from clock hours
+			const clocks = reminder?.repeatTimes && Array.isArray(reminder.repeatTimes)
+				? reminder.repeatTimes.map((r: any) => r.time)
+				: null;
+			if (clocks && clocks.length > 0) {
+				const slotKeys: string[] = clocks.map((t: string) => {
+					const hour = parseInt((t || '0').split(':')[0] || '0', 10);
+					if (hour < 12) return 'morning';
+					if (hour < 18) return 'afternoon';
+					return 'evening';
+				});
+				return timeSlots.filter(slot => slotKeys.includes(slot.key));
+			}
+			return timeSlots;
+		})();
 		const reminderTypeOptions = [
 			{ label: 'Thông thường', value: 'normal' },
 			{ label: 'Giọng nói', value: 'voice' },
@@ -195,7 +222,7 @@ const handleUpdateReminder = async () => {
 						</View>
 						<View style={styles.inputGroup}>
 							<Text style={styles.label}>Thời gian nhắc</Text>
-							{timeSlots.map(slot => (
+							{allowedSlots.map(slot => (
 								<View style={styles.timeSlotContainer} key={slot.key}>
 									<Text style={styles.timeSlotLabel}>{slot.label}</Text>
 									<View style={styles.timeRow}>

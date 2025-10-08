@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import ReminderService from '../api/Reminders';
 import NotificationService, { SendNotificationRequest } from '../api/Notifications';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
@@ -33,6 +33,7 @@ const voiceFiles: { [key: string]: any } = {
 };
 
 const AddReminderScreen = () => {
+  const navigation = useNavigation();
   const route = useRoute();
   const routeParams = route.params as { token?: string; userId?: string; medication?: any; deviceToken?: string } || {};
   const { token: paramToken, userId, medication, deviceToken } = routeParams;
@@ -200,8 +201,31 @@ const AddReminderScreen = () => {
         setSelectedDays([]);
       }
     } catch (error: any) {
-      console.error('Error adding reminder:', error);
-      Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể thêm lịch nhắc');
+      const errObj = error?.response?.data || error?.response || error || {};
+      console.error('Error adding reminder:', errObj);
+
+      if (
+        errObj?.error === 'FEATURE_ACCESS_DENIED' ||
+        errObj?.message?.includes('không có quyền sử dụng') ||
+        errObj?.requiredFeature === 'Nhắc thuốc bằng giọng nói'
+      ) {
+        Alert.alert(
+          'Tính năng bị giới hạn',
+          'Xin vui lòng nâng cấp gói hiện tại để sử dụng tính năng này.',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('PackageScreen'),
+            },
+            {
+              text: 'Hủy',
+              style: 'cancel',
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Lỗi', errObj?.message || 'Không thể thêm lịch nhắc');
+      }
     }
   };
 

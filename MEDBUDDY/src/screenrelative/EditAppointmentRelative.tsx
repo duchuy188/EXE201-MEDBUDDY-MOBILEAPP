@@ -45,6 +45,10 @@ const EditAppointmentRelative = ({ route, navigation }: any) => {
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [patientLoading, setPatientLoading] = useState(false);
 
+  // NEW: Upgrade modal state (show when server returns 403 asking to buy plan)
+  const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState('');
+
   // Fetch patients function
   const fetchPatients = async () => {
     setPatientLoading(true);
@@ -130,8 +134,23 @@ const EditAppointmentRelative = ({ route, navigation }: any) => {
       );
       Alert.alert('Thành công', 'Cập nhật lịch hẹn thành công!');
       navigation.goBack();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Update appointment error:', error);
+
+      // Try to read server message and status
+      const serverMessage: string | undefined = error?.response?.data?.message;
+      const status: number | undefined = error?.response?.status;
+
+      // If forbidden and server suggests buying a plan, show upgrade modal
+      if (status === 403 && serverMessage) {
+        const lower = serverMessage.toLowerCase();
+        if (lower.includes('mua gói') || lower.includes('vui lòng mua gói') || lower.includes('chưa có gói') || lower.includes('feature') || lower.includes('gói dịch vụ')) {
+          setUpgradeMessage(serverMessage);
+          setUpgradeModalVisible(true);
+          return;
+        }
+      }
+
       Alert.alert('Lỗi', 'Cập nhật thất bại!');
     }
   };
@@ -338,6 +357,54 @@ const EditAppointmentRelative = ({ route, navigation }: any) => {
                 </View>
               }
             />
+          </View>
+        </View>
+      </Modal>
+
+      {/* NEW: Upgrade modal shown when server returns 403 asking to buy plan */}
+      <Modal
+        visible={upgradeModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setUpgradeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.patientModalContent, { maxHeight: 240 }]}>
+            <View style={styles.patientModalHeader}>
+              <Text style={styles.patientModalTitle}>Không thể cập nhật lịch hẹn</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setUpgradeModalVisible(false)}
+              >
+                <MaterialIcons name="close" size={22} color="#374151" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ paddingTop: 8 }}>
+              <Text style={{ color: '#374151', fontSize: 15, lineHeight: 22 }}>
+                {upgradeMessage || 'Vui lòng mua gói để sử dụng tính năng này.'}
+              </Text>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 }}>
+                <TouchableOpacity
+                  onPress={() => setUpgradeModalVisible(false)}
+                  style={{ paddingHorizontal: 12, paddingVertical: 8, marginRight: 10 }}
+                >
+                  <Text style={{ color: '#6B7280' }}>Đóng</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setUpgradeModalVisible(false);
+                    // @ts-ignore
+                    navigation.navigate('PackageScreen');
+                  }}
+                  style={{ backgroundColor: '#4A7BA7', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '600' }}>Mua gói</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
       </Modal>

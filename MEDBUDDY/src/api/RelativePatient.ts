@@ -177,6 +177,78 @@ class RelativePatientService {
     return res.data;
   }
 
+  // --- New endpoints from backend routes (medication OCR, purchase, BP, history, package, feature) ---
+
+  // Lưu nhiều thuốc từ OCR cho bệnh nhân bởi người thân
+  async createMedicationsFromOcrForPatient(patientId: string, data: any, token: string) {
+    const res = await apiClient.post(`/relative-patient/patients/${patientId}/medications/from-ocr`, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Người thân tạo link thanh toán để mua gói cho bệnh nhân
+  async createPaymentLinkForPatient(patientId: string, data: any, token: string) {
+    const res = await apiClient.post(`/relative-patient/patients/${patientId}/purchase-package`, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Lấy lịch sử huyết áp của bệnh nhân (cho người thân)
+  async getPatientBloodPressures(patientId: string, token: string) {
+    const res = await apiClient.get(`/relative-patient/patients/${patientId}/blood-pressures`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Lấy lần đo huyết áp mới nhất của bệnh nhân (cho người thân)
+  async getPatientLatestBloodPressure(patientId: string, token: string) {
+    const res = await apiClient.get(`/relative-patient/patients/${patientId}/blood-pressures/latest`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Lấy tổng quan tuần uống thuốc của bệnh nhân (cho người thân)
+  async getPatientWeeklyOverview(patientId: string, token: string) {
+    const res = await apiClient.get(`/relative-patient/patients/${patientId}/medication-history/weekly`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Lấy toàn bộ overview lịch sử uống thuốc của bệnh nhân (cho người thân)
+  async getPatientFullOverview(patientId: string, token: string) {
+    const res = await apiClient.get(`/relative-patient/patients/${patientId}/medication-history/overview`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Gói của bệnh nhân (cho người thân)
+  async getPatientActivePackage(patientId: string, token: string) {
+    const res = await apiClient.get(`/relative-patient/patients/${patientId}/my-package`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  async checkPatientFeatureAccess(patientId: string, feature: string, token: string) {
+    const res = await apiClient.get(`/relative-patient/patients/${patientId}/check-feature/${encodeURIComponent(feature)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  async getPatientPackageHistory(patientId: string, token: string) {
+    const res = await apiClient.get(`/relative-patient/patients/${patientId}/my-history`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
   // Kiểm tra quyền của người thân
   async checkRelativePermissions(patientId: string, token: string) {
     const res = await apiClient.get(`/relative-patient/patients/${patientId}/permissions`, {
@@ -217,7 +289,33 @@ class RelativePatientService {
     return res.data;
   }
 
-  
+  // Lưu nhiều thuốc từ OCR cho bệnh nhân bởi người thân (từ file image)
+  async createMedicationsFromOcrImageForPatient(patientId: string, formData: FormData, token: string) {
+    // Use fetch to ensure FormData is sent as multipart/form-data (avoid axios transform to JSON)
+    const base = (apiClient && (apiClient.defaults as any)?.baseURL) || 'http://10.0.2.2:4000';
+    const url = `${base.replace(/\/$/, '')}/relative-patient/patients/${patientId}/medications/from-ocr-image`;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        // DO NOT set 'Content-Type' here — fetch will set correct multipart boundary
+      },
+      body: formData,
+    });
+
+    const text = await res.text();
+    let data;
+    try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+
+    if (!res.ok) {
+      const err: any = new Error('Upload failed');
+      err.response = { status: res.status, data };
+      throw err;
+    }
+
+    return data;
+  }
 }
 
 export default new RelativePatientService();

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, TextInput, KeyboardAvoidingView, Platform, Modal } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import ReminderService from '../api/Reminders';
 import RelativePatientService from '../api/RelativePatient';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
@@ -19,44 +20,82 @@ const voiceFiles: { [key: string]: any } = {
 
 const EditReminderRelative = () => {
 	const route = useRoute();
-	const { token, userId, medication, deviceToken, reminder, reminderId, selectedPatient } = route.params as any;
+	const navigation = useNavigation();
+	const paramsAny = route.params as any || {};
+	const { token, userId, medication, deviceToken, reminder, reminderId, selectedPatient } = paramsAny;
+
+	// If the previous screen passed the full API response (raw) include it here
+	const fullResponse = paramsAny?.fullResponse || paramsAny?.response || null;
+
+	// Normalize reminder source: prefer explicit reminder param, else try to find it in fullResponse.data
+	const activeReminder = reminder || (
+		fullResponse && Array.isArray(fullResponse.data)
+			? (fullResponse.data.find((r: any) => r._id === reminderId) || fullResponse.data[0])
+			: null
+	) || null;
 
 	// Lấy tên thuốc từ medication hoặc reminder.medicationId
 	const [medicationName, setMedicationName] = useState(
-		medication?.name || reminder?.medicationId?.name || ''
+		medication?.name || activeReminder?.medicationId?.name || reminder?.medicationId?.name || ''
 	);
 
 	// Lấy thời gian nhắc từ reminder.times
-	const getInitialSelectedTimes = () => {
-		if (reminder?.times && Array.isArray(reminder.times)) {
-			const timesMap: Record<string, string> = {};
-			reminder.times.forEach((timeObj: { time: string }) => {
-				const timeValue = timeObj.time;
-				// Map "Sáng" -> morning, "Chiều" -> afternoon, "Tối" -> evening
-				if (timeValue === 'Sáng') {
-					timesMap.morning = timeValue;
-				} else if (timeValue === 'Chiều') {
-					timesMap.afternoon = timeValue;
-				} else if (timeValue === 'Tối') {
-					timesMap.evening = timeValue;
-				}
-			});
-			return timesMap;
+	const getInitialSelectedTimes = (rem?: any) => {
+		const r = rem || activeReminder || reminder;
+		if (!r) return {};
+		// If repeatTimes exist, map them to labels if available
+		const labels = Array.isArray(r.times) ? r.times.map((t: any) => t.time) : [];
+		const clocks = Array.isArray(r.repeatTimes) ? r.repeatTimes.map((t: any) => t.time) : [];
+		const map: Record<string, string> = {};
+		// helper label->slot
+		const labelToSlot = (lbl: string) => {
+			if (!lbl) return null;
+			const s = lbl.toLowerCase();
+			if (s.includes('sáng')) return 'morning';
+			if (s.includes('chiều') || s.includes('chiều')) return 'afternoon';
+			if (s.includes('tối') || s.includes('tối')) return 'evening';
+			return null;
+		};
+		// prefer pairing by index
+		for (let i = 0; i < Math.max(labels.length, clocks.length); i++) {
+			const lbl = labels[i];
+			const clk = clocks[i];
+			const slot = labelToSlot(lbl) || (i === 0 ? 'morning' : i === 1 ? 'afternoon' : 'evening');
+			if (clk) map[slot] = clk;
+			else if (lbl) map[slot] = lbl;
 		}
-		return {};
+		// fallback: if only labels exist, map them to slots
+		if (Object.keys(map).length === 0 && labels.length > 0) {
+			labels.forEach((lbl: string, idx: number) => {
+				const slot = labelToSlot(lbl) || (idx === 0 ? 'morning' : idx === 1 ? 'afternoon' : 'evening');
+				map[slot] = lbl;
+			});
+		}
+		// if still empty and clocks exist, distribute by time (hour)
+		if (Object.keys(map).length === 0 && clocks.length > 0) {
+			clocks.forEach((clk: string) => {
+				const hour = parseInt((clk || '0').split(':')[0] || '0', 10);
+				const slot = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+				map[slot] = clk;
+			});
+		}
+		return map;
 	};
-	const [selectedTimes, setSelectedTimes] = useState(getInitialSelectedTimes());
+	const [selectedTimes, setSelectedTimes] = useState(getInitialSelectedTimes(activeReminder));
 
-	const [note, setNote] = useState(reminder?.note || '');
-	const [reminderType, setReminderType] = useState(reminder?.reminderType || 'normal');
-	const [voiceType, setVoiceType] = useState(reminder?.voice || 'banmai');
+	const [note, setNote] = useState(activeReminder?.note || reminder?.note || '');
+	const [reminderType, setReminderType] = useState(activeReminder?.reminderType || reminder?.reminderType || 'normal');
+	const [voiceType, setVoiceType] = useState(activeReminder?.voice || reminder?.voice || 'banmai');
 	const [time, setTime] = useState(new Date());
-	const [startDate, setStartDate] = useState(reminder?.startDate ? new Date(reminder.startDate) : new Date());
-	const [endDate, setEndDate] = useState(reminder?.endDate ? new Date(reminder.endDate) : new Date());
+	const [startDate, setStartDate] = useState(activeReminder?.startDate ? new Date(activeReminder.startDate) : (reminder?.startDate ? new Date(reminder.startDate) : new Date()));
+	const [endDate, setEndDate] = useState(activeReminder?.endDate ? new Date(activeReminder.endDate) : (reminder?.endDate ? new Date(reminder.endDate) : new Date()));
 	const [showTimePicker, setShowTimePicker] = useState(false);
 	const [currentTimeSlot, setCurrentTimeSlot] = useState<'morning' | 'afternoon' | 'evening'>('morning');
 	const [showStartDatePicker, setShowStartDatePicker] = useState(false);
 	const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+
+	const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
+	const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
 
 	const handleTimeConfirm = (date: Date) => {
 		const formattedTime = date.toLocaleTimeString('en-US', {
@@ -143,7 +182,14 @@ const EditReminderRelative = () => {
 			Alert.alert('Thành công', 'Đã cập nhật lịch nhắc uống thuốc');
 		} catch (error: any) {
 			console.error('Update reminder error:', error);
-			Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể cập nhật lịch nhắc');
+			const msg = error?.response?.data?.message || error?.message || 'Không thể cập nhật lịch nhắc';
+			const status = error?.response?.status;
+			if (status === 403 || /chưa có gói|mua gói|vui lòng mua gói/i.test(String(msg))) {
+				setUpgradeMessage(msg);
+				setUpgradeModalVisible(true);
+			} else {
+				Alert.alert('Lỗi', msg);
+			}
 		}
 	};
 
@@ -152,6 +198,21 @@ const EditReminderRelative = () => {
 		{ key: 'afternoon', label: '🌤️ Buổi chiều' },
 		{ key: 'evening', label: '🌙 Buổi tối' },
 	];
+
+	// Determine which slots to show based on activeReminder.times labels (if present)
+	const allowedSlots = (() => {
+		const labels = activeReminder?.times && Array.isArray(activeReminder.times)
+			? activeReminder.times.map((t: any) => (t.time || '').toLowerCase())
+			: null;
+		if (labels && labels.length > 0) {
+			return timeSlots.filter(slot => {
+				const keyLabel = slot.key === 'morning' ? 'sáng' : slot.key === 'afternoon' ? 'chiều' : 'tối';
+				return labels.includes(keyLabel);
+			});
+		}
+		// fallback: show all
+		return timeSlots;
+	})();
 	const reminderTypeOptions = [
 		{ label: 'Thông thường', value: 'normal' },
 		{ label: 'Giọng nói', value: 'voice' },
@@ -202,7 +263,7 @@ const EditReminderRelative = () => {
 					</View>
 					<View style={styles.inputGroup}>
 						<Text style={styles.label}>Thời gian nhắc</Text>
-						{timeSlots.map(slot => (
+						{allowedSlots.map(slot => (
 							<View style={styles.timeSlotContainer} key={slot.key}>
 								<Text style={styles.timeSlotLabel}>{slot.label}</Text>
 								<View style={styles.timeRow}>
@@ -335,6 +396,50 @@ const EditReminderRelative = () => {
 						onCancel={() => setShowEndDatePicker(false)}
 						minimumDate={startDate}
 					/>
+
+					{/* Upgrade modal shown when server returns 403 asking to buy plan (NEW) */}
+					<Modal
+						visible={upgradeModalVisible}
+						transparent
+						animationType="fade"
+						onRequestClose={() => setUpgradeModalVisible(false)}
+					>
+						<View style={styles.modalOverlay}>
+							<View style={[styles.patientModal, { maxHeight: 240 }]}>
+								<View style={styles.modalHeader}>
+									<Text style={styles.modalTitle}>Không thể tạo lịch hẹn</Text>
+									<TouchableOpacity onPress={() => setUpgradeModalVisible(false)}>
+										<MaterialIcons name="close" size={22} color="#374151" />
+									</TouchableOpacity>
+								</View>
+
+								<View style={{ paddingTop: 8 }}>
+									<Text style={{ color: '#374151', fontSize: 15, lineHeight: 22 }}>
+										{upgradeMessage || 'Vui lòng mua gói để sử dụng tính năng này.'}
+									</Text>
+
+									<View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 }}>
+										<TouchableOpacity
+											onPress={() => setUpgradeModalVisible(false)}
+											style={{ paddingHorizontal: 12, paddingVertical: 8, marginRight: 10 }}
+										>
+											<Text style={{ color: '#6B7280' }}>Đóng</Text>
+										</TouchableOpacity>
+
+										<TouchableOpacity
+											onPress={() => {
+											setUpgradeModalVisible(false);
+											(navigation as any).navigate('PackageScreen');
+										}}
+											style={{ backgroundColor: '#4A7BA7', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
+										>
+											<Text style={{ color: '#fff', fontWeight: '600' }}>Mua gói</Text>
+										</TouchableOpacity>
+									</View>
+								</View>
+							</View>
+						</View>
+					</Modal>
 				</View>
 			</ScrollView>
 		</KeyboardAvoidingView>
@@ -527,8 +632,32 @@ const styles = StyleSheet.create({
 	},
 	scrollContent: {
 		flexGrow: 1,
-		justifyContent: 'ce	nter',
+		justifyContent: 'center',
 		paddingBottom: 24,
+	},
+	patientModal: {
+		backgroundColor: 'white',
+		borderRadius: 12,
+		padding: 16,
+		width: '90%',
+		alignSelf: 'center',
+	},
+	modalOverlay: {
+		flex: 1,
+		backgroundColor: 'rgba(0,0,0,0.5)',
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	modalHeader: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		marginBottom: 12,
+	},
+	modalTitle: {
+		fontSize: 18,
+		fontWeight: '700',
+		color: '#1E293B',
 	},
 });
 

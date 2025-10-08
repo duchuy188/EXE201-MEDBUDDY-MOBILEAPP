@@ -5,7 +5,7 @@ import { Ionicons, MaterialIcons, FontAwesome5, FontAwesome, Feather } from '@ex
 import bloodPressureService, { BloodPressure } from '../api/bloodPressure';
 import RelativePatientService from '../api/RelativePatient';
 import ReminderService from '../api/Reminders';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 
 interface HomeScreenProps {
   userType?: 'patient' | 'family';
@@ -61,6 +61,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
   const [reminders, setReminders] = useState<DetailedReminder[]>([]);
   const [loadingReminders, setLoadingReminders] = useState(false);
   const route = useRoute();
+  const navigation = useNavigation();
   
   const token = route.params?.token || '';
   const userId = route.params?.userId || '';
@@ -79,6 +80,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
     fetchRelatives();
     fetchReminders();
   }, [token]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // Khi màn hình được focus, tự động reload dữ liệu
+      if (!token) return;
+      fetchBpHistory();
+      fetchRelatives();
+      fetchReminders();
+    }, [token])
+  );
 
   const fetchBpHistory = async () => {
     setLoading(true);
@@ -947,6 +958,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
                             color: '#1E293B',
                             lineHeight: 20
                           }}>
+                            Tên: 
                             {relative?.fullName || 'Người thân'}
                           </Text>
                           <Text style={{
@@ -954,6 +966,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
                             color: '#3B82F6',
                             marginTop: 4
                           }}>
+                            Email:
                             {relative?.email || ''}
                           </Text>
                           <Text style={{
@@ -961,6 +974,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
                             color: '#64748B',
                             marginBottom: 8
                           }}>
+                            Số điện thoại:
                             {relative?.phoneNumber || ''}
                           </Text>
                           
@@ -1031,17 +1045,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
                 <Text style={{color: '#64748B', fontSize: 15, textAlign: 'center', marginTop: 8}}>
                   Chưa có người thân nào theo dõi sức khỏe của bạn.
                 </Text>
-                <TouchableOpacity style={{
-                  backgroundColor: '#3B82F6',
-                  borderRadius: 8,
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  marginTop: 12
-                }}>
-                  <Text style={{color: '#fff', fontSize: 14, fontWeight: 'bold'}}>
-                    Mời người thân
-                  </Text>
-                </TouchableOpacity>
+<TouchableOpacity
+  style={{
+    backgroundColor: '#3B82F6',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: 12
+  }}
+  onPress={() => navigation.navigate('HealthTracking')}
+>
+  <Text style={{color: '#fff', fontSize: 14, fontWeight: 'bold'}}>
+    Mời người thân
+  </Text>
+</TouchableOpacity>
               </View>
             )}
           </View>

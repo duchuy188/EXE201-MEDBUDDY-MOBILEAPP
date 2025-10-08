@@ -27,6 +27,8 @@ import RemindersScreen from '../screen/RemindersScreen';
 import PackageScreen from '../screen/PackageScreen'; // Import the new screen
 import PackageHistoryScreen from '../screen/PackageHistoryScreen';
 import CurrentPackageScreen from '../screen/CurrentPackageScreen';
+import UserPackageService from '../api/UserPackage';
+import { useFocusEffect } from '@react-navigation/native';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -38,6 +40,41 @@ export default function BottomTabNavigator({ route }: any) {
   const userId = route?.params?.userId || '';
 
   function TabScreens() {
+    const [tabs, setTabs] = React.useState([
+      { name: "Trang chủ", component: HomeScreen },
+      { name: "Thêm thuốc", component: AddMedicineScreen },
+      { name: "Lịch uống thuốc", component: MedicationScheduleScreen },
+      { name: "Thông tin cá nhân", component: PersonalInfoScreen },
+    ]);
+    const [loading, setLoading] = React.useState(true);
+
+    React.useEffect(() => {
+      const checkPackage = async () => {
+        setLoading(true);
+        try {
+          const activePackage = await UserPackageService.getMyActivePackage(token);
+          console.log('activePackage:', activePackage);
+          // Sửa tại đây: kiểm tra activePackage.data.isActive
+          if (activePackage?.data?.isActive) {
+            setTabs(prev => {
+              const filtered = prev.filter(tab => tab.name !== "Thống kê");
+              filtered.splice(3, 0, { name: "Thống kê", component: HealthStatisticsScreen });
+              return filtered;
+            });
+          } else {
+            setTabs(prev => prev.filter(tab => tab.name !== "Thống kê"));
+          }
+        } catch (e) {
+          setTabs(prev => prev.filter(tab => tab.name !== "Thống kê"));
+        } finally {
+          setLoading(false);
+        }
+      };
+      checkPackage();
+    }, [token]);
+
+    if (loading) return null;
+
     return (
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
         <Tab.Navigator
@@ -72,31 +109,14 @@ export default function BottomTabNavigator({ route }: any) {
             },
           })}
         >
-          <Tab.Screen
-            name="Trang chủ"
-            component={HomeScreen}
-            initialParams={{ userType, token, userId }}
-          />
-          <Tab.Screen
-            name="Thêm thuốc"
-            component={AddMedicineScreen}
-            initialParams={{ userType, token, userId }}
-          />
-          <Tab.Screen
-            name="Lịch uống thuốc"
-            component={MedicationScheduleScreen}
-            initialParams={{ userType, token, userId }}
-          />
-          <Tab.Screen
-            name="Thống kê"
-            component={HealthStatisticsScreen}
-            initialParams={{ userType, token, userId }}
-          />
-          <Tab.Screen
-            name="Thông tin cá nhân"
-            component={PersonalInfoScreen}
-            initialParams={{ userType, token, userId }}
-          />
+          {tabs.map(tab => (
+            <Tab.Screen
+              key={tab.name}
+              name={tab.name}
+              component={tab.component}
+              initialParams={{ userType, token, userId }}
+            />
+          ))}
         </Tab.Navigator>
       </SafeAreaView>
     );

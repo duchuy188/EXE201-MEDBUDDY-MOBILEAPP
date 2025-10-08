@@ -47,7 +47,11 @@ const AddAppointmentRelative = () => {
   const [note, setNote] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  
+
+  // Upgrade modal state (NEW)
+  const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState('');
+
   // Fetch patients function
   const fetchPatients = async () => {
     try {
@@ -133,8 +137,22 @@ const AddAppointmentRelative = () => {
           ]
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding appointment:', error);
+      // Try to read server message and status
+      const serverMessage: string | undefined = error?.response?.data?.message;
+      const status: number | undefined = error?.response?.status;
+
+      // If forbidden and server suggests buying a plan, show upgrade modal
+      if (status === 403 && serverMessage) {
+        // Adjust condition if server uses different phrasing
+        if (serverMessage.toLowerCase().includes('mua gói') || serverMessage.toLowerCase().includes('hẹn tái khám') || serverMessage.toLowerCase().includes('feature')) {
+          setUpgradeMessage(serverMessage || 'Vui lòng mua gói để sử dụng tính năng này');
+          setUpgradeModalVisible(true);
+          return;
+        }
+      }
+
       Alert.alert(
         'Lỗi',
         'Không thể thêm lịch hẹn. Vui lòng thử lại sau.'
@@ -330,6 +348,52 @@ const AddAppointmentRelative = () => {
                 </View>
               }
             />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Upgrade modal shown when server returns 403 asking to buy plan (NEW) */}
+      <Modal
+        visible={upgradeModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setUpgradeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.patientModal, { maxHeight: 240 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Không thể tạo lịch hẹn</Text>
+              <TouchableOpacity onPress={() => setUpgradeModalVisible(false)}>
+                <MaterialIcons name="close" size={22} color="#374151" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ paddingTop: 8 }}>
+              <Text style={{ color: '#374151', fontSize: 15, lineHeight: 22 }}>
+                {upgradeMessage || 'Vui lòng mua gói để sử dụng tính năng này.'}
+              </Text>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 }}>
+                <TouchableOpacity
+                  onPress={() => setUpgradeModalVisible(false)}
+                  style={{ paddingHorizontal: 12, paddingVertical: 8, marginRight: 10 }}
+                >
+                  <Text style={{ color: '#6B7280' }}>Đóng</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setUpgradeModalVisible(false);
+                    // Navigate to subscription/upgrade screen - replace 'Subscription' with your actual screen name
+                    // @ts-ignore
+                    navigation.navigate('PackageScreen');
+                  }}
+                  style={{ backgroundColor: '#4A7BA7', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '600' }}>Mua gói</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
       </Modal>

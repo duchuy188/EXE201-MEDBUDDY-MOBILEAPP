@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView, SafeAreaView, Modal, TextInput, Button, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView, SafeAreaView, Modal, TextInput, Button, Platform, ActivityIndicator, FlatList } from 'react-native';
+import { useRoute } from '@react-navigation/native';
+import RelativePatientService from '../api/RelativePatient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createBloodPressureReminder } from '../api/BloodPressureReminder';
 import { updateBloodPressureReminder } from '../api/BloodPressureReminder';
@@ -7,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 
-const AppSettingsRelative = ({ navigation }: any) => {
+const AppSettingsRelative = ({ navigation, route }: any) => {
   const [reminderId, setReminderId] = useState<string | null>(null);
   const defaultFontSize = 100;
   const [fontSize, setFontSize] = useState(defaultFontSize);
@@ -17,6 +19,10 @@ const AppSettingsRelative = ({ navigation }: any) => {
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  const [patients, setPatients] = useState<any[]>([]);
+  const [loadingPatients, setLoadingPatients] = useState(false);
+  const [showPatientSelector, setShowPatientSelector] = useState(false);
+  const [selectedPatientForView, setSelectedPatientForView] = useState<any | null>(null);
   const [isTimePickerVisible, setTimePickerVisible] = useState(false);
 
   // Lấy token từ AsyncStorage khi mở modal
@@ -28,6 +34,48 @@ const AppSettingsRelative = ({ navigation }: any) => {
       })();
     }
   }, [modalVisible]);
+
+  // get patientId/userId from route params (RelativeNavigator passes initialParams)
+  const routeObj = route || (useRoute && useRoute());
+  const patientIdFromParams = routeObj?.params?.userId || routeObj?.params?.patientId || null;
+
+  // If not provided via params, try AsyncStorage for userId
+  const [patientId, setPatientId] = useState<string | null>(patientIdFromParams || null);
+  useEffect(() => {
+    (async () => {
+      // always load stored userId as fallback
+      if (!patientId) {
+        const uid = await AsyncStorage.getItem('userId');
+        if (uid) setPatientId(uid);
+      }
+      // pre-load token too
+      const t = await AsyncStorage.getItem('token');
+      if (t) setToken(t);
+    })();
+  }, []);
+
+  const loadPatients = async (authToken: string) => {
+    try {
+      setLoadingPatients(true);
+      const res = await RelativePatientService.getPatientsOfRelative(authToken);
+      const list = res?.patients || res?.data || res || [];
+      const arr = Array.isArray(list) ? list : [];
+      const normalized = arr.map((item: any) => {
+        const p = item?.patient || item;
+        return {
+          _id: p?._id || p?.id || '',
+          fullName: p?.fullName || p?.full_name || p?.name || '',
+          email: p?.email || '',
+        };
+      });
+      setPatients(normalized);
+    } catch (e) {
+      console.log('Load patients error', e);
+      setPatients([]);
+    } finally {
+      setLoadingPatients(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -99,119 +147,71 @@ const AppSettingsRelative = ({ navigation }: any) => {
     <Text style={styles.menuTitle}>Nâng cấp tài khoản</Text>
     <Ionicons name="chevron-forward" size={20} color="#999" />
   </TouchableOpacity>
-</View>
 
-        {/* Nhắc nhở đo huyết áp */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>NHẮC NHỞ ĐO HUYẾT ÁP</Text>
-          <View style={styles.menuItem}>
-            <View>
-              <Text style={styles.menuTitle}>Nhắc nhở đo huyết áp</Text>
-              <Text style={styles.menuSubtitle}>Cập nhật lại thời gian nhắc nhở</Text>
-            </View>
-            <Switch
-              value={isBpReminderActive}
-              onValueChange={async (val) => {
-                setIsBpReminderActive(val);
-                if (val) {
-                  setModalVisible(true); // Mở modal để nhập giờ và ghi chú
-                } else {
-                  // Tắt nhắc nhở
-                  setLoading(true);
-                  try {
-                    const token = await AsyncStorage.getItem('token');
-                    if (!token || !reminderId) {
-                      setLoading(false);
-                      return;
-                    }
-                    await updateBloodPressureReminder(reminderId, { isActive: false }, token);
-                  } catch (err) {
-                    alert('Có lỗi khi cập nhật trạng thái nhắc nhở!');
-                  }
-                  setLoading(false);
-                }
-              }}
-              thumbColor={isBpReminderActive ? '#2563eb' : '#ccc'}
-              trackColor={{ false: '#e5e7eb', true: '#93c5fd' }}
-            />
-          </View>
-          <Modal
-            visible={modalVisible}
-            animationType="slide"
-            transparent={true}
-            onRequestClose={() => setModalVisible(false)}
-          >
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 12 }}>Cài đặt nhắc nhở huyết áp</Text>
-                <Text>Chọn giờ nhắc nhở:</Text>
-                <TouchableOpacity
-                  style={styles.input}
-                  onPress={() => setTimePickerVisible(true)}
-                >
-                  <Text style={{ fontSize: 16 }}>{reminderTime}</Text>
-                </TouchableOpacity>
-                <DateTimePickerModal
-                  isVisible={isTimePickerVisible}
-                  mode="time"
-                  onConfirm={(date) => {
-                    const hours = date.getHours().toString().padStart(2, '0');
-                    const minutes = date.getMinutes().toString().padStart(2, '0');
-                    setReminderTime(`${hours}:${minutes}`);
-                    setTimePickerVisible(false);
-                  }}
-                  onCancel={() => setTimePickerVisible(false)}
-                />
-                <Text style={{ marginTop: 10 }}>Ghi chú (không bắt buộc):</Text>
-                <TextInput
-                  style={styles.input}
-                  value={note}
-                  onChangeText={setNote}
-                  placeholder="Nhập ghi chú nếu muốn"
-                />
-                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 18 }}>
-                  <Button title="Hủy" color="#888" onPress={() => { setModalVisible(false); setIsBpReminderActive(false); }} />
-                  <View style={{ width: 12 }} />
-                  <Button
-                    title={loading ? 'Đang lưu...' : 'Lưu'}
-                    onPress={async () => {
-                      const userId = await AsyncStorage.getItem('userId');
-                      const data = {
-                        userId: userId || '',
-                        times: [{ time: reminderTime }],
-                        note: note,
-                        isActive: true,
-                      };
-                      setLoading(true);
-                      try {
-                        if (!token) {
-                          alert('Không tìm thấy token, vui lòng đăng nhập lại!');
-                          setLoading(false);
-                          return;
-                        }
-                        let res;
-                        if (reminderId) {
-                          // Đã có reminder, cập nhật lại giờ và ghi chú
-                          res = await updateBloodPressureReminder(reminderId, data, token);
-                        } else {
-                          // Chưa có, tạo mới
-                          res = await createBloodPressureReminder(data, token);
-                          setReminderId(res._id || null);
-                        }
-                        setModalVisible(false);
-                      } catch (err: any) {
-                        alert('Có lỗi xảy ra khi lưu nhắc nhở!');
-                      }
-                      setLoading(false);
-                    }}
-                    color="#2563eb"
-                    disabled={loading}
-                  />
-                </View>
-              </View>
-            </View>
-          </Modal>
+  <TouchableOpacity
+    style={styles.menuItem}
+    onPress={async () => {
+      // Ensure we have a token
+      let t = token;
+      if (!t) t = await AsyncStorage.getItem('token');
+      if (!t) {
+        // navigate anyway with patientId fallback
+        navigation.navigate('PatientCurrentPackage', { patientId });
+        return;
+      }
+
+      // try load patients for this relative; if none, fall back to patientId
+      await loadPatients(t);
+      if (patients.length === 0) {
+        navigation.navigate('PatientCurrentPackage', { patientId });
+      } else if (patients.length === 1) {
+        navigation.navigate('PatientCurrentPackage', { patientId: patients[0]._id });
+      } else {
+        setShowPatientSelector(true);
+      }
+    }}
+  >
+    <Text style={styles.menuTitle}>Xem gói hiện tại</Text>
+    <Ionicons name="chevron-forward" size={20} color="#999" />
+  </TouchableOpacity>
+
+  <Modal visible={showPatientSelector} animationType="slide" transparent onRequestClose={() => setShowPatientSelector(false)}>
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+      <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 16, width: '90%', maxHeight: '75%' }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <Text style={{ fontSize: 18, fontWeight: '600' }}>Chọn người bệnh</Text>
+          <TouchableOpacity onPress={() => setShowPatientSelector(false)}><Text style={{ fontSize: 18 }}>✕</Text></TouchableOpacity>
         </View>
+
+        {loadingPatients ? (
+          <ActivityIndicator />
+        ) : (
+          <FlatList
+            data={patients}
+            keyExtractor={(it) => it._id || it.email || Math.random().toString()}
+            renderItem={({ item }) => (
+              <TouchableOpacity style={{ padding: 12, borderBottomWidth: 1, borderColor: '#eee' }} onPress={() => {
+                setSelectedPatientForView(item);
+                setShowPatientSelector(false);
+                navigation.navigate('PatientCurrentPackage', { patientId: item._id });
+              }}>
+                <Text style={{ fontWeight: '700', color: '#111' }}>{item.fullName || 'Tên chưa cập nhật'}</Text>
+                <Text style={{ color: '#9CA3AF', marginTop: 6 }}>{item.email || ''}</Text>
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={() => <Text style={{ color: '#6B7280', padding: 12 }}>Chưa có người bệnh</Text>}
+          />
+        )}
+
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
+          <TouchableOpacity style={{ paddingHorizontal: 12, paddingVertical: 8 }} onPress={() => setShowPatientSelector(false)}>
+            <Text style={{ color: '#6B7280' }}>Đóng</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  </Modal>
+</View>
 
         {/* TÀI KHOẢN */}
         <View style={styles.section}>
@@ -219,10 +219,6 @@ const AppSettingsRelative = ({ navigation }: any) => {
           <TouchableOpacity style={styles.menuItem}>
             <Text style={styles.menuTitle}>Ngôn ngữ</Text>
             <Text style={styles.menuSubtitle}>Tiếng việt</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.menuItem}>
-            <Text style={styles.menuTitle}>Thông tin ứng dụng</Text>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
           <TouchableOpacity style={[styles.menuItem, {marginTop: 20}]}>
             <View>

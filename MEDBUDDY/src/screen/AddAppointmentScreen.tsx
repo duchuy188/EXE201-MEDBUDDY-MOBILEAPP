@@ -64,12 +64,35 @@ const AddAppointmentScreen = () => {
           ]
         );
       }
-    } catch (error) {
-      console.error('Error adding appointment:', error);
-      Alert.alert(
-        'Lỗi',
-        'Không thể thêm lịch hẹn. Vui lòng thử lại sau.'
-      );
+    } catch (error: any) {
+      const errObj = error?.response?.data || error?.response || error || {};
+      console.error('Error adding appointment:', errObj);
+
+      if (
+        errObj?.error === 'FEATURE_ACCESS_DENIED' ||
+        errObj?.message?.includes('không có quyền sử dụng') ||
+        errObj?.requiredFeature === 'Đặt lịch khám'
+      ) {
+        Alert.alert(
+          'Tính năng bị giới hạn',
+          'Xin vui lòng nâng cấp gói hiện tại để sử dụng tính năng này.',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.navigate('PackageScreen'),
+            },
+            {
+              text: 'Hủy',
+              style: 'cancel',
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Lỗi',
+          'Không thể thêm lịch hẹn. Vui lòng thử lại sau.'
+        );
+      }
     }
   };
 

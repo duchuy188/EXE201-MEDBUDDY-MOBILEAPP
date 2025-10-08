@@ -227,40 +227,44 @@ const MedicationScheduleScreen = () => {
   };
 
   const flattenReminders = (reminders: DetailedReminder[]): FlattenedReminder[] => {
-    console.log('=== FLATTEN REMINDERS CALLED ===');
     const flattened: FlattenedReminder[] = [];
-    
     reminders.forEach(reminder => {
-      console.log('Processing reminder:', reminder);
-      console.log('repeatTimes:', reminder.repeatTimes);
-      console.log('times:', reminder.times);
-      
       if (reminder.repeatTimes && reminder.repeatTimes.length > 0) {
         reminder.repeatTimes.forEach((repeatTime, index) => {
-          const timeLabel = reminder.times[index]?.time || 'Không xác định';
-          
-          // SỬ DỤNG DỮ LIỆU THỰC TỪ API - KHÔNG HARDCODE
-          const status = repeatTime.status || 'pending';
-          const taken = repeatTime.taken || false;
-          
-          console.log(`=== API DATA - Time: ${repeatTime.time}, Status: ${status}, Taken: ${taken} ===`);
-          
-          const flattenedItem = {
-            _id: `${reminder._id}-${index}-${repeatTime.time || 'none'}`,
-            userId: reminder.userId,
-            time: repeatTime.time || 'Chưa đặt giờ',
-            timeLabel: timeLabel,
-            startDate: reminder.startDate,
-            endDate: reminder.endDate,
-            note: reminder.note,
-            isActive: reminder.isActive,
-            status: status,
-            medicationId: reminder.medicationId,
-            taken: taken
-          };
-          
-          console.log('=== FLATTENED ITEM FROM API ===:', flattenedItem);
-          flattened.push(flattenedItem);
+          // Xác định ngày đang chọn
+          const selected = new Date(selectedDate);
+          selected.setHours(0, 0, 0, 0);
+
+          // Nếu có takenAt, kiểm tra có trùng ngày không
+          let takenDate: Date | null = null;
+          if (repeatTime.takenAt) {
+            takenDate = new Date(repeatTime.takenAt);
+            takenDate.setHours(0, 0, 0, 0);
+          }
+
+          // Luôn render nếu trong khoảng startDate - endDate
+          const startDate = new Date(reminder.startDate);
+          const endDate = new Date(reminder.endDate);
+          startDate.setHours(0, 0, 0, 0);
+          endDate.setHours(0, 0, 0, 0);
+
+          if (selected >= startDate && selected <= endDate) {
+            // Nếu có takenAt trùng ngày thì lấy trạng thái, nếu không thì trạng thái mặc định
+            const isTakenToday = takenDate && takenDate.getTime() === selected.getTime();
+            flattened.push({
+              _id: `${reminder._id}-${index}-${repeatTime.time || 'none'}`,
+              userId: reminder.userId,
+              time: repeatTime.time || 'Chưa đặt giờ',
+              timeLabel: reminder.times[index]?.time || 'Không xác định',
+              startDate: reminder.startDate,
+              endDate: reminder.endDate,
+              note: reminder.note,
+              isActive: reminder.isActive,
+              status: isTakenToday ? repeatTime.status || 'pending' : 'pending',
+              medicationId: reminder.medicationId,
+              taken: isTakenToday ? repeatTime.taken || false : false
+            });
+          }
         });
       } 
       else if (reminder.times && reminder.times.length > 0) {

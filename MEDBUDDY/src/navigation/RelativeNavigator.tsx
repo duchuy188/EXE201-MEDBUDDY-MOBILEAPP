@@ -19,6 +19,7 @@ import AddReminderRelative from '../screenrelative/AddReminderRelative';
 import EditAppointmentRelative from '../screenrelative/EditAppointmentRelative';
 import EditMedicineRelative from '../screenrelative/EditMedicineRelative';
 import AppSettingsRelative from '../screenrelative/AppSettingsRelative';
+import PatientCurrentPackage from '../screenrelative/PatientCurrentPackage';
 import AddRelative from '../screenrelative/AddRelative';
 import ConfirmRelativeOTPRelative from '../screenrelative/ConfirmRelativeOTPRelative';
 import HealthTrackingRelative from '../screenrelative/HealthTrackingRelative';
@@ -156,6 +157,11 @@ export default function RelativeTabNavigator({ route }: any) {
         name="AppSettings" 
         component={AppSettingsRelative}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="PatientCurrentPackage"
+        component={PatientCurrentPackage}
+        options={{ headerShown: true, title: 'Gói hiện tại' }}
       />
       <Stack.Screen 
         name="AddRelative" 

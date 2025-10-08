@@ -8,13 +8,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRoute } from '@react-navigation/native';
 
 const medicineComplianceData = [
-  { day: "T2", taken: 2, missed: 0, total: 2 },
-  { day: "T3", taken: 2, missed: 0, total: 2 },
-  { day: "T4", taken: 1, missed: 1, total: 2 },
-  { day: "T5", taken: 2, missed: 0, total: 2 },
-  { day: "T6", taken: 2, missed: 0, total: 2 },
-  { day: "T7", taken: 2, missed: 0, total: 2 },
-  { day: "CN", taken: 1, missed: 1, total: 2 }
+  { day: "T2", taken: 0, missed: 0, total: 2 },
+  { day: "T3", taken: 0, missed: 0, total: 2 },
+  { day: "T4", taken: 0, missed: 0, total: 2 },
+  { day: "T5", taken: 0, missed: 0, total: 2 },
+  { day: "T6", taken: 0, missed: 0, total: 2 },
+  { day: "T7", taken: 0, missed: 0, total: 2 },
+  { day: "CN", taken: 0, missed: 0, total: 2 }
 ];
 
 const TABS = [
@@ -132,7 +132,7 @@ const HealthStatisticsScreen: React.FC = () => {
   // Calculate average blood pressure from recent data
   const getAverageBloodPressure = () => {
     if (!bloodPressureData || bloodPressureData.length === 0) {
-      return "124/81"; // fallback
+      return "0/0"; // fallback
     }
     
     const totalSystolic = bloodPressureData.reduce((sum, item) => sum + (item.systolic || 0), 0);
@@ -146,7 +146,7 @@ const HealthStatisticsScreen: React.FC = () => {
 
   // Calculate compliance percentage
   const getCompliancePercentage = () => {
-    if (!fullOverview?.adherenceRate) return 85; // fallback
+    if (!fullOverview?.adherenceRate) return 0; // fallback
     return Math.round(fullOverview.adherenceRate);
   };
 
@@ -475,22 +475,22 @@ const HealthStatisticsScreen: React.FC = () => {
               <>
                 <View style={[styles.medicineRow, {backgroundColor: '#F3E8FF'}]}>
                   <View>
-                    <Text style={{fontWeight: 'bold'}}>Amlodipine 5mg</Text>
-                    <Text style={{fontSize: 13, color: '#64748B'}}>Sáng 7:00</Text>
+                    <Text style={{fontWeight: 'bold'}}>Chưa có dữ liệu</Text>
+                    <Text style={{fontSize: 13, color: '#64748B'}}></Text>
                   </View>
                   <View style={{alignItems: 'flex-end'}}>
-                    <Text style={{color: '#8b5cf6', fontWeight: 'bold'}}>95%</Text>
-                    <Text style={{fontSize: 12, color: '#64748B'}}>6.5/7 ngày</Text>
+                    <Text style={{color: '#8b5cf6', fontWeight: 'bold'}}></Text>
+                    <Text style={{fontSize: 12, color: '#64748B'}}></Text>
                   </View>
                 </View>
                 <View style={[styles.medicineRow, {backgroundColor: '#ECFEFF'}]}>
                   <View>
-                    <Text style={{fontWeight: 'bold'}}>Candesartan 8mg</Text>
-                    <Text style={{fontSize: 13, color: '#64748B'}}>Tối 19:00</Text>
+                    <Text style={{fontWeight: 'bold'}}>Chưa có dữ liệu</Text>
+                    <Text style={{fontSize: 13, color: '#64748B'}}></Text>
                   </View>
                   <View style={{alignItems: 'flex-end'}}>
-                    <Text style={{color: '#06b6d4', fontWeight: 'bold'}}>86%</Text>
-                    <Text style={{fontSize: 12, color: '#64748B'}}>6/7 ngày</Text>
+                    <Text style={{color: '#06b6d4', fontWeight: 'bold'}}></Text>
+                    <Text style={{fontSize: 12, color: '#64748B'}}></Text>
                   </View>
                 </View>
               </>

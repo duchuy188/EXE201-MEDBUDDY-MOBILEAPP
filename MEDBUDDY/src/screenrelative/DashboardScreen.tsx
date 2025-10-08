@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -6,7 +6,10 @@ import {
   ScrollView, 
   TouchableOpacity, 
   TextInput,
-  Alert
+  Alert,
+  Linking,
+  Modal,
+  FlatList
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { 
@@ -16,16 +19,28 @@ import {
   FontAwesome, 
   Feather 
 } from '@expo/vector-icons';
+import RelativePatientService from '../api/RelativePatient'; // Thêm dòng này
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import WeeklyReportCard from '../components/WeeklyReportCard';
 
 interface DashboardScreenProps {
-  userType: 'patient' | 'family';
+  userType: 'patient' | 'relative';
   onLogout?: () => void;
 }
 
-  const DashboardScreen: React.FC<DashboardScreenProps> = ({ userType, onLogout }) => {
+const DashboardScreen: React.FC<DashboardScreenProps> = ({ userType, onLogout }) => {
   const [systolic, setSystolic] = useState('');
   const [diastolic, setDiastolic] = useState('');
   const [showNotification, setShowNotification] = useState(false);
+  const [relatives, setRelatives] = useState<any[]>([]);
+  const [loadingRelatives, setLoadingRelatives] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
+  const [showPatientSelector, setShowPatientSelector] = useState(false);
+  const [weeklyOverviewData, setWeeklyOverviewData] = useState<any | null>(null);
+  const [fullOverviewData, setFullOverviewData] = useState<any | null>(null);
+  const [bpForPatient, setBpForPatient] = useState<any[]>([]);
+  const [loadingReport, setLoadingReport] = useState(false);
 
   const handleSaveBloodPressure = () => {
     if (systolic && diastolic) {
@@ -54,27 +69,125 @@ interface DashboardScreenProps {
     setShowNotification(false);
   };
 
+  useEffect(() => {
+    const fetchPatientsOfRelative = async () => {
+      setLoadingRelatives(true);
+      try {
+        const t = await AsyncStorage.getItem('token');
+        setToken(t);
+        if (t) {
+          const data = await RelativePatientService.getPatientsOfRelative(t);
+          const arr = data || [];
+          setRelatives(arr);
+          // auto-select first patient (support payloads where items have .patient)
+          if (Array.isArray(arr) && arr.length > 0) {
+            const raw = arr[0];
+            const p = raw.patient ? raw.patient : raw;
+            setSelectedPatient({ _id: p._id || p.id, fullName: p.fullName || p.name, email: p.email });
+          }
+        }
+      } catch (e) {
+        Alert.alert('Lỗi', 'Không thể lấy danh sách.');
+      } finally {
+        setLoadingRelatives(false);
+      }
+    };
+    fetchPatientsOfRelative();
+  }, []);
+
+  // Fetch report data for selected patient
+  useEffect(() => {
+    if (!token || !selectedPatient?._id) return;
+    const fetchReport = async () => {
+      setLoadingReport(true);
+      try {
+        const weeklyResp = await RelativePatientService.getPatientWeeklyOverview(selectedPatient._id, token!);
+        const fullResp = await RelativePatientService.getPatientFullOverview(selectedPatient._id, token!);
+        const bpResp = await RelativePatientService.getPatientBloodPressures(selectedPatient._id, token!);
+        const weekly = weeklyResp?.data ?? weeklyResp ?? null;
+        const full = fullResp?.data ?? fullResp ?? null;
+        const bpArr = Array.isArray(bpResp) ? bpResp.slice(0,7) : (bpResp?.data || bpResp?.bloodPressures || []);
+        setWeeklyOverviewData(weekly || null);
+        setFullOverviewData(full || null);
+        setBpForPatient(Array.isArray(bpArr) ? bpArr : []);
+      } catch (err) {
+        console.error('Failed to fetch report for patient', err);
+        setWeeklyOverviewData(null);
+        setFullOverviewData(null);
+        setBpForPatient([]);
+      } finally {
+        setLoadingReport(false);
+      }
+    };
+    fetchReport();
+  }, [token, selectedPatient?._id]);
+
+  // Thêm hàm hỗ trợ gọi và nhắn tin
+  const handleCallFamily = async (phone?: string) => {
+    if (!phone) {
+      Alert.alert('Lỗi', 'Không có số điện thoại.');
+      return;
+    }
+    const url = `tel:${phone}`;
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Lỗi', 'Thiết bị không hỗ trợ thực hiện cuộc gọi.');
+      }
+    } catch (e) {
+      Alert.alert('Lỗi', 'Không thể thực hiện cuộc gọi.');
+    }
+  };
+
+  const handleMessageFamily = async (phone?: string) => {
+    if (!phone) {
+      Alert.alert('Lỗi', 'Không có số điện thoại.');
+      return;
+    }
+    const url = `sms:${phone}`;
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Lỗi', 'Thiết bị không hỗ trợ nhắn tin SMS.');
+      }
+    } catch (e) {
+      Alert.alert('Lỗi', 'Không thể mở ứng dụng nhắn tin.');
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       {/* Header */}
       <View style={{marginBottom: 18}}>
-        <LinearGradient colors={userType === 'patient' ? ["#F0F6FF", "#F0F6FF"] : ["#F7B2B7", "#A8E6CF"]} style={styles.headerGradient}>
+        <LinearGradient colors={userType === 'patient' ? ["#F0F6FF", "#F0F6FF"] : ["#E8F5FF", "#D7EEFF"]} style={styles.headerGradient}>
           <View style={styles.headerContent}>
-            <View>
-              <Text style={[styles.greeting, {color: '#1E293B'}]}>{userType === 'patient' ? 'Chào buổi sáng!' : 'Theo dõi người thân'}</Text>
-              <Text style={[styles.username, {color: '#3B82F6'}]}>{userType === 'patient' ? 'Bạn cảm thấy thế nào?' : 'Mẹ Nguyễn Thị Lan'}</Text>
-            </View>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            {userType === 'patient' ? (
+              <View>
+                <Text style={[styles.greeting]}>{'Chào buổi sáng!'}</Text>
+                <Text style={[styles.username]}>{'Bạn cảm thấy thế nào?'}</Text>
+              </View>
+            ) : (
+              <View style={styles.headerCenter}>
+                <Text style={styles.centerTitle}>Theo dõi người thân</Text>
+              </View>
+            )}
+            <View style={styles.headerIcons}>
               {userType === 'patient' && (
-                <TouchableOpacity onPress={() => setShowNotification(!showNotification)} style={{marginRight: 10}}>
-                  <View>
-                    <Ionicons name="notifications" size={28} color="#3B82F6" />
-                    <View style={{position: 'absolute', top: -2, right: -2, width: 10, height: 10, backgroundColor: '#F04438', borderRadius: 5}} />
+                <TouchableOpacity onPress={() => setShowNotification(!showNotification)} style={styles.iconBtn}>
+                  <View style={styles.iconWrap}>
+                    <Ionicons name="notifications" size={18} color="#2563EB" />
+                    <View style={styles.notificationBadge} />
                   </View>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity onPress={onLogout}>
-                <Ionicons name="person-circle" size={32} color="#3B82F6" />
+              <TouchableOpacity onPress={onLogout} style={styles.iconBtn}>
+                <View style={styles.iconWrap}>
+                  <Ionicons name="person-circle" size={20} color="#2563EB" />
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -205,7 +318,7 @@ interface DashboardScreenProps {
                 Tuân thủ uống thuốc cần cải thiện
               </Text>
               <Text style={[styles.aiSubtext, { marginBottom: 8 }]}>
-                Tỷ lệ uống thuốc đúng giờ: 86%
+                Tỷ lệ uống thuốc đúng giờ: 0%
               </Text>
               <View style={styles.aiRecommendation}>
                 <Ionicons name="location" size={16} color="#FF9800" />
@@ -248,11 +361,14 @@ interface DashboardScreenProps {
             </View>
           </View>
 
+          {/* Weekly report (reusable component). Dashboard currently has no patient-specific data, so pass undefined to show fallback */}
+          <WeeklyReportCard title="Báo cáo tuần này" fullOverview={fullOverviewData} bloodPressureData={bpForPatient} patientId={selectedPatient?._id} />
+
           {/* Family Dashboard placeholder */}
           <View style={styles.familyDashboard}>
             <View style={styles.cardHeader}>
               <FontAwesome5 name="users" size={20} color="#3B82F6" />
-              <Text style={styles.cardTitle}>Dashboard gia đình (demo)</Text>
+              <Text style={styles.cardTitle}>Bảng điều khiển gia đình</Text>
             </View>
             <Text style={styles.dashboardDesc}>
               Theo dõi sức khỏe người thân theo thời gian thực.
@@ -262,7 +378,7 @@ interface DashboardScreenProps {
       ) : (
         <>
           {/* Family User Interface */}
-          <View style={styles.familyGreetingCard}>
+          {/* <View style={styles.familyGreetingCard}>
             <View style={styles.cardIconContainer}>
               <View style={[styles.cardIcon, { backgroundColor: '#3B82F6' }]}>
                 <Feather name="shield" size={32} color="#fff" />
@@ -270,10 +386,10 @@ interface DashboardScreenProps {
             </View>
             <Text style={styles.familyName}>Mẹ Nguyễn Thị Lan</Text>
             <Text style={styles.familyStatus}>Tình trạng hôm nay: Tốt</Text>
-          </View>
+          </View> */}
 
           {/* AI Health Analysis for Family */}
-          <View style={styles.card}>
+          {/* <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Ionicons name="bulb" size={20} color="#3B82F6" />
               <Text style={styles.cardTitle}>AI Phân tích sức khỏe - Mẹ Nguyễn Thị Lan</Text>
@@ -312,53 +428,99 @@ interface DashboardScreenProps {
             <Text style={styles.aiFooter}>
               🤖 Phân tích được tạo bởi AI dựa trên dữ liệu sức khỏe của bạn. Luôn tham khảo ý kiến bác sĩ cho quyết định quan trọng.
             </Text>
-          </View>
+          </View> */}
 
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <FontAwesome5 name="heartbeat" size={20} color="#3B82F6" />
-              <Text style={styles.cardTitle}>Báo cáo tuần này</Text>
-            </View>
-
-            <View style={styles.reportList}>
-              <View style={[styles.reportRow, { backgroundColor: '#E8F5E8' }]}>
-                <View style={styles.reportInfo}>
-                  <Text style={styles.reportTitle}>Uống thuốc đúng giờ</Text>
-                  <Text style={styles.reportSubtitle}>6/7 ngày</Text>
-                </View>
-                <Text style={[styles.reportPercentage, { color: '#388E3C' }]}>86%</Text>
-              </View>
-
-              <View style={[styles.reportRow, { backgroundColor: '#E0F7FA' }]}>
-                <View style={styles.reportInfo}>
-                  <Text style={styles.reportTitle}>Đo huyết áp</Text>
-                  <Text style={styles.reportSubtitle}>7/7 ngày</Text>
-                </View>
-                <Text style={[styles.reportPercentage, { color: '#009688' }]}>100%</Text>
-              </View>
-
-              <View style={[styles.reportRow, { backgroundColor: '#F0F6FF' }]}>
-                <View style={styles.reportInfo}>
-                  <Text style={styles.reportTitle}>Huyết áp trung bình</Text>
-                  <Text style={styles.reportSubtitle}>Tuần này</Text>
-                </View>
-                <Text style={[styles.reportPercentage, { color: '#3B82F6' }]}>125/82</Text>
-              </View>
-            </View>
-          </View>
+          {/* Weekly report component (family view) - selector integrated inside card */}
+          <WeeklyReportCard
+            title="Báo cáo tuần này"
+            fullOverview={fullOverviewData}
+            bloodPressureData={bpForPatient}
+            patientId={selectedPatient?._id}
+            selectedPatient={selectedPatient}
+            onOpenSelector={() => setShowPatientSelector(true)}
+          />
 
           {/* Family Dashboard placeholder */}
           <View style={styles.familyDashboard}>
             <View style={styles.cardHeader}>
               <FontAwesome5 name="users" size={20} color="#3B82F6" />
-              <Text style={styles.cardTitle}>Dashboard gia đình</Text>
+              <Text style={styles.cardTitle}>Bảng điều khiển gia đình</Text>
             </View>
-            <Text style={styles.dashboardDesc}>
-              Theo dõi sức khỏe người thân theo thời gian thực.
-            </Text>
+            {loadingRelatives ? (
+              <Text style={styles.dashboardDesc}>Đang tải danh sách...</Text>
+            ) : relatives.length > 0 ? (
+              relatives.map((item, idx) => (
+                <View key={item._id || idx} style={styles.familyCard}>
+                  <View style={styles.familyAvatar}>
+                    <Text style={styles.familyAvatarText}>
+                      {item.patient?.fullName?.charAt(0)?.toUpperCase() || 'D'}
+                    </Text>
+                  </View>
+                  <View style={{flex: 1}}>
+                    <Text style={styles.familyNameCard}>Tên: {item.patient?.fullName || '---'}</Text>
+                    <Text style={styles.familyEmail}>Email: {item.patient?.email || '---'}</Text>
+                    <Text style={styles.familyPhone}>Số điện thoại: {item.patient?.phoneNumber || '---'}</Text>
+                    <View style={styles.familyActions}>
+                      <TouchableOpacity style={styles.actionBtn} onPress={() => handleCallFamily(item.patient?.phoneNumber)}>
+                        <Ionicons name="call" size={18} color="#3B82F6" />
+                        <Text style={styles.actionText}>Gọi</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.actionBtn} onPress={() => handleMessageFamily(item.patient?.phoneNumber)}>
+                        <Ionicons name="chatbubble" size={18} color="#3B82F6" />
+                        <Text style={styles.actionText}>Nhắn tin</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.dashboardDesc}>
+                Chưa có dữ liệu.
+              </Text>
+            )}
           </View>
         </>
       )}
+        {/* Patient selector modal (inside ScrollView so it mounts within component tree) */}
+        <Modal visible={showPatientSelector} animationType="slide" transparent onRequestClose={() => setShowPatientSelector(false)}>
+          <View style={{ flex:1, justifyContent:'center', alignItems:'center', backgroundColor:'rgba(0,0,0,0.5)' }}>
+            <View style={{ width:'90%', backgroundColor:'#fff', borderRadius:12, padding:16, maxHeight:'75%' }}>
+              <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+                <Text style={{ fontSize:18, fontWeight:'600' }}>Chọn người bệnh</Text>
+                <TouchableOpacity onPress={() => setShowPatientSelector(false)}><Text style={{fontSize:18}}>✕</Text></TouchableOpacity>
+              </View>
+
+              <FlatList
+                data={relatives}
+                keyExtractor={it => it._id || it.email || Math.random().toString()}
+                renderItem={({item}) => {
+                  const p = item.patient ? item.patient : item;
+                  return (
+                    <TouchableOpacity
+                      style={{ padding:12, borderBottomWidth:1, borderColor:'#eee', backgroundColor: selectedPatient?._id === (p._id || p.id) ? '#EBF4FF' : '#fff' }}
+                      onPress={() => { setSelectedPatient({ _id: p._id || p.id, fullName: p.fullName || p.name, email: p.email }); setShowPatientSelector(false); }}
+                    >
+                      <Text style={{fontWeight:'700'}}>{p.fullName || p.name || 'Tên chưa cập nhật'}</Text>
+                      <Text style={{color:'#9CA3AF', marginTop:6}}>{p.email || p.phone || p._id}</Text>
+                      {p.dateOfBirth ? <Text style={{color:'#9CA3AF', marginTop:4}}>Sinh: {new Date(p.dateOfBirth).toLocaleDateString('vi-VN')}</Text> : null}
+                    </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={() => (
+                  <View style={{ padding:12, alignItems:'center' }}>
+                    <Text style={{ color:'#6B7280' }}>Chưa có người bệnh</Text>
+                  </View>
+                )}
+              />
+
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
+                <TouchableOpacity style={{ paddingHorizontal: 12, paddingVertical: 8, marginRight: 8 }} onPress={() => { setShowPatientSelector(false); setSelectedPatient(null); }}>
+                  <Text style={{ color: '#6B7280' }}>Đóng</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
     </ScrollView>
   );
 };
@@ -383,20 +545,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 48,
   },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  centerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
   greeting: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1E293B',
     marginBottom: 4,
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#fff',
-    opacity: 0.9,
+  username: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#2563EB',
+    marginTop: 2,
   },
   headerIcons: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  iconBtn: {
+    marginLeft: 10,
+  },
+  iconWrap: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   notificationBtn: {
     marginRight: 12,
@@ -712,6 +894,72 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
     lineHeight: 16,
+  },
+  familyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F6FF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#B6D5FA',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  familyAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#3B82F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  familyAvatarText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 22,
+  },
+  familyNameCard: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#1E293B',
+    marginBottom: 2,
+  },
+  familyEmail: {
+    fontSize: 14,
+    color: '#3B82F6',
+    marginBottom: 2,
+  },
+  familyPhone: {
+    fontSize: 14,
+    color: '#64748B',
+    marginBottom: 8,
+  },
+  familyActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#B6D5FA',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 18,
+    marginRight: 8,
+  },
+  actionText: {
+    color: '#3B82F6',
+    fontWeight: 'bold',
+    fontSize: 15,
+    marginLeft: 6,
   },
 });
 

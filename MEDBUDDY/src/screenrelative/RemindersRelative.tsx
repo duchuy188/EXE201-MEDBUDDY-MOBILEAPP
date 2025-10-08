@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { Modal, RefreshControl, FlatList } from 'react-native';
+import { Modal, RefreshControl, FlatList, ScrollView, Platform } from 'react-native';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import ReminderService, { Reminder } from '../api/Reminders';
@@ -34,6 +34,8 @@ interface PatientRelationship {
 const RemindersRelative = ({ navigation }: any) => {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rawResponse, setRawResponse] = useState<any>(null);
+  const [showRawResponse, setShowRawResponse] = useState(false);
   const [selectedReminder, setSelectedReminder] = useState<Reminder | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -103,6 +105,7 @@ const RemindersRelative = ({ navigation }: any) => {
         console.log('Fetching reminders for patient:', selectedPatient._id);
         const response = await RelativePatientService.getPatientMedicationReminders(selectedPatient._id, token);
         console.log('Full API response:', JSON.stringify(response, null, 2));
+        setRawResponse(response);
         
         // Kiểm tra cấu trúc response
         if (response) {
@@ -167,6 +170,23 @@ const RemindersRelative = ({ navigation }: any) => {
     return times.map(t => t.time).join(', ');
   };
 
+  // Format detailed times pairing label (Sáng/Chiều/Tối) with actual repeatTimes (HH:MM)
+  const formatDetailedTimes = (item: any) => {
+    if (!item) return '';
+    const labels = Array.isArray(item.times) ? item.times.map((t: any) => t.time) : [];
+    const clocks = Array.isArray(item.repeatTimes) ? item.repeatTimes.map((r: any) => r.time) : [];
+    const maxLen = Math.max(labels.length, clocks.length);
+    const parts: string[] = [];
+    for (let i = 0; i < maxLen; i++) {
+      const lbl = labels[i] || '';
+      const clk = clocks[i] || '';
+      if (lbl && clk) parts.push(`${lbl}: ${clk}`);
+      else if (lbl) parts.push(lbl);
+      else if (clk) parts.push(clk);
+    }
+    return parts.join(' • ');
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('vi-VN');
   };
@@ -185,7 +205,7 @@ const RemindersRelative = ({ navigation }: any) => {
         </View>
         <View style={styles.textContainer}>
           <Text style={styles.cardTitle}>Lịch nhắc uống thuốc</Text>
-          <Text style={styles.cardSubtitle}>Thời gian: {formatTimes(item.times)}</Text>
+          <Text style={styles.cardSubtitle}>Thời gian: {formatDetailedTimes(item)}</Text>
           <Text style={styles.cardSubtitle}>Từ ngày: {formatDate(item.startDate)} - Đến ngày: {formatDate(item.endDate)}</Text>
           <Text style={styles.cardSubtitle}>Loại: {item.reminderType === 'voice' ? 'Giọng nói' : 'Thông thường'}</Text>
           <Text style={styles.cardSubtitle}>Ghi chú: {item.note || 'Không có ghi chú'}</Text>
@@ -223,7 +243,7 @@ const RemindersRelative = ({ navigation }: any) => {
           <MaterialIcons name="arrow-drop-down" size={24} color="#F59E0B" />
         </TouchableOpacity>
       </View>
-
+      
       {!selectedPatient ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="time" size={64} color="#D1D5DB" />
@@ -362,7 +382,7 @@ const RemindersRelative = ({ navigation }: any) => {
                 <Text style={styles.modalTitle}>Chi tiết lịch nhắc</Text>
                 <View style={styles.modalRow}>
                   <Ionicons name="time" size={20} color="#F59E0B" style={styles.modalIcon}/>
-                  <Text style={styles.modalText}>Thời gian: {formatTimes(selectedReminder.times)}</Text>
+                  <Text style={styles.modalText}>Thời gian: {formatDetailedTimes(selectedReminder)}</Text>
                 </View>
                 <View style={styles.modalRow}>
                   <Ionicons name="calendar" size={20} color="#F59E0B" style={styles.modalIcon}/>
@@ -432,6 +452,8 @@ const RemindersRelative = ({ navigation }: any) => {
                           token,
                           userId,
                           selectedPatient: selectedPatient,
+                          // Pass the raw API response so the edit screen can inspect repeatTimes/times etc.
+                          fullResponse: rawResponse,
                         });
                       }}
                     >

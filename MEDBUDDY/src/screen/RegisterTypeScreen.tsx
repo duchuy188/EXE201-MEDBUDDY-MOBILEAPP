@@ -21,6 +21,8 @@ const RegisterTypeScreen = ({ navigation }: any) => {
   const [birthdayError, setBirthdayError] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date(1990, 0, 1));
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const validateBirthday = (date: string) => {
     // Định dạng dd/mm/yyyy, kiểm tra hợp lệ cơ bản
@@ -272,25 +274,44 @@ const RegisterTypeScreen = ({ navigation }: any) => {
             </View>
             <View style={{marginBottom: 10}}>
               <Text style={styles.inputLabel}>Mật khẩu</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Nhập mật khẩu"
-                value={formData.password}
-                onChangeText={text => handleInputChange('password', text)}
-                placeholderTextColor="#A0A4A8"
-                secureTextEntry
-              />
+              <View style={{position: 'relative'}}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Nhập mật khẩu"
+                  value={formData.password}
+                  onChangeText={text => handleInputChange('password', text)}
+                  placeholderTextColor="#A0A4A8"
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity
+                  style={{position: 'absolute', right: 12, top: 12}}
+                  onPress={() => setShowPassword(prev => !prev)}
+                >
+                  <Ionicons name={showPassword ? "eye-off" : "eye"} size={22} color="#A0A4A8" />
+                </TouchableOpacity>
+              </View>
+              {formData.password && formData.password.length < 6 && (
+                <Text style={{color: 'red', fontSize: 13, marginTop: 2}}>Mật khẩu tối thiểu 6 ký tự</Text>
+              )}
             </View>
             <View style={{marginBottom: 10}}>
               <Text style={styles.inputLabel}>Xác nhận mật khẩu</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Nhập lại mật khẩu"
-                value={formData.confirmPassword}
-                onChangeText={text => handleInputChange('confirmPassword', text)}
-                placeholderTextColor="#A0A4A8"
-                secureTextEntry
-              />
+              <View style={{position: 'relative'}}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Nhập lại mật khẩu"
+                  value={formData.confirmPassword}
+                  onChangeText={text => handleInputChange('confirmPassword', text)}
+                  placeholderTextColor="#A0A4A8"
+                  secureTextEntry={!showConfirmPassword}
+                />
+                <TouchableOpacity
+                  style={{position: 'absolute', right: 12, top: 12}}
+                  onPress={() => setShowConfirmPassword(prev => !prev)}
+                >
+                  <Ionicons name={showConfirmPassword ? "eye-off" : "eye"} size={22} color="#A0A4A8" />
+                </TouchableOpacity>
+              </View>
               {formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword && (
                 <Text style={{color: 'red', fontSize: 13, marginTop: 2}}>Mật khẩu không khớp</Text>
               )}

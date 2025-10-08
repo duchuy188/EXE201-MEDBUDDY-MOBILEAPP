@@ -75,7 +75,7 @@ export interface MedicationFromOCR {
 export interface SaveMedicationsFromOCRRequest {
   userId: string;
   medicines: MedicationFromOCR[];
-  imageUrl: string;
+  imageUrl: string; // Sửa lại kiểu này
   rawText: string;
 }
 
