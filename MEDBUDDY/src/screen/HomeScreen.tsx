@@ -5,6 +5,7 @@ import { Ionicons, MaterialIcons, FontAwesome5, FontAwesome, Feather } from '@ex
 import bloodPressureService, { BloodPressure } from '../api/bloodPressure';
 import RelativePatientService from '../api/RelativePatient';
 import ReminderService from '../api/Reminders';
+import UserPackageService from '../api/UserPackage';
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 
 interface HomeScreenProps {
@@ -60,18 +61,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
   const [loadingRelatives, setLoadingRelatives] = useState(false);
   const [reminders, setReminders] = useState<DetailedReminder[]>([]);
   const [loadingReminders, setLoadingReminders] = useState(false);
+  const [currentPackage, setCurrentPackage] = useState<{type: string, name: string, daysLeft?: number}>({type: 'trial', name: 'Gói dùng thử'});
   const route = useRoute();
   const navigation = useNavigation();
   
   const token = route.params?.token || '';
   const userId = route.params?.userId || '';
 
-  // Debug log
-  React.useEffect(() => {
-    console.log('HomeScreen params:', route.params);
-    console.log('HomeScreen token:', token);
-    console.log('HomeScreen userId:', userId);
-  }, [route.params, token, userId]);
 
   // Lấy dữ liệu khi vào màn hình
   useEffect(() => {
@@ -79,6 +75,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
     fetchBpHistory();
     fetchRelatives();
     fetchReminders();
+    fetchCurrentPackage();
   }, [token]);
 
   useFocusEffect(
@@ -88,6 +85,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
       fetchBpHistory();
       fetchRelatives();
       fetchReminders();
+      fetchCurrentPackage();
     }, [token])
   );
 
@@ -110,9 +108,38 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
       const data = await RelativePatientService.getRelativesOfPatient(token);
       setRelatives(data || []);
     } catch (e) {
-      console.error('Lỗi khi lấy danh sách người thân:', e);
+      // Ignore error
     } finally {
       setLoadingRelatives(false);
+    }
+  };
+
+  // Lấy thông tin gói hiện tại từ API
+  const fetchCurrentPackage = async () => {
+    if (!token) return;
+    try {
+      const packageData = await UserPackageService.getMyActivePackage(token);
+      
+      if (packageData && packageData.data && packageData.data.package) {
+        const packageName = packageData.data.package.name;
+        
+        // Logic xác định gói dựa trên tên gói
+        const isTrial = packageName.toLowerCase().includes('dùng thử') || 
+                       packageName.toLowerCase().includes('trial') ||
+                       packageName.toLowerCase().includes('miễn phí');
+        
+        setCurrentPackage({
+          type: isTrial ? 'trial' : 'pro',
+          name: packageName,
+          daysLeft: packageData.data.daysRemaining
+        });
+      } else {
+        // Fallback nếu không có gói active
+        setCurrentPackage({type: 'trial', name: 'Gói dùng thử'});
+      }
+    } catch (e) {
+      // Fallback về trial nếu API lỗi
+      setCurrentPackage({type: 'trial', name: 'Gói dùng thử'});
     }
   };
 
@@ -122,28 +149,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
     setLoadingReminders(true);
     try {
       const remindersData = await ReminderService.getReminders(token);
-      console.log('Raw reminders data:', remindersData);
       
       const detailedReminders = await Promise.all(
         remindersData.map(async (reminder: any) => {
           const detailData = await ReminderService.getReminderById(reminder._id, token);
-          console.log('Detail data for reminder', reminder._id, ':', detailData);
           
           // Lấy thêm status details từ API mới
           try {
             const statusResponse = await ReminderService.getReminderStatus(reminder._id, token);
-            console.log('Status response for reminder', reminder._id, ':', statusResponse);
             
             // Kiểm tra structure của response
             if (statusResponse && statusResponse.statusDetails) {
               const statusDetails = statusResponse.statusDetails;
-              console.log('Status details:', statusDetails);
               
               if (detailData.repeatTimes && Array.isArray(detailData.repeatTimes)) {
                 detailData.repeatTimes = detailData.repeatTimes.map((rt: any) => {
                   // Tìm statusDetail khớp với time
                   const statusDetail = statusDetails.find((sd: any) => sd.time === rt.time);
-                  console.log(`Matching time ${rt.time}:`, statusDetail);
                   
                   if (statusDetail) {
                     return {
@@ -155,22 +177,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
                   }
                   return rt;
                 });
-                
-                console.log('Updated repeatTimes:', detailData.repeatTimes);
               }
             }
           } catch (statusError) {
-            console.error('Error fetching status for reminder', reminder._id, ':', statusError);
+            // Ignore status error
           }
           
           return detailData;
         })
       );
       
-      console.log('Final detailed reminders:', detailedReminders);
       setReminders(detailedReminders);
     } catch (e) {
-      console.error('Lỗi khi lấy lịch uống thuốc:', e);
+      // Ignore error
     } finally {
       setLoadingReminders(false);
     }
@@ -247,22 +266,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
         status = 'late';
       }
 
-      console.log('Updating reminder status:', {
-        reminderId: originalId,
-        payload: {
-          action: 'take',
-          time: time,
-          status: status,
-        }
-      });
-
       const result = await ReminderService.updateReminderStatus(originalId, {
         action: 'take',
         time: time,
         status: status,
       }, token);
-
-      console.log('Update result:', result);
       
       Alert.alert(
         'Thành công', 
@@ -274,8 +282,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
       // Refresh ngay lập tức
       await fetchReminders();
     } catch (e) {
-      console.error('Error updating reminder status:', e);
-      Alert.alert('Lỗi', `Không thể cập nhật trạng thái uống thuốc: ${e.message || e}`);
+      Alert.alert('Lỗi', 'Không thể cập nhật trạng thái uống thuốc');
     }
   };
 
@@ -311,9 +318,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
     }
   };
 
-  // Sửa lại hàm getStatusDisplay để debug
   const getStatusDisplay = (status?: string, taken?: boolean) => {
-    console.log('getStatusDisplay - status:', status, 'taken:', taken);
     
     if (status === 'on_time' || status === 'late') {
       if (status === 'on_time') {
@@ -489,7 +494,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
       );
       
     } catch (e) {
-      console.error('Error updating reminder status:', e);
       Alert.alert('Lỗi', 'Không thể cập nhật trạng thái uống thuốc');
       // Refresh để đồng bộ lại với server
       await fetchReminders();
@@ -529,7 +533,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
       Alert.alert('Đã bỏ qua', 'Đã đánh dấu bỏ qua lần uống thuốc này');
       
     } catch (e) {
-      console.error('Error skipping medication:', e);
       Alert.alert('Lỗi', 'Không thể cập nhật trạng thái');
       await fetchReminders();
     }
@@ -568,7 +571,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
       Alert.alert('Đã hoãn', 'Sẽ nhắc lại sau 10 phút');
       
     } catch (e) {
-      console.error('Error snoozing medication:', e);
       Alert.alert('Lỗi', 'Không thể hoãn lịch nhắc');
       await fetchReminders();
     }
@@ -595,8 +597,30 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
                   </View>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity onPress={onLogout}>
-                <Ionicons name="person-circle" size={32} color="#3B82F6" />
+              <TouchableOpacity 
+                style={styles.packageBadge}
+                onPress={() => (navigation as any).navigate('CurrentPackage')}
+              >
+                <View style={styles.badgeContainer}>
+                  {currentPackage.type === 'trial' ? (
+                    <View style={styles.trialIcon}>
+                      <Ionicons name="time" size={16} color="#fff" />
+                    </View>
+                  ) : (
+                    <LinearGradient
+                      colors={['#FFD700', '#FFA500', '#FF8C00']}
+                      style={styles.proIcon}
+                    >
+                      <Ionicons name="star" size={16} color="#fff" />
+                    </LinearGradient>
+                  )}
+                  <Text style={[
+                    styles.packageText,
+                    {color: currentPackage.type === 'trial' ? '#FFD700' : '#FFD700'}
+                  ]}>
+                    {currentPackage.type === 'trial' ? 'DÙNG THỬ' : 'TRẢ PHÍ'}
+                  </Text>
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -790,20 +814,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
                   return (timeA[0] * 60 + timeA[1]) - (timeB[0] * 60 + timeB[1]);
                 })
                 .map((reminder, index) => {
-                  console.log('Rendering reminder:', reminder);
                   const statusDisplay = getStatusDisplay(reminder.status, reminder.taken);
                   const isCompleted = reminder.taken || reminder.status === 'on_time' || reminder.status === 'late';
                   const isSkipped = reminder.status === 'skipped';
                   const isSnoozed = reminder.status === 'snoozed';
-                  
-                  console.log('Reminder display state:', {
-                    id: reminder._id,
-                    time: reminder.time,
-                    status: reminder.status,
-                    taken: reminder.taken,
-                    isCompleted,
-                    statusDisplay
-                  });
                   
                   return (
                     <View 
@@ -1176,6 +1190,50 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginTop: 6,
     marginBottom: 0,
+  },
+  packageBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F6FF',
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#B6D5FA',
+  },
+  proIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  trialIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFD700',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  packageText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });
 
