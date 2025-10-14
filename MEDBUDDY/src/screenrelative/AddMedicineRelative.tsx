@@ -56,7 +56,6 @@ const AddMedicineRelative: React.FC = () => {
 
   // Medication form states
   const [medicineName, setMedicineName] = useState('');
-  const [dosage, setDosage] = useState('');
   const [quantity, setQuantity] = useState('');
   const [minQuantity, setMinQuantity] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
@@ -69,6 +68,9 @@ const AddMedicineRelative: React.FC = () => {
     afternoon: '',
     evening: ''
   });
+
+  // New fields for stock management
+  const [totalQuantity, setTotalQuantity] = useState('');
 
   const handleCaptureMedicine = () => {
     // @ts-ignore
@@ -121,8 +123,8 @@ const AddMedicineRelative: React.FC = () => {
   };
 
   const handleAddMedicine = async () => {
-    if (!medicineName || !dosage) {
-      Alert.alert('Vui lòng nhập đầy đủ thông tin thuốc!');
+    if (!medicineName || !totalQuantity) {
+      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ thông tin thuốc (tên, tổng số lượng)!');
       return;
     }
     if (selectedTimes.length === 0) {
@@ -145,18 +147,11 @@ const AddMedicineRelative: React.FC = () => {
       return;
     }
 
-    // Check tổng liều lượng không vượt quá tổng số lượng
-    const totalDosage = selectedTimes.reduce((sum, timeId) => {
-      return sum + (parseFloat(timeDosages[timeId]) || 0);
-    }, 0);
-    const totalQuantity = parseFloat(dosage) || 0;
+    // Validate numbers
+    const totalQty = parseInt(totalQuantity);
 
-    if (totalDosage > totalQuantity) {
-      const displayUnit = unitMapping[selectedUnit];
-      Alert.alert(
-        'Lỗi liều lượng', 
-        `Tổng liều lượng các buổi (${totalDosage} ${displayUnit}) vượt quá tổng số lượng (${totalQuantity} ${displayUnit})!\n\nVui lòng giảm liều lượng hoặc tăng tổng số lượng.`
-      );
+    if (isNaN(totalQty)) {
+      Alert.alert('Lỗi', 'Vui lòng nhập số hợp lệ cho tổng số lượng!');
       return;
     }
 
@@ -182,9 +177,11 @@ const AddMedicineRelative: React.FC = () => {
         userId: selectedPatient._id, // Use selected patient's ID
         name: medicineName,
         form: selectedUnit, // viên, lọ, hộp...
-        quantity: `${dosage} ${displayUnit}`, // Tổng số lượng: "30 ml" hoặc "30 viên"
-        times: times, // [{time: 'Sáng', dosage: '1 ml'}, ...]
         note: expiryDate || undefined,
+        totalQuantity: totalQty,
+        times: times, // [{time: 'Sáng', dosage: '1 ml'}, ...]
+        createdBy: userId,
+        createdByType: 'relative' as const,
       };
       
       console.log('Data gửi lên API:', JSON.stringify(data, null, 2));
@@ -193,13 +190,15 @@ const AddMedicineRelative: React.FC = () => {
       await RelativePatientService.createMedicationForPatient(selectedPatient._id, data, token);
       Alert.alert(
         'Thêm thuốc thành công', 
-        `Người bệnh: ${selectedPatient.fullName}\nTên: ${medicineName}\nTổng số: ${dosage} ${displayUnit}\nLiều lượng: ${dosageDetails}\nGhi chú: ${expiryDate || 'Không có'}`
+        `Người bệnh: ${selectedPatient.fullName}\nTên: ${medicineName}\nTổng số: ${totalQty} ${displayUnit}\nLiều lượng: ${dosageDetails}\nGhi chú: ${expiryDate || 'Không có'}`
       );
+      
+      // Reset form
       setMedicineName('');
-      setDosage('');
       setQuantity('');
       setMinQuantity('');
       setExpiryDate('');
+      setTotalQuantity('');
       setSelectedTimes([]);
       setSelectedUnit('viên');
       setTimeDosages({ morning: '', afternoon: '', evening: '' });
@@ -256,13 +255,13 @@ const AddMedicineRelative: React.FC = () => {
           </View>
           {/* Số lượng */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Tổng số lượng</Text>
+            <Text style={styles.label}>Tổng số lượng ban đầu *</Text>
             <View style={{flexDirection: 'row', gap: 8, alignItems: 'center'}}>
               <TextInput
                 style={[styles.input, {flex: 1}]}
                 placeholder="VD: 30"
-                value={dosage}
-                onChangeText={setDosage}
+                value={totalQuantity}
+                onChangeText={setTotalQuantity}
                 placeholderTextColor="#B6D5FA"
                 keyboardType="numeric"
               />
@@ -294,6 +293,7 @@ const AddMedicineRelative: React.FC = () => {
               </View>
             )}
           </View>
+
           {/* Ghi chú */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Ghi chú (không bắt buộc)</Text>
@@ -353,12 +353,12 @@ const AddMedicineRelative: React.FC = () => {
 
           {/* Nút thêm thuốc */}
           <TouchableOpacity
-            style={[styles.addBtn, !(medicineName && dosage && selectedTimes.length > 0 && selectedPatient) && {backgroundColor: '#B6D5FA'}]}
+            style={[styles.addBtn, !(medicineName && totalQuantity && selectedTimes.length > 0 && selectedPatient) && {backgroundColor: '#B6D5FA'}]}
             onPress={handleAddMedicine}
-            disabled={!(medicineName && dosage && selectedTimes.length > 0 && selectedPatient)}
+            disabled={!(medicineName && totalQuantity && selectedTimes.length > 0 && selectedPatient)}
           >
-            <Feather name="plus" size={20} color={medicineName && dosage && selectedTimes.length > 0 && selectedPatient ? '#fff' : '#3B82F6'} />
-            <Text style={{color: medicineName && dosage && selectedTimes.length > 0 && selectedPatient ? '#fff' : '#3B82F6', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Thêm thuốc</Text>
+            <Feather name="plus" size={20} color={medicineName && totalQuantity && selectedTimes.length > 0 && selectedPatient ? '#fff' : '#3B82F6'} />
+            <Text style={{color: medicineName && totalQuantity && selectedTimes.length > 0 && selectedPatient ? '#fff' : '#3B82F6', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Thêm thuốc</Text>
           </TouchableOpacity>
         
           {/* Nút chụp ảnh thuốc */}

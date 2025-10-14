@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import RelativePatientService from '../api/RelativePatient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -44,6 +45,12 @@ const HealthTrackingScreen = ({ navigation }: any) => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchData();
+    }, [])
+  );
 
   const handleShowDetail = (user: any) => {
     setSelectedUser(user);

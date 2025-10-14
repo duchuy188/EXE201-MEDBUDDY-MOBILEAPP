@@ -316,6 +316,24 @@ class RelativePatientService {
 
     return data;
   }
+
+ 
+
+  // Thêm thuốc mới cho bệnh nhân (bởi người thân)
+  async addMedicationStockForPatient(patientId: string, medicationId: string, data: any, token: string) {
+    const res = await apiClient.post(`/relative-patient/patients/${patientId}/medications/${medicationId}/add-stock`, data, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Lấy danh sách thuốc sắp hết của bệnh nhân (bởi người thân)
+  async getPatientLowStockMedications(patientId: string, token: string) {
+    const res = await apiClient.get(`/relative-patient/patients/${patientId}/medications/low-stock`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
 }
 
 export default new RelativePatientService();

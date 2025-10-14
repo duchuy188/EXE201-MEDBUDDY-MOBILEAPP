@@ -27,6 +27,9 @@ import RemindersScreen from '../screen/RemindersScreen';
 import PackageScreen from '../screen/PackageScreen'; // Import the new screen
 import PackageHistoryScreen from '../screen/PackageHistoryScreen';
 import CurrentPackageScreen from '../screen/CurrentPackageScreen';
+import SetThresholdScreen from '../screen/SetThresholdScreen';
+import AddStockScreen from '../screen/AddStockScreen';
+import LowStockScreen from '../screen/LowStockScreen';
 import UserPackageService from '../api/UserPackage';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -223,6 +226,21 @@ export default function BottomTabNavigator({ route }: any) {
 <Stack.Screen 
   name="CurrentPackage" 
   component={CurrentPackageScreen}
+  options={{ headerShown: false }}
+/>
+<Stack.Screen 
+  name="SetThreshold" 
+  component={SetThresholdScreen}
+  options={{ headerShown: false }}
+/>
+<Stack.Screen 
+  name="AddStock" 
+  component={AddStockScreen}
+  options={{ headerShown: false }}
+/>
+<Stack.Screen 
+  name="LowStock" 
+  component={LowStockScreen}
   options={{ headerShown: false }}
 />
     </Stack.Navigator>

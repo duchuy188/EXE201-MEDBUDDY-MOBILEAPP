@@ -9,15 +9,37 @@ export interface Medication {
   _id?: string;
   userId: string;
   name: string;
-  quantity?: string;
   form?: string;
   image?: string;
   note?: string;
+  quantity?: string; // Liều lượng mỗi lần uống (giữ lại cho tương thích)
+  totalQuantity?: number; // Tổng số lượng ban đầu
+  remainingQuantity?: number; // Số lượng còn lại hiện tại
+  lowStockThreshold?: number; // Ngưỡng cảnh báo sắp hết
+  isLowStock?: boolean; // Có sắp hết không
+  lastRefillDate?: string; // Ngày mua thêm gần nhất
   times: MedicationTime[]; // Mảng các buổi uống và liều lượng
   expirationDate?: string;
   createdAt?: string;
   createdBy?: string; // ID của người tạo thuốc (ObjectId reference to User)
   createdByType?: 'patient' | 'relative'; // Loại người tạo
+}
+
+// Interface cho request thêm thuốc mới
+export interface AddMedicationRequest {
+  name: string;
+  form?: string;
+  note?: string;
+  totalQuantity: number;
+  remainingQuantity: number;
+  lowStockThreshold: number;
+  isLowStock?: boolean;
+  lastRefillDate?: string;
+  userId: string;
+  times: MedicationTime[];
+  expirationDate?: string;
+  createdBy?: string;
+  createdByType?: 'patient' | 'relative';
 }
 
 class MedicationService {
@@ -30,7 +52,7 @@ class MedicationService {
   }
 
   // Thêm thuốc mới
-  async addMedication(data: Omit<Medication, '_id' | 'createdAt'>, token: string) {
+  async addMedication(data: AddMedicationRequest, token: string) {
     const res = await apiClient.post('/medications', data, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -45,17 +67,33 @@ class MedicationService {
     return res.data;
   }
 
-  // Cập nhật thông tin thuốc
-  async updateMedication(id: string, data: Partial<Medication>, token: string) {
-    const res = await apiClient.put(`/medications/${id}`, data, {
+
+  // Xóa thuốc
+  async deleteMedication(id: string, token: string) {
+    const res = await apiClient.delete(`/medications/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return res.data;
   }
 
-  // Xóa thuốc
-  async deleteMedication(id: string, token: string) {
-    const res = await apiClient.delete(`/medications/${id}`, {
+  // Lấy danh sách thuốc sắp hết
+  async getLowStockMedications(token: string) {
+    const res = await apiClient.get('/medications/low-stock', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
+
+  // Cập nhật thông tin thuốc (đa năng - gộp update + mua thêm + đặt ngưỡng)
+  async updateMedication(id: string, data: {
+    name?: string;
+    note?: string;
+    addedQuantity?: number;
+    lowStockThreshold?: number;
+    totalQuantity?: number;
+    remainingQuantity?: number;
+  }, token: string) {
+    const res = await apiClient.put(`/medications/${id}`, data, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return res.data;
