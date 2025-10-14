@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import MedicationService from '../api/Medication';
+import RelativePatientService from '../api/RelativePatient';
 
 import { useState } from 'react';
 import { FontAwesome5, Feather } from '@expo/vector-icons';
@@ -19,19 +19,8 @@ const unitMapping: { [key: string]: string } = {
 };
 
 const EditMedicineRelative = ({ route, navigation }: any) => {
-  const { medicine } = route.params;
+  const { medicine, patientId } = route.params;
   
-  // Parse existing data
-  const parseQuantity = (qty: string) => {
-    if (!qty) return { value: '', unit: 'viên' };
-    const match = qty.match(/^(\d+)\s*(\w+)$/);
-    if (match) {
-      return { value: match[1], unit: match[2] === 'ml' ? 'lọ' : match[2] };
-    }
-    return { value: qty, unit: 'viên' };
-  };
-
-  const parsedQty = parseQuantity(medicine.quantity);
   
   // Parse times từ medicine.times array
   const initialTimeDosages: { [key: string]: string } = {};
@@ -55,9 +44,6 @@ const EditMedicineRelative = ({ route, navigation }: any) => {
   }
 
   const [name, setName] = useState(medicine.name || '');
-  const [dosage, setDosage] = useState(parsedQty.value);
-  const [selectedUnit, setSelectedUnit] = useState(parsedQty.unit);
-  const [showUnitPicker, setShowUnitPicker] = useState(false);
   const [note, setNote] = useState(medicine.note || '');
   const [selectedTimes, setSelectedTimes] = useState<string[]>(initialSelectedTimes);
   const [timeDosages, setTimeDosages] = useState<{ [key: string]: string }>(initialTimeDosages);
@@ -78,8 +64,8 @@ const EditMedicineRelative = ({ route, navigation }: any) => {
   };
 
   const handleUpdate = async () => {
-    if (!name || !dosage) {
-      Alert.alert('Vui lòng nhập đầy đủ thông tin thuốc!');
+    if (!name) {
+      Alert.alert('Vui lòng nhập tên thuốc!');
       return;
     }
     if (selectedTimes.length === 0) {
@@ -94,20 +80,6 @@ const EditMedicineRelative = ({ route, navigation }: any) => {
       return;
     }
 
-    // Check tổng liều lượng không vượt quá tổng số lượng
-    const totalDosage = selectedTimes.reduce((sum, timeId) => {
-      return sum + (parseFloat(timeDosages[timeId]) || 0);
-    }, 0);
-    const totalQuantity = parseFloat(dosage) || 0;
-    const displayUnit = unitMapping[selectedUnit];
-
-    if (totalDosage > totalQuantity) {
-      Alert.alert(
-        'Lỗi liều lượng', 
-        `Tổng liều lượng các buổi (${totalDosage} ${displayUnit}) vượt quá tổng số lượng (${totalQuantity} ${displayUnit})!\n\nVui lòng giảm liều lượng hoặc tăng tổng số lượng.`
-      );
-      return;
-    }
 
     try {
       // Map timeId sang tên tiếng Việt cho API
@@ -120,18 +92,16 @@ const EditMedicineRelative = ({ route, navigation }: any) => {
       // Tạo mảng times theo format API
       const times = selectedTimes.map(timeId => ({
         time: timeReverseMapping[timeId],
-        dosage: `${timeDosages[timeId]} ${displayUnit}`
+        dosage: `${timeDosages[timeId]} ${medicine.form || 'viên'}`
       }));
 
       const token = await AsyncStorage.getItem('token');
       if (!token) throw new Error('Không tìm thấy token');
       
-      await MedicationService.updateMedication(medicine._id, {
+      await RelativePatientService.updatePatientMedication(patientId, medicine._id, {
         name,
-        form: selectedUnit,
-        quantity: `${dosage} ${displayUnit}`,
-        times: times,
         note: note || undefined,
+        times: times,
       }, token);
 
       Alert.alert('Thành công', 'Đã cập nhật thông tin thuốc');
@@ -141,7 +111,7 @@ const EditMedicineRelative = ({ route, navigation }: any) => {
     }
   };
 
-  const displayUnit = unitMapping[selectedUnit];
+  const displayUnit = medicine.form || 'viên';
 
   return (
     <KeyboardAvoidingView 
@@ -167,46 +137,6 @@ const EditMedicineRelative = ({ route, navigation }: any) => {
               onChangeText={setName}
               placeholderTextColor="#B6D5FA"
             />
-          </View>
-          {/* Tổng số lượng */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Tổng số lượng</Text>
-            <View style={{flexDirection: 'row', gap: 8, alignItems: 'center'}}>
-              <TextInput
-                style={[styles.input, {flex: 1}]}
-                placeholder="VD: 30"
-                value={dosage}
-                onChangeText={setDosage}
-                placeholderTextColor="#B6D5FA"
-                keyboardType="numeric"
-              />
-              <Text style={styles.unitDisplay}>{displayUnit}</Text>
-              <TouchableOpacity 
-                style={styles.unitPicker}
-                onPress={() => setShowUnitPicker(!showUnitPicker)}
-              >
-                <Text style={styles.unitText}>{selectedUnit}</Text>
-                <Feather name="chevron-down" size={20} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-            {showUnitPicker && (
-              <View style={styles.unitDropdown}>
-                {['viên', 'lọ', 'ống', 'gói'].map(unit => (
-                  <TouchableOpacity
-                    key={unit}
-                    style={styles.unitOption}
-                    onPress={() => {
-                      setSelectedUnit(unit);
-                      setShowUnitPicker(false);
-                    }}
-                  >
-                    <Text style={[styles.unitOptionText, selectedUnit === unit && {color: '#3B82F6', fontWeight: 'bold'}]}>
-                      {unit}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
           </View>
           {/* Ghi chú */}
           <View style={styles.inputGroup}>
@@ -267,12 +197,12 @@ const EditMedicineRelative = ({ route, navigation }: any) => {
 
           {/* Nút lưu thay đổi */}
           <TouchableOpacity
-            style={[styles.saveButton, !(name && dosage && selectedTimes.length > 0) && {backgroundColor: '#B6D5FA'}]}
+            style={[styles.saveButton, !(name && selectedTimes.length > 0) && {backgroundColor: '#B6D5FA'}]}
             onPress={handleUpdate}
-            disabled={!(name && dosage && selectedTimes.length > 0)}
+            disabled={!(name && selectedTimes.length > 0)}
           >
-            <Feather name="edit" size={20} color={name && dosage && selectedTimes.length > 0 ? '#fff' : '#3B82F6'} />
-            <Text style={{color: name && dosage && selectedTimes.length > 0 ? '#fff' : '#3B82F6', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Lưu thay đổi</Text>
+            <Feather name="edit" size={20} color={name && selectedTimes.length > 0 ? '#fff' : '#3B82F6'} />
+            <Text style={{color: name && selectedTimes.length > 0 ? '#fff' : '#3B82F6', fontWeight: 'bold', fontSize: 16, marginLeft: 8}}>Lưu thay đổi</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -352,48 +282,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     marginTop: 10,
-  },
-  unitPicker: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F0F6FF',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#B6D5FA',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    minWidth: 80,
-  },
-  unitText: {
-    fontSize: 16,
-    color: '#1E293B',
-    marginRight: 4,
-  },
-  unitDisplay: {
-    fontSize: 16,
-    color: '#3B82F6',
-    fontWeight: '600',
-  },
-  unitDropdown: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#B6D5FA',
-    marginTop: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  unitOption: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F6FF',
-  },
-  unitOptionText: {
-    fontSize: 15,
-    color: '#64748B',
   },
   dosageSection: {
     backgroundColor: '#F0F6FF',

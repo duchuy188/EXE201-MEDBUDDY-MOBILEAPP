@@ -26,6 +26,9 @@ import HealthTrackingRelative from '../screenrelative/HealthTrackingRelative';
 import EditReminderRelative from '../screenrelative/EditReminderRelative';
 import PackageRelative from '../screenrelative/PackageRelative';
 import RemindersRelative from '../screenrelative/RemindersRelative';
+import LowStockRelative from '../screenrelative/LowStockRelative';
+import SetThresholdRelative from '../screenrelative/SetThresholdRelative';
+import AddStockRelative from '../screenrelative/AddStockRelative';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -195,6 +198,21 @@ export default function RelativeTabNavigator({ route }: any) {
         component={RemindersRelative} 
         initialParams={{ token, userId }}
         options={{ headerShown: true, title: 'Lịch hẹn uống thuốc' }} 
+      />
+      <Stack.Screen 
+        name="LowStockRelative" 
+        component={LowStockRelative}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="SetThresholdRelative" 
+        component={SetThresholdRelative}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="AddStockRelative" 
+        component={AddStockRelative}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

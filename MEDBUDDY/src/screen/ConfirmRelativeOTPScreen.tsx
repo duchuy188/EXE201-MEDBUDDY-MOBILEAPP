@@ -36,7 +36,10 @@ const ConfirmRelativeOTPScreen = ({ route, navigation }: any) => {
         Alert.alert(
           'Thành công',
           'Xác nhận kết nối thành công',
-          [{ text: 'OK', onPress: () => navigation.navigate('HealthTracking') }]
+          [{ text: 'OK', onPress: () => navigation.reset({
+            index: 0,
+            routes: [{ name: 'HealthTracking' }],
+          })}]
         );
       }
     } catch (error: any) {
