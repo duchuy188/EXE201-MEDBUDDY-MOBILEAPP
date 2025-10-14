@@ -73,13 +73,6 @@ const AppSettingsScreen = ({ navigation }: any) => {
               </TouchableOpacity>
             </View>
           </View>
-<TouchableOpacity 
-  style={styles.menuItem}
-  onPress={() => navigation.navigate('PackageHistory')}
->
-  <Text style={styles.menuTitle}>Xem lịch sử thanh toán</Text>
-  <Ionicons name="chevron-forward" size={20} color="#999" />
-</TouchableOpacity>
         </View>
 
         {/* CÀI ĐẶT NÂNG CAO */}
@@ -92,13 +85,20 @@ const AppSettingsScreen = ({ navigation }: any) => {
     <Text style={styles.menuTitle}>Xem gói hiện tại</Text>
     <Ionicons name="chevron-forward" size={20} color="#999" />
   </TouchableOpacity>
-  <TouchableOpacity
+  <TouchableOpacity 
+  style={styles.menuItem}
+  onPress={() => navigation.navigate('PackageHistory')}
+>
+  <Text style={styles.menuTitle}>Xem lịch sử thanh toán</Text>
+  <Ionicons name="chevron-forward" size={20} color="#999" />
+</TouchableOpacity>
+  {/* <TouchableOpacity
     style={styles.menuItem}
     onPress={() => navigation.navigate('PackageScreen')}
   >
     <Text style={styles.menuTitle}>Nâng cấp tài khoản</Text>
     <Ionicons name="chevron-forward" size={20} color="#999" />
-  </TouchableOpacity>
+  </TouchableOpacity> */}
 </View>
 
         {/* Nhắc nhở đo huyết áp */}
