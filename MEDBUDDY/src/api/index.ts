@@ -3,8 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Base URL của API backend
 // const BASE_URL = 'https://exe201-medbuddy-backend.onrender.com'; //rendren
-// const BASE_URL = 'http://10.0.2.2:4000';  //loaclhost android
-const BASE_URL = 'http://172.25.208.1:4000';  // IP máy tính thật cho điện thoại
+const BASE_URL = 'http://10.0.2.2:4000';  //loaclhost android
+// const BASE_URL = 'http://192.168.102.8:4000';  // IP máy tính thật cho điện thoại
 
 // Tạo instance axios với cấu hình cơ bản
 const apiClient: AxiosInstance = axios.create({

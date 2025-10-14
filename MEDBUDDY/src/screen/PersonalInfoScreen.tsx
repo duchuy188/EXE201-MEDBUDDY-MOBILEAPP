@@ -92,6 +92,12 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
       bgColor: '#3B82F6'
     },
     {
+      id: 'blood-pressure-schedule',
+      title: 'Lịch đo huyết áp',
+      icon: 'heart',
+      bgColor: '#16A34A'
+    },
+    {
       id: 'doctors',
       title: 'Người thân',
       icon: 'people-outline',
@@ -106,6 +112,12 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
       title: 'Cài đặt ứng dụng',
       icon: 'settings',
       bgColor: '#0D9488'
+    },
+    {
+      id: 'upgrade-account',
+      title: 'Nâng cấp tài khoản',
+      icon: 'rocket',
+      bgColor: '#4A7BA7'
     },
     {
       id: 'help-center',
@@ -144,6 +156,10 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
           navigation.navigate('MedicationsScreen', { medications });
         } else if (item.id === 'medication-schedule') {
           navigation.navigate('MedicationSchedule');
+        } else if (item.id === 'blood-pressure-schedule') {
+          navigation.navigate('BloodPressureSchedule');
+        } else if (item.id === 'upgrade-account') {
+          navigation.navigate('PackageScreen');
         } else if (item.id === 'help-center') {
           navigation.navigate('HelpCenter');
         } else if (item.id === 'appointments') {

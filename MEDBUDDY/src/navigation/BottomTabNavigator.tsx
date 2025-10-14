@@ -16,6 +16,7 @@ import AppointmentsScreen from '../screen/AppointmentsScreen';
 import AddAppointmentScreen from '../screen/AddAppointmentScreen';
 import MedicationScheduleScreen from '../screen/MedicationScheduleScreen';
 import AddReminderScreen from '../screen/AddReminderScreen';
+import AddBloodPressureScreen from '../screen/AddBloodPressureScreen';
 import EditAppointmentScreen from '../screen/EditAppointmentScreen';
 import EditMedicineScreen from '../screen/EditMedicineScreen';
 import AppSettingsScreen from '../screen/AppSettingsScreen';
@@ -24,6 +25,7 @@ import ConfirmRelativeOTPScreen from '../screen/ConfirmRelativeOTPScreen';
 import HealthTrackingScreen from '../screen/HealthTrackingScreen';
 import EditReminderScreen from '../screen/EditReminderScreen';
 import RemindersScreen from '../screen/RemindersScreen';
+import BloodPressureSchedule from '../screen/BloodPressureSchedule';
 import PackageScreen from '../screen/PackageScreen'; // Import the new screen
 import PackageHistoryScreen from '../screen/PackageHistoryScreen';
 import CurrentPackageScreen from '../screen/CurrentPackageScreen';
@@ -162,6 +164,18 @@ export default function BottomTabNavigator({ route }: any) {
         options={{ headerShown: true, title: 'Thêm lịch nhắc' }} 
       />
       <Stack.Screen 
+        name="AddBloodPressure" 
+        component={AddBloodPressureScreen} 
+        initialParams={{ token, userId }}
+        options={{ headerShown: true, title: 'Thêm lịch đo huyết áp' }} 
+      />
+      <Stack.Screen 
+        name="EditBloodPressure" 
+        component={require('../screen/EditBloodPressureScreen').default} 
+        initialParams={{ token, userId }}
+        options={{ headerShown: true, title: 'Chỉnh sửa lịch đo huyết áp' }} 
+      />
+      <Stack.Screen 
         name="EditAppointment" 
         component={EditAppointmentScreen} 
         initialParams={{ token, userId }}
@@ -216,6 +230,12 @@ export default function BottomTabNavigator({ route }: any) {
         component={RemindersScreen} 
         initialParams={{ token, userId }}
         options={{ headerShown: true, title: 'Lịch hẹn uống thuốc' }} 
+      />
+      <Stack.Screen
+        name="BloodPressureSchedule"
+        component={BloodPressureSchedule}
+        initialParams={{ token, userId }}
+        options={{ headerShown: true, title: 'Lịch đo huyết áp' }}
       />
       <Stack.Screen 
   name="PackageHistory" 

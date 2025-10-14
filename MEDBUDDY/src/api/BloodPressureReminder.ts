@@ -2,6 +2,7 @@ import apiClient from './index';
 
 export interface BloodPressureReminderTime {
   time: string; // kiểu giờ, ví dụ "07:00"
+  label?: string; // ví dụ: "Sáng", "Chiều"
 }
 
 export interface BloodPressureReminder {
