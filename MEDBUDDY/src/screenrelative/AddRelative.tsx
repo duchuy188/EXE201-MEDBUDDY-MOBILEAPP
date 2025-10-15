@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F6FF',
   },
   header: {
-    backgroundColor: '#000000ff',
+    backgroundColor: '#fff',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerTitle: {
-    color: '#fff',
+    color: '#000000ff',
     fontSize: 20,
     fontWeight: '600',
   },

@@ -20,7 +20,7 @@ const AddStockScreen = ({ route, navigation }: any) => {
 
   const handleAddStock = async () => {
     if (!addedQuantity || parseFloat(addedQuantity) <= 0) {
-      Alert.alert('Lỗi', 'Vui lòng nhập số lượng muốn mua thêm!');
+      Alert.alert('Lỗi', 'Vui lòng nhập số lượng muốn thêm!');
       return;
     }
 
@@ -32,14 +32,14 @@ const AddStockScreen = ({ route, navigation }: any) => {
         addedQuantity: parseFloat(addedQuantity),
       }, token);
 
-      Alert.alert('Thành công', `Đã mua thêm ${addedQuantity} ${medication.form || 'viên'}`);
+      Alert.alert('Thành công', `Đã thêm ${addedQuantity} ${medication.form || 'viên'}`);
       if (onSuccess) {
         onSuccess();
       }
       navigation.goBack();
     } catch (err) {
       console.error('Error adding stock:', err);
-      Alert.alert('Lỗi', 'Mua thêm thuốc thất bại!');
+      Alert.alert('Lỗi', 'Thêm thuốc thất bại!');
     }
   };
 
@@ -57,7 +57,7 @@ const AddStockScreen = ({ route, navigation }: any) => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <MaterialIcons name="arrow-back" size={24} color="#3B82F6" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Mua thêm thuốc</Text>
+          <Text style={styles.headerTitle}>Thêm thuốc</Text>
           <View style={{ width: 24 }} />
         </View>
 
@@ -75,7 +75,7 @@ const AddStockScreen = ({ route, navigation }: any) => {
 
           {/* Add Quantity Input */}
           <View style={styles.inputSection}>
-            <Text style={styles.label}>Số lượng muốn mua thêm</Text>
+            <Text style={styles.label}>Số lượng muốn thêm</Text>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
@@ -122,11 +122,11 @@ const AddStockScreen = ({ route, navigation }: any) => {
                 <Text style={styles.previewValue}>{currentRemaining} {medication.form || 'viên'}</Text>
               </View>
               <View style={styles.previewRow}>
-                <Text style={styles.previewLabel}>Mua thêm:</Text>
+                <Text style={styles.previewLabel}>Thêm:</Text>
                 <Text style={styles.previewValue}>+{addedQuantity} {medication.form || 'viên'}</Text>
               </View>
               <View style={[styles.previewRow, styles.previewTotal]}>
-                <Text style={styles.previewLabelTotal}>Sau khi mua:</Text>
+                <Text style={styles.previewLabelTotal}>Sau khi thêm:</Text>
                 <Text style={styles.previewValueTotal}>{newTotal} {medication.form || 'viên'}</Text>
               </View>
             </View>
@@ -138,8 +138,8 @@ const AddStockScreen = ({ route, navigation }: any) => {
             onPress={handleAddStock}
             disabled={!addedQuantity}
           >
-            <MaterialIcons name="add-shopping-cart" size={20} color="#fff" />
-            <Text style={styles.saveButtonText}>Mua thêm</Text>
+            <MaterialIcons name="medication" size={20} color="#fff" />
+            <Text style={styles.saveButtonText}>Thêm thuốc</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

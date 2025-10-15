@@ -377,9 +377,9 @@ const MedicationsScreen = ({ route, navigation }: any) => {
                 }}
               >
                 <View style={{ backgroundColor: '#F6F8FB', borderRadius: 50, padding: 16 }}>
-                  <MaterialIcons name="add-shopping-cart" size={28} color="#10B981" />
+                  <MaterialIcons name="medication" size={28} color="#10B981" />
                 </View>
-                <Text style={{ color: '#10B981', marginTop: 4, fontWeight: '500' }}>Mua thêm</Text>
+                <Text style={{ color: '#10B981', marginTop: 4, fontWeight: '500' }}>Thêm thuốc</Text>
               </TouchableOpacity>
             </View>
             

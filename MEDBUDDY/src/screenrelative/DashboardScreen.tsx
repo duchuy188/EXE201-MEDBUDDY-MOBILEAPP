@@ -22,6 +22,8 @@ import {
 import RelativePatientService from '../api/RelativePatient'; // Thêm dòng này
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import WeeklyReportCard from '../components/WeeklyReportCard';
+import { useNavigation } from '@react-navigation/native';
+import UserPackageService from '../api/UserPackage';
 
 interface DashboardScreenProps {
   userType: 'patient' | 'relative';
@@ -41,6 +43,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ userType, onLogout })
   const [fullOverviewData, setFullOverviewData] = useState<any | null>(null);
   const [bpForPatient, setBpForPatient] = useState<any[]>([]);
   const [loadingReport, setLoadingReport] = useState(false);
+  const [currentPackage, setCurrentPackage] = useState<{type: string, name: string, daysLeft?: number}>({type: 'trial', name: 'Gói dùng thử'});
+  
+  const navigation = useNavigation();
 
   const handleSaveBloodPressure = () => {
     if (systolic && diastolic) {
@@ -85,6 +90,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ userType, onLogout })
             const p = raw.patient ? raw.patient : raw;
             setSelectedPatient({ _id: p._id || p.id, fullName: p.fullName || p.name, email: p.email });
           }
+          // Fetch package info with token
+          fetchCurrentPackage(t);
         }
       } catch (e) {
         Alert.alert('Lỗi', 'Không thể lấy danh sách.');
@@ -94,6 +101,36 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ userType, onLogout })
     };
     fetchPatientsOfRelative();
   }, []);
+
+  // Lấy thông tin gói hiện tại từ API
+  const fetchCurrentPackage = async (t?: string) => {
+    const currentToken = t || token;
+    if (!currentToken) return;
+    try {
+      const packageData = await UserPackageService.getMyActivePackage(currentToken);
+      
+      if (packageData && packageData.data && packageData.data.package) {
+        const packageName = packageData.data.package.name;
+        
+        // Logic xác định gói dựa trên tên gói
+        const isTrial = packageName.toLowerCase().includes('dùng thử') || 
+                       packageName.toLowerCase().includes('trial') ||
+                       packageName.toLowerCase().includes('miễn phí');
+        
+        setCurrentPackage({
+          type: isTrial ? 'trial' : 'pro',
+          name: packageName,
+          daysLeft: packageData.data.daysRemaining
+        });
+      } else {
+        // Fallback nếu không có gói active
+        setCurrentPackage({type: 'trial', name: 'Gói dùng thử'});
+      }
+    } catch (e) {
+      // Fallback về trial nếu API lỗi
+      setCurrentPackage({type: 'trial', name: 'Gói dùng thử'});
+    }
+  };
 
   // Fetch report data for selected patient
   useEffect(() => {
@@ -184,9 +221,29 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ userType, onLogout })
                   </View>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity onPress={onLogout} style={styles.iconBtn}>
-                <View style={styles.iconWrap}>
-                  <Ionicons name="person-circle" size={20} color="#2563EB" />
+              <TouchableOpacity 
+                style={styles.packageBadge}
+                onPress={() => (navigation as any).navigate('PatientCurrentPackage')}
+              >
+                <View style={styles.badgeContainer}>
+                  {currentPackage.type === 'trial' ? (
+                    <View style={styles.trialIcon}>
+                      <Ionicons name="time" size={16} color="#fff" />
+                    </View>
+                  ) : (
+                    <LinearGradient
+                      colors={['#FFD700', '#FFA500', '#FF8C00']}
+                      style={styles.proIcon}
+                    >
+                      <Ionicons name="star" size={16} color="#fff" />
+                    </LinearGradient>
+                  )}
+                  <Text style={[
+                    styles.packageText,
+                    {color: currentPackage.type === 'trial' ? '#FFD700' : '#FFD700'}
+                  ]}>
+                    {currentPackage.type === 'trial' ? 'DÙNG THỬ' : 'TRẢ PHÍ'}
+                  </Text>
                 </View>
               </TouchableOpacity>
             </View>
@@ -960,6 +1017,50 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 15,
     marginLeft: 6,
+  },
+  packageBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F6FF',
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#B6D5FA',
+  },
+  proIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  trialIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFD700',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  packageText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });
 

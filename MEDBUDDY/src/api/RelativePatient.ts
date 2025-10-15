@@ -334,6 +334,15 @@ class RelativePatientService {
     });
     return res.data;
   }
+
+  
+  // Lấy AI insights của bệnh nhân (cho người thân)
+  async getPatientAIInsights(patientId: string, token: string, limit: number = 10) {
+    const res = await apiClient.get(`/relative-patient/patients/${patientId}/ai-insights?limit=${limit}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  }
 }
 
 export default new RelativePatientService();

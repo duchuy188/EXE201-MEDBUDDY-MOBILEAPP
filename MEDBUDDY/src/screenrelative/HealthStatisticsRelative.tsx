@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator, Alert, Modal, FlatList, SafeAreaView, Platform } from "react-native";
-import { FontAwesome5, Feather } from "@expo/vector-icons";
+import { FontAwesome5, Feather, Ionicons } from "@expo/vector-icons";
 import { PieChart, LineChart } from 'react-native-chart-kit';
 import RelativePatientService from '../api/RelativePatient';
-import type { WeeklyOverview, FullOverview } from '../api/RelativePatient';
+// import type { WeeklyOverview, FullOverview } from '../api/RelativePatient';
 import BloodPressureService from '../api/RelativePatient';// keep types if defined there
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRoute } from '@react-navigation/native';
@@ -29,13 +29,20 @@ const HealthStatisticsRelative: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [bloodPressureData, setBloodPressureData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [weeklyOverview, setWeeklyOverview] = useState<WeeklyOverview | null>(null);
-  const [fullOverview, setFullOverview] = useState<FullOverview | null>(null);
+  const [weeklyOverview, setWeeklyOverview] = useState<any | null>(null);
+  const [fullOverview, setFullOverview] = useState<any | null>(null);
   const [patients, setPatients] = useState<any[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
   const [showPatientSelector, setShowPatientSelector] = useState(false);
   const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
   const [upgradeMessage, setUpgradeMessage] = useState('');
+  
+  // AI Insights states
+  const [aiInsights, setAiInsights] = useState<any[]>([]);
+  const [showAIModal, setShowAIModal] = useState(false);
+  const [aiAnalysisResult, setAiAnalysisResult] = useState<any>(null);
+  const [loadingAI, setLoadingAI] = useState(false);
+  
   const route = useRoute();
 
   // Retrieve token and userId from navigation params
@@ -70,7 +77,8 @@ const HealthStatisticsRelative: React.FC = () => {
     try {
       await Promise.all([
         fetchBloodPressureData(),
-        fetchMedicationData()
+        fetchMedicationData(),
+        fetchAIInsights()
       ]);
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -163,6 +171,68 @@ const HealthStatisticsRelative: React.FC = () => {
   };
   // --- END: thêm 2 hàm fetch ---
 
+  // Fetch AI insights for patient
+  const fetchAIInsights = async (patientId?: string) => {
+    const pid = patientId || targetPatientId;
+    if (!pid || !token) return;
+    try {
+      const response = await RelativePatientService.getPatientAIInsights(pid, token, 10);
+      console.log('getPatientAIInsights response:', response);
+      
+      const data = response.data || response;
+      const insights = data.insights || data.analyses || data || [];
+      console.log('Processed insights:', insights);
+      setAiInsights(Array.isArray(insights) ? insights : []);
+    } catch (err: any) {
+      console.error('Failed to fetch AI insights:', err);
+      const status = err?.response?.status;
+      if (status === 403) {
+        setUpgradeMessage('Bạn không có quyền xem AI insights của bệnh nhân này');
+        setUpgradeModalVisible(true);
+      } else {
+        console.log('AI insights not available or error:', err?.message);
+      }
+      setAiInsights([]);
+    }
+  };
+
+  // Handle get AI insights button press
+  const handleGetAIInsights = async () => {
+    if (!targetPatientId || !token) {
+      Alert.alert('Lỗi', 'Không thể lấy thông tin bệnh nhân');
+      return;
+    }
+    
+    try {
+      setLoadingAI(true);
+      console.log('Calling getPatientAIInsights API...');
+      const response = await RelativePatientService.getPatientAIInsights(targetPatientId, token, 10);
+      console.log('getPatientAIInsights response:', response);
+
+      const data = response.data || response;
+      const insights = data.insights || data.analyses || data || [];
+      console.log('Processed insights:', insights);
+      setAiInsights(Array.isArray(insights) ? insights : []);
+
+      if (insights.length === 0) {
+        Alert.alert('Thông báo', 'Chưa có dữ liệu phân tích AI. Bệnh nhân cần đo huyết áp vài lần trước.');
+      } else {
+        // Show modal with all insights
+        setAiAnalysisResult({
+          userName: selectedPatient?.fullName || 'Bệnh nhân',
+          insights: insights,
+          type: 'insights_summary'
+        });
+        setShowAIModal(true);
+      }
+    } catch (error) {
+      console.error('getPatientAIInsights error:', error);
+      Alert.alert('Lỗi', 'Không thể lấy AI insights của bệnh nhân');
+    } finally {
+      setLoadingAI(false);
+    }
+  };
+
   // Get pie chart data from API
   const getPieChartData = () => {
     if (!weeklyOverview || !weeklyOverview.summary) {
@@ -241,7 +311,7 @@ const HealthStatisticsRelative: React.FC = () => {
       let totalMissed = 0;
 
       // Lặp qua từng medication
-      weeklyOverview.medications.forEach(med => {
+      weeklyOverview.medications.forEach((med: any) => {
         if (med.dailyBreakdown && med.dailyBreakdown[dayName]) {
           totalTaken += med.dailyBreakdown[dayName].taken || 0;
           totalMissed += med.dailyBreakdown[dayName].missed || 0;
@@ -398,6 +468,120 @@ const HealthStatisticsRelative: React.FC = () => {
                 <Text style={{color: '#f59e0b', fontWeight: 'bold'}}>{getBloodPressureAlert()}</Text>
               </View>
             </View>
+
+            {/* AI Analysis Section */}
+            {!showAIModal && (
+              <View style={styles.sectionCard}>
+                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8}}>
+                  <Text style={{fontWeight: 'bold', color: '#8B5CF6'}}>🤖 AI Phân tích tổng quan</Text>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: '#8B5CF6',
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center'
+                    }}
+                    onPress={handleGetAIInsights}
+                    disabled={loadingAI}
+                  >
+                    {loadingAI ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name="refresh" size={12} color="#fff" />
+                        <Text style={{color: '#fff', fontSize: 10, fontWeight: 'bold', marginLeft: 4}}>
+                          Cập nhật
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {aiInsights.length > 0 ? (
+                  aiInsights.slice(0, 3).map((insight, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={{
+                        backgroundColor: '#F3F4F6',
+                        padding: 12,
+                        borderRadius: 8,
+                        marginBottom: 8,
+                        borderLeftWidth: 3,
+                        borderLeftColor: '#8B5CF6'
+                      }}
+                      onPress={() => {
+                        setAiAnalysisResult(insight);
+                        setShowAIModal(true);
+                      }}
+                    >
+                      <Text style={{fontWeight: 'bold', color: '#374151', marginBottom: 4}}>
+                        {insight.summary || insight.title || `Phân tích ${index + 1}`}
+                      </Text>
+                      <Text style={{fontSize: 12, color: '#6B7280'}} numberOfLines={2}>
+                        {insight.analysis || insight.description || 'Phân tích AI về tình trạng sức khỏe'}
+                      </Text>
+                      <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4}}>
+                        {insight.riskLevel && (
+                          <View style={{
+                            backgroundColor: insight.riskLevel === 'cao' ? '#FEE2E2' : 
+                                           insight.riskLevel === 'trung bình' ? '#FEF3C7' : '#D1FAE5',
+                            paddingHorizontal: 6,
+                            paddingVertical: 2,
+                            borderRadius: 4
+                          }}>
+                            <Text style={{
+                              fontSize: 10,
+                              fontWeight: 'bold',
+                              color: insight.riskLevel === 'cao' ? '#DC2626' : 
+                                     insight.riskLevel === 'trung bình' ? '#D97706' : '#059669'
+                            }}>
+                              {insight.riskLevel.toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
+                        {insight.analyzedAt && (
+                          <Text style={{fontSize: 10, color: '#9CA3AF'}}>
+                            {new Date(insight.analyzedAt).toLocaleDateString('vi-VN')}
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <View style={{alignItems: 'center', paddingVertical: 20}}>
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: '#F3F4F6',
+                        padding: 16,
+                        borderRadius: 12,
+                        alignItems: 'center',
+                        borderWidth: 2,
+                        borderColor: '#E5E7EB',
+                        borderStyle: 'dashed'
+                      }}
+                      onPress={handleGetAIInsights}
+                      disabled={loadingAI}
+                    >
+                      {loadingAI ? (
+                        <ActivityIndicator size="small" color="#8B5CF6" />
+                      ) : (
+                        <>
+                          <Ionicons name="sparkles" size={24} color="#8B5CF6" />
+                          <Text style={{color: '#8B5CF6', fontWeight: 'bold', marginTop: 4}}>
+                            Lấy phân tích AI
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                    <Text style={{color: '#6B7280', fontSize: 12, marginTop: 8, textAlign: 'center'}}>
+                      Phân tích tổng hợp dựa trên lịch sử đo huyết áp của bệnh nhân
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
           </>
         )}
         {activeTab === 'bloodpressure' && (
@@ -502,6 +686,120 @@ const HealthStatisticsRelative: React.FC = () => {
                     </Text>
                   )}
                 </View>
+
+                {/* AI Analysis Section for Blood Pressure */}
+                {!showAIModal && (
+                  <View style={styles.sectionCard}>
+                    <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8}}>
+                      <Text style={{fontWeight: 'bold', color: '#8B5CF6'}}>🤖 AI Phân tích huyết áp</Text>
+                      <TouchableOpacity
+                        style={{
+                          backgroundColor: '#8B5CF6',
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
+                          borderRadius: 12,
+                          flexDirection: 'row',
+                          alignItems: 'center'
+                        }}
+                        onPress={handleGetAIInsights}
+                        disabled={loadingAI}
+                      >
+                        {loadingAI ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <>
+                            <Ionicons name="refresh" size={12} color="#fff" />
+                            <Text style={{color: '#fff', fontSize: 10, fontWeight: 'bold', marginLeft: 4}}>
+                              Cập nhật
+                            </Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+
+                    {aiInsights.length > 0 ? (
+                      aiInsights.slice(0, 3).map((insight, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          style={{
+                            backgroundColor: '#F3F4F6',
+                            padding: 12,
+                            borderRadius: 8,
+                            marginBottom: 8,
+                            borderLeftWidth: 3,
+                            borderLeftColor: '#8B5CF6'
+                          }}
+                          onPress={() => {
+                            setAiAnalysisResult(insight);
+                            setShowAIModal(true);
+                          }}
+                        >
+                          <Text style={{fontWeight: 'bold', color: '#374151', marginBottom: 4}}>
+                            {insight.summary || insight.title || `Phân tích huyết áp ${index + 1}`}
+                          </Text>
+                          <Text style={{fontSize: 12, color: '#6B7280'}} numberOfLines={2}>
+                            {insight.analysis || insight.description || 'Phân tích AI về tình trạng huyết áp'}
+                          </Text>
+                          <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4}}>
+                            {insight.riskLevel && (
+                              <View style={{
+                                backgroundColor: insight.riskLevel === 'cao' ? '#FEE2E2' : 
+                                               insight.riskLevel === 'trung bình' ? '#FEF3C7' : '#D1FAE5',
+                                paddingHorizontal: 6,
+                                paddingVertical: 2,
+                                borderRadius: 4
+                              }}>
+                                <Text style={{
+                                  fontSize: 10,
+                                  fontWeight: 'bold',
+                                  color: insight.riskLevel === 'cao' ? '#DC2626' : 
+                                         insight.riskLevel === 'trung bình' ? '#D97706' : '#059669'
+                                }}>
+                                  {insight.riskLevel.toUpperCase()}
+                                </Text>
+                              </View>
+                            )}
+                            {insight.analyzedAt && (
+                              <Text style={{fontSize: 10, color: '#9CA3AF'}}>
+                                {new Date(insight.analyzedAt).toLocaleDateString('vi-VN')}
+                              </Text>
+                            )}
+                          </View>
+                        </TouchableOpacity>
+                      ))
+                    ) : (
+                      <View style={{alignItems: 'center', paddingVertical: 20}}>
+                        <TouchableOpacity
+                          style={{
+                            backgroundColor: '#F3F4F6',
+                            padding: 16,
+                            borderRadius: 12,
+                            alignItems: 'center',
+                            borderWidth: 2,
+                            borderColor: '#E5E7EB',
+                            borderStyle: 'dashed'
+                          }}
+                          onPress={handleGetAIInsights}
+                          disabled={loadingAI}
+                        >
+                          {loadingAI ? (
+                            <ActivityIndicator size="small" color="#8B5CF6" />
+                          ) : (
+                            <>
+                              <Ionicons name="sparkles" size={24} color="#8B5CF6" />
+                              <Text style={{color: '#8B5CF6', fontWeight: 'bold', marginTop: 4}}>
+                                Lấy phân tích AI
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                        <Text style={{color: '#6B7280', fontSize: 12, marginTop: 8, textAlign: 'center'}}>
+                          Phân tích AI dựa trên dữ liệu huyết áp của bệnh nhân
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
               </>
             )}
           </>
@@ -524,9 +822,9 @@ const HealthStatisticsRelative: React.FC = () => {
             <View style={styles.sectionCard}>
               <Text style={styles.sectionTitle}>Tuân thủ theo loại thuốc</Text>
               {fullOverview?.medicationGroups && fullOverview.medicationGroups.length > 0 ? (
-                fullOverview.medicationGroups.map((medication, idx) => {
+                fullOverview.medicationGroups.map((medication: any, idx: number) => {
                   const totalDoses = medication.histories.length;
-                  const takenDoses = medication.histories.filter(h => h.taken).length;
+                  const takenDoses = medication.histories.filter((h: any) => h.taken).length;
                   const compliance = totalDoses > 0 ? Math.round((takenDoses / totalDoses) * 100) : 0;
                   
                   return (
@@ -653,6 +951,232 @@ const HealthStatisticsRelative: React.FC = () => {
             >
               <Text style={{ color: '#6B7280' }}>Đóng</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* AI Analysis Modal */}
+      <Modal visible={showAIModal} transparent animationType="slide">
+        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center'}}>
+          <View style={{width: '90%', maxHeight: '80%', backgroundColor: '#fff', borderRadius: 16, padding: 20}}>
+            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16}}>
+              <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+                {aiAnalysisResult?.type !== 'insights_summary' && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setAiAnalysisResult({
+                        userName: selectedPatient?.fullName || 'Bệnh nhân',
+                        insights: aiInsights,
+                        type: 'insights_summary'
+                      });
+                    }}
+                    style={{marginRight: 8}}
+                  >
+                    <Ionicons name="arrow-back" size={24} color="#8B5CF6" />
+                  </TouchableOpacity>
+                )}
+                <Ionicons name="sparkles" size={24} color="#8B5CF6" />
+                <Text style={{fontSize: 18, fontWeight: 'bold', marginLeft: 8, color: '#8B5CF6'}}>
+                  {aiAnalysisResult?.type === 'insights_summary' ? 'Tổng hợp AI Insights' : 'Chi tiết phân tích'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowAIModal(false)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: '#F3F4F6',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Ionicons name="close" size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            {loadingAI ? (
+              <View style={{alignItems: 'center', padding: 40}}>
+                <ActivityIndicator size="large" color="#8B5CF6" />
+                <Text style={{marginTop: 12, color: '#6B7280'}}>Đang phân tích...</Text>
+              </View>
+            ) : aiAnalysisResult ? (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <Text style={{fontSize: 16, fontWeight: 'bold', marginBottom: 12, color: '#374151'}}>
+                  {aiAnalysisResult?.userName || selectedPatient?.fullName || 'Bệnh nhân'}
+                </Text>
+
+                {(aiAnalysisResult?.riskLevel || aiAnalysisResult?.urgency) && (
+                  <View style={{flexDirection: 'row', marginBottom: 12}}>
+                    {aiAnalysisResult?.riskLevel && (
+                      <View style={{
+                        backgroundColor: aiAnalysisResult.riskLevel === 'cao' ? '#FEE2E2' : 
+                                       aiAnalysisResult.riskLevel === 'trung bình' ? '#FEF3C7' : '#D1FAE5',
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                        borderRadius: 12,
+                        marginRight: 8
+                      }}>
+                        <Text style={{
+                          fontSize: 12,
+                          fontWeight: 'bold',
+                          color: aiAnalysisResult.riskLevel === 'cao' ? '#DC2626' : 
+                                 aiAnalysisResult.riskLevel === 'trung bình' ? '#D97706' : '#059669'
+                        }}>
+                          {aiAnalysisResult.riskLevel === 'cao' ? '🚨 CAO' : 
+                           aiAnalysisResult.riskLevel === 'trung bình' ? '⚠️ TRUNG BÌNH' : '💡 BÌNH THƯỜNG'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {aiAnalysisResult?.summary && (
+                  <View style={{backgroundColor: '#F3F4F6', padding: 12, borderRadius: 8, marginBottom: 12}}>
+                    <Text style={{fontSize: 14, fontWeight: 'bold', marginBottom: 4, color: '#1F2937'}}>Tóm tắt</Text>
+                    <Text style={{fontSize: 13, color: '#1F2937', lineHeight: 18, fontWeight: '500'}}>{aiAnalysisResult.summary}</Text>
+                  </View>
+                )}
+
+                {(aiAnalysisResult?.riskScore || aiAnalysisResult?.analyzedAt) && (
+                  <View style={{backgroundColor: '#EBF4FF', padding: 12, borderRadius: 8, marginBottom: 12}}>
+                    <Text style={{fontSize: 14, fontWeight: 'bold', marginBottom: 4, color: '#1E40AF'}}>Thông tin phân tích</Text>
+                    {aiAnalysisResult.riskScore && (
+                      <Text style={{fontSize: 13, color: '#1F2937', fontWeight: '500'}}>Điểm rủi ro: {aiAnalysisResult.riskScore}/100</Text>
+                    )}
+                    {aiAnalysisResult.analyzedAt && (
+                      <Text style={{fontSize: 13, color: '#1F2937', fontWeight: '500'}}>
+                        Phân tích lúc: {new Date(aiAnalysisResult.analyzedAt).toLocaleString('vi-VN')}
+                      </Text>
+                    )}
+                  </View>
+                )}
+
+                {aiAnalysisResult?.type === 'insights_summary' && aiAnalysisResult?.insights ? (
+                  aiAnalysisResult.insights.map((insight: any, index: number) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={{
+                        backgroundColor: '#F9FAFB',
+                        padding: 12,
+                        borderRadius: 8,
+                        marginBottom: 8,
+                        borderLeftWidth: 3,
+                        borderLeftColor: '#8B5CF6'
+                      }}
+                      onPress={() => {
+                        setAiAnalysisResult(insight);
+                      }}
+                    >
+                      <Text style={{fontSize: 14, fontWeight: 'bold', marginBottom: 4, color: '#374151'}}>
+                        {insight.summary || insight.title || `Phân tích ${index + 1}`}
+                      </Text>
+                      <Text style={{fontSize: 12, color: '#6B7280'}} numberOfLines={2}>
+                        {insight.analysis || insight.description || 'Phân tích AI về tình trạng sức khỏe'}
+                      </Text>
+                      <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4}}>
+                        {insight.riskLevel && (
+                          <View style={{
+                            backgroundColor: insight.riskLevel === 'cao' ? '#FEE2E2' : 
+                                           insight.riskLevel === 'trung bình' ? '#FEF3C7' : '#D1FAE5',
+                            paddingHorizontal: 6,
+                            paddingVertical: 2,
+                            borderRadius: 4
+                          }}>
+                            <Text style={{
+                              fontSize: 10,
+                              fontWeight: 'bold',
+                              color: insight.riskLevel === 'cao' ? '#DC2626' : 
+                                     insight.riskLevel === 'trung bình' ? '#D97706' : '#059669'
+                            }}>
+                              {insight.riskLevel.toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
+                        {insight.analyzedAt && (
+                          <Text style={{fontSize: 10, color: '#9CA3AF'}}>
+                            {new Date(insight.analyzedAt).toLocaleDateString('vi-VN')}
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                ) : aiAnalysisResult?.analyses && aiAnalysisResult.analyses.length > 0 ? (
+                  aiAnalysisResult.analyses.map((analysis: any, index: number) => {
+                    console.log('Analysis item:', analysis); // Debug log
+                    
+                    // Define colors and icons based on analysis status
+                    const getCardStyle = (analysis: any) => {
+                      if (analysis.status === 'warning') {
+                        return { bg: '#FEF3C7', border: '#F59E0B', icon: analysis.icon || '⚠️' };
+                      } else if (analysis.status === 'info') {
+                        return { bg: '#D1FAE5', border: '#10B981', icon: analysis.icon || '💡' };
+                      } else {
+                        return { bg: '#DBEAFE', border: '#3B82F6', icon: analysis.icon || '📊' };
+                      }
+                    };
+
+                    const cardStyle = getCardStyle(analysis);
+                    
+                    return (
+                      <View key={index} style={{
+                        backgroundColor: cardStyle.bg,
+                        padding: 16,
+                        borderRadius: 12,
+                        marginBottom: 12,
+                        borderLeftWidth: 4,
+                        borderLeftColor: cardStyle.border,
+                        shadowColor: '#000',
+                        shadowOpacity: 0.05,
+                        shadowRadius: 4,
+                        elevation: 2
+                      }}>
+                        <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
+                          <Text style={{fontSize: 20, marginRight: 8}}>{cardStyle.icon}</Text>
+                          <Text style={{fontSize: 16, fontWeight: 'bold', color: '#1F2937', flex: 1}}>
+                            {analysis.title}
+                          </Text>
+                        </View>
+                        
+                        {analysis.metric && (
+                          <View style={{backgroundColor: '#fff', padding: 12, borderRadius: 8, marginBottom: 8}}>
+                            <Text style={{fontSize: 14, color: '#1F2937', lineHeight: 20, fontWeight: '500'}}>
+                              {analysis.metric}
+                            </Text>
+                          </View>
+                        )}
+
+                        {analysis.recommendation && (
+                          <View style={{backgroundColor: '#F0FDF4', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#BBF7D0'}}>
+                            <Text style={{fontSize: 12, color: '#059669', fontWeight: '600', marginBottom: 4}}>
+                              💡 Khuyến nghị
+                            </Text>
+                            <Text style={{fontSize: 13, color: '#1F2937', lineHeight: 18, fontWeight: '500'}}>
+                              {analysis.recommendation}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })
+                ) : (
+                  <View style={{alignItems: 'center', padding: 20}}>
+                    <Ionicons name="document-text-outline" size={48} color="#9CA3AF" />
+                    <Text style={{color: '#6B7280', marginTop: 8, textAlign: 'center'}}>
+                      Không có dữ liệu phân tích
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+            ) : (
+              <View style={{alignItems: 'center', padding: 20}}>
+                <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
+                <Text style={{color: '#6B7280', marginTop: 8, textAlign: 'center'}}>
+                  Không thể tải dữ liệu phân tích
+                </Text>
+              </View>
+            )}
+
           </View>
         </View>
       </Modal>

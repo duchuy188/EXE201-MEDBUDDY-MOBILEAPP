@@ -36,10 +36,11 @@ const ConfirmRelativeOTPRelative = ({ route, navigation }: any) => {
         Alert.alert(
           'Thành công',
           'Xác nhận kết nối thành công',
-          [{ text: 'OK', onPress: () => navigation.reset({
-            index: 0,
-            routes: [{ name: 'HealthTracking' }],
-          })}]
+          [{ text: 'OK', onPress: () => {
+            // Pop về HealthTracking và xóa AddRelative + ConfirmRelativeOTP khỏi stack
+            navigation.popToTop();
+            navigation.navigate('HealthTracking');
+          }}]
         );
       }
     } catch (error: any) {
