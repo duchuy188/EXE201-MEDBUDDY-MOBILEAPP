@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, ScrollView, Modal } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { medicationServiceWithOCR } from '../api/Medication';
 import OrcService from '../api/orc';
-import { Feather, FontAwesome5 } from '@expo/vector-icons';
+import { Feather, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import { useRoute, useNavigation } from '@react-navigation/native';
 
 const PhotoCaptureScreen: React.FC = () => {
@@ -12,6 +12,8 @@ const PhotoCaptureScreen: React.FC = () => {
   const [extractedData, setExtractedData] = useState<any>(null);
   const [editableMedicines, setEditableMedicines] = useState<any[]>([]);
   const [token, setToken] = useState<string | null>(null);
+  const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
   const route = useRoute();
   const navigation = useNavigation();
 
@@ -23,8 +25,14 @@ const PhotoCaptureScreen: React.FC = () => {
       if (paramToken) {
         setToken(paramToken);
       } else {
-        // const storedToken = await (await import('@react-native-async-storage/async-storage')).default.getItem('token');
-        if (storedToken) setToken(storedToken);
+        // fallback: try AsyncStorage (silent), but don't block if missing
+        try {
+          const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+          const storedToken = await AsyncStorage.getItem('token');
+          if (storedToken) setToken(storedToken);
+        } catch (e) {
+          // ignore
+        }
       }
     };
     getToken();
@@ -57,22 +65,12 @@ const PhotoCaptureScreen: React.FC = () => {
       if (
         errObj?.error === 'FEATURE_ACCESS_DENIED' ||
         errObj?.message?.includes('không có quyền sử dụng') ||
-        errObj?.requiredFeature === 'Phân tích đơn thuốc'
+        errObj?.requiredFeature === 'Phân tích đơn thuốc' ||
+        (error?.response?.status === 403)
       ) {
-        Alert.alert(
-          'Tính năng bị giới hạn',
-          'Xin vui lòng nâng cấp gói hiện tại để sử dụng tính năng này.',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('PackageScreen'),
-            },
-            {
-              text: 'Hủy',
-              style: 'cancel',
-            },
-          ]
-        );
+        // show upgrade modal instead of Alert so user can navigate to subscription
+        setUpgradeMessage(errObj?.message || 'Vui lòng mua gói để sử dụng tính năng này.');
+        setUpgradeModalVisible(true);
       } else {
         Alert.alert('Lỗi', 'Không thể nhận diện ảnh. Vui lòng thử lại.');
       }
@@ -155,6 +153,50 @@ const PhotoCaptureScreen: React.FC = () => {
           <FontAwesome5 name="camera" size={20} color="#3B82F6" /> Chụp hóa đơn thuốc
         </Text>
       </View>
+      {/* Upgrade modal shown when server returns 403 asking to buy plan */}
+      <Modal
+        visible={upgradeModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setUpgradeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.patientModal, { maxHeight: 240 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Không thể nhận diện ảnh</Text>
+              <TouchableOpacity onPress={() => setUpgradeModalVisible(false)}>
+                <MaterialIcons name="close" size={22} color="#374151" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ paddingTop: 8 }}>
+              <Text style={{ color: '#374151', fontSize: 15, lineHeight: 22 }}>
+                {upgradeMessage || 'Vui lòng mua gói để sử dụng tính năng này.'}
+              </Text>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 }}>
+                <TouchableOpacity
+                  onPress={() => setUpgradeModalVisible(false)}
+                  style={{ paddingHorizontal: 12, paddingVertical: 8, marginRight: 10 }}
+                >
+                  <Text style={{ color: '#6B7280' }}>Đóng</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setUpgradeModalVisible(false);
+                    // @ts-ignore
+                    navigation.navigate('PackageScreen');
+                  }}
+                  style={{ backgroundColor: '#4A7BA7', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '600' }}>Mua gói</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
       {!capturedImage ? (
         <View>
           <View style={styles.card}>
@@ -194,7 +236,6 @@ const PhotoCaptureScreen: React.FC = () => {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 keyboardVerticalOffset={80}
                 style={{flex: 0}}
-                keyboardShouldPersistTaps="handled"
               >
                 <ScrollView
                   style={{maxHeight: 220}}
@@ -378,6 +419,31 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  patientModal: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 18,
+    width: '100%',
+    maxWidth: 420,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  }
 });
 
 export default PhotoCaptureScreen;
