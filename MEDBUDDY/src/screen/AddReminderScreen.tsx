@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, TextInput, KeyboardAvoidingView, Platform, Modal } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import ReminderService from '../api/Reminders';
 import NotificationService, { SendNotificationRequest } from '../api/Notifications';
@@ -61,6 +62,8 @@ const AddReminderScreen = () => {
   const [voiceType, setVoiceType] = useState('banmai');
   const [speed, setSpeed] = useState<-3 | -2 | -1 | 0 | 1 | 2 | 3>(0);
   const [time, setTime] = useState(new Date());
+  const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
 
   const handleVoiceChange = (itemValue: string) => {
     setVoiceType(itemValue);
@@ -207,22 +210,12 @@ const AddReminderScreen = () => {
       if (
         errObj?.error === 'FEATURE_ACCESS_DENIED' ||
         errObj?.message?.includes('không có quyền sử dụng') ||
-        errObj?.requiredFeature === 'Nhắc thuốc bằng giọng nói'
+        errObj?.requiredFeature === 'Nhắc thuốc bằng giọng nói' ||
+        (error?.response?.status === 403)
       ) {
-        Alert.alert(
-          'Tính năng bị giới hạn',
-          'Xin vui lòng nâng cấp gói hiện tại để sử dụng tính năng này.',
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.navigate('PackageScreen'),
-            },
-            {
-              text: 'Hủy',
-              style: 'cancel',
-            },
-          ]
-        );
+        // show upgrade modal instead of Alert
+        setUpgradeMessage(errObj?.message || 'Vui lòng mua gói để sử dụng tính năng này.');
+        setUpgradeModalVisible(true);
       } else {
         Alert.alert('Lỗi', errObj?.message || 'Không thể thêm lịch nhắc');
       }
@@ -519,6 +512,51 @@ const AddReminderScreen = () => {
             onCancel={() => setShowEndDatePicker(false)}
             minimumDate={startDate}
           />
+          {/* Upgrade modal shown when server returns 403 asking to buy plan */}
+          <Modal
+            visible={upgradeModalVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setUpgradeModalVisible(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.patientModal, { maxHeight: 240 }]}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Không thể tạo lịch nhắc</Text>
+                  <TouchableOpacity onPress={() => setUpgradeModalVisible(false)}>
+                    <MaterialIcons name="close" size={22} color="#374151" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={{ paddingTop: 8 }}>
+                  <Text style={{ color: '#374151', fontSize: 15, lineHeight: 22 }}>
+                    {upgradeMessage || 'Vui lòng mua gói để sử dụng tính năng này.'}
+                  </Text>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 }}>
+                    <TouchableOpacity
+                      onPress={() => setUpgradeModalVisible(false)}
+                      style={{ paddingHorizontal: 12, paddingVertical: 8, marginRight: 10 }}
+                    >
+                      <Text style={{ color: '#6B7280' }}>Đóng</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => {
+                        setUpgradeModalVisible(false);
+                        // Navigate to subscription/upgrade screen
+                        // @ts-ignore
+                        navigation.navigate('PackageScreen');
+                      }}
+                      style={{ backgroundColor: '#4A7BA7', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
+                    >
+                      <Text style={{ color: '#fff', fontWeight: '600' }}>Mua gói</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </Modal>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -743,6 +781,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  patientModal: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 18,
+    width: '100%',
+    maxWidth: 420,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  }
 });
 
 export default AddReminderScreen;
