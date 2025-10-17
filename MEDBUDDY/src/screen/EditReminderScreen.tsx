@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import ReminderService from '../api/Reminders';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Audio } from 'expo-av';
@@ -17,8 +17,10 @@ const voiceFiles: { [key: string]: any } = {
 };
 
 const EditReminderScreen = () => {
-    const route = useRoute();
-    const { token, userId, medication, deviceToken, reminder, reminderId } = route.params as any;
+	const route = useRoute();
+	// @ts-ignore
+	const navigation = useNavigation();
+	const { token, userId, medication, deviceToken, reminder, reminderId } = route.params as any;
 
 		// Debug log để xem cấu trúc dữ liệu
 		console.log('EditReminderScreen - reminder data:', JSON.stringify(reminder, null, 2));
@@ -145,8 +147,25 @@ const handleUpdateReminder = async () => {
         
         console.log('Updating reminder with data:', JSON.stringify(reminderData, null, 2));
         
-        await ReminderService.updateReminder(reminderId, reminderData, token);
-        Alert.alert('Thành công', 'Đã cập nhật lịch nhắc uống thuốc');
+		await ReminderService.updateReminder(reminderId, reminderData, token);
+		Alert.alert(
+			'Thành công',
+			'Đã cập nhật lịch nhắc uống thuốc',
+			[
+				{
+					text: 'OK',
+					onPress: () => {
+						// clear local state if needed
+						setSelectedTimes({});
+						setNote('');
+						// Navigate back to MedicationSchedule
+						// @ts-ignore
+						navigation.navigate('MedicationSchedule');
+					}
+				}
+			],
+			{ cancelable: false }
+		);
     } catch (error: any) {
         console.error('Error updating reminder:', error);
         Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể cập nhật lịch nhắc');

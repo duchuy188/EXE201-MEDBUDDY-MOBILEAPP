@@ -357,9 +357,19 @@ const MedicationsRelative = ({ route, navigation }: any) => {
         </View>
       </Modal>
 
-      {/* Header Buttons */}
+      {/* Header Buttons: select-all (left) + low stock (right) */}
       {selectedPatient && (
         <View style={styles.headerButtons}>
+          {medicationsList.length > 1 ? (
+            <TouchableOpacity style={[styles.selectAllButton, styles.headerSelectAll]} onPress={toggleSelectAll}>
+              <Text style={styles.selectAllText}>
+                {selectedItems.length === medicationsList.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View />
+          )}
+
           <TouchableOpacity 
             style={styles.lowStockButton}
             onPress={() => {
@@ -411,13 +421,7 @@ const MedicationsRelative = ({ route, navigation }: any) => {
         </View>
       ) : (
         <>
-          {medicationsList.length > 1 && (
-            <TouchableOpacity style={styles.selectAllButton} onPress={toggleSelectAll}>
-              <Text style={styles.selectAllText}>
-                {selectedItems.length === medicationsList.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
-              </Text>
-            </TouchableOpacity>
-          )}
+          {/* select-all button moved to header */}
           <FlatList
             data={medicationsList}
             keyExtractor={(item) => item._id}
@@ -650,8 +654,16 @@ const styles = StyleSheet.create({
   // Header Buttons Styles
   headerButtons: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     marginBottom: 16,
+  },
+  headerSelectAll: {
+    flex: 1,
+    marginRight: 12,
+    backgroundColor: 'transparent',
+    paddingVertical: 0,
+    marginHorizontal: 0,
+    marginTop: 6,
   },
   lowStockButton: {
     backgroundColor: '#FEF3C7',

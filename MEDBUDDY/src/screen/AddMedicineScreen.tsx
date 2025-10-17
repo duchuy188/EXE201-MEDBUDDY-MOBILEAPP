@@ -127,9 +127,23 @@ const AddMedicineScreen: React.FC = () => {
       console.log('Data gửi lên API:', JSON.stringify(data, null, 2));
       
       await MedicationService.addMedication(data, token);
+      // Show success alert with two actions: stay on this screen (Thêm thuốc) or navigate to MedicationsScreen (Xem thuốc)
       Alert.alert(
-        'Thêm thuốc thành công', 
-        `Tên: ${medicineName}\nTổng số: ${dosage} ${displayUnit}\nLiều lượng: ${dosageDetails}\nGhi chú: ${expiryDate || 'Không có'}`
+        'Thêm thuốc thành công',
+        `Tên: ${medicineName}\nTổng số: ${dosage} ${displayUnit}\nLiều lượng: ${dosageDetails}\nGhi chú: ${expiryDate || 'Không có'}`,
+        [
+          { text: 'Thêm thuốc', style: 'cancel' },
+          { text: 'Xem thuốc', onPress: () => {
+              try {
+                // Navigate to MedicationsScreen. Pass token and userId so the screen can load data if it expects them.
+                // @ts-ignore
+                navigation.navigate('MedicationsScreen', { token, userId });
+              } catch (navErr) {
+                console.error('Navigation error:', navErr);
+              }
+            }
+          }
+        ]
       );
       setMedicineName('');
       setDosage('');

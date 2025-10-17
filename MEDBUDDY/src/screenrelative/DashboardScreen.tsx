@@ -221,7 +221,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ userType, onLogout })
                   </View>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity 
+              {/* <TouchableOpacity 
                 style={styles.packageBadge}
                 onPress={() => (navigation as any).navigate('PatientCurrentPackage')}
               >
@@ -245,7 +245,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ userType, onLogout })
                     {currentPackage.type === 'trial' ? 'DÙNG THỬ' : 'TRẢ PHÍ'}
                   </Text>
                 </View>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
             </View>
           </View>
         </LinearGradient>

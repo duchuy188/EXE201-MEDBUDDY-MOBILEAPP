@@ -197,12 +197,26 @@ const AddReminderScreen = () => {
         }
       }
 
-      Alert.alert('Thành công', 'Đã thêm lịch nhắc uống thuốc');
-      setSelectedTimes({});
-      setNote('');
-      if (repeatType === 'custom') {
-        setSelectedDays([]);
-      }
+      Alert.alert(
+        'Thành công',
+        'Đã thêm lịch nhắc uống thuốc',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              setSelectedTimes({});
+              setNote('');
+              if (repeatType === 'custom') {
+                setSelectedDays([]);
+              }
+              // Navigate back to MedicationSchedule when OK pressed
+              // @ts-ignore
+              navigation.navigate('MedicationSchedule');
+            },
+          },
+        ],
+        { cancelable: false }
+      );
     } catch (error: any) {
       const errObj = error?.response?.data || error?.response || error || {};
       console.error('Error adding reminder:', errObj);

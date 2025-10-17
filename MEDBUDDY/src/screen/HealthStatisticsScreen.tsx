@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator, Alert } from "react-native";
 import { FontAwesome5, Feather } from "@expo/vector-icons";
 import { PieChart, LineChart } from 'react-native-chart-kit';
 import BloodPressureService from '../api/bloodPressure';
 import MedicationService, { WeeklyOverview, FullOverview } from '../api/medicationsHistory';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useFocusEffect } from '@react-navigation/native';
 
 const medicineComplianceData = [
   { day: "T2", taken: 0, missed: 0, total: 2 },
@@ -31,16 +31,61 @@ const HealthStatisticsScreen: React.FC = () => {
   const [fullOverview, setFullOverview] = useState<FullOverview | null>(null);
   const route = useRoute();
 
-  // Retrieve token and userId from navigation params
-  // @ts-ignore
-  const token = route.params?.token || '';
-  // @ts-ignore
-  const userId = route.params?.userId || '';
+  // token and userId may come from navigation params or AsyncStorage
+  const [token, setToken] = useState<string>('');
+  const [userId, setUserId] = useState<string>('');
 
+  // Load credentials from route params or AsyncStorage on mount
+  useEffect(() => {
+    const init = async () => {
+      try {
+        // @ts-ignore
+        const paramToken = route.params?.token;
+        // @ts-ignore
+        const paramUserId = route.params?.userId;
+
+        if (paramToken && paramToken !== 'undefined') setToken(paramToken);
+        if (paramUserId && paramUserId !== 'undefined') setUserId(paramUserId);
+
+        // If either is missing, try AsyncStorage
+        if ((!paramToken || paramToken === 'undefined') || (!paramUserId || paramUserId === 'undefined')) {
+          const storedToken = await AsyncStorage.getItem('token');
+          const storedUserId = await AsyncStorage.getItem('userId');
+          if (!paramToken && storedToken) setToken(storedToken);
+          if (!paramUserId && storedUserId) setUserId(storedUserId);
+        }
+      } catch (e) {
+        console.error('Failed to load credentials from AsyncStorage', e);
+      }
+    };
+    init();
+  }, [route.params]);
+
+  // When token and userId become available, fetch data
   useEffect(() => {
     if (!token || !userId) return;
     fetchAllData();
   }, [token, userId]);
+
+  // Also refresh data whenever the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      const refresh = async () => {
+        try {
+          const currentToken = token || await AsyncStorage.getItem('token') || '';
+          const currentUserId = userId || await AsyncStorage.getItem('userId') || '';
+          if (currentToken && currentUserId && isActive) {
+            await fetchAllData();
+          }
+        } catch (e) {
+          console.error('Error refreshing data on focus', e);
+        }
+      };
+      refresh();
+      return () => { isActive = false; };
+    }, [token, userId])
+  );
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -58,7 +103,14 @@ const HealthStatisticsScreen: React.FC = () => {
 
   const fetchBloodPressureData = async () => {
     try {
-      const data = await BloodPressureService.getBloodPressureHistory(token);
+      // ensure we have a token (try AsyncStorage as fallback)
+      const currentToken = token || await AsyncStorage.getItem('token') || '';
+      if (!currentToken) {
+        console.warn('No token available for fetching blood pressure data');
+        return;
+      }
+      console.log('Fetching blood pressure with token:', currentToken ? '***' : '(empty)');
+      const data = await BloodPressureService.getBloodPressureHistory(currentToken);
       const recentData = (data || []).slice(0, 7);
       setBloodPressureData(recentData);
     } catch (error) {
@@ -69,9 +121,17 @@ const HealthStatisticsScreen: React.FC = () => {
 
   const fetchMedicationData = async () => {
     try {
+      // ensure we have token and userId (fallback to AsyncStorage)
+      const currentToken = token || await AsyncStorage.getItem('token') || '';
+      const currentUserId = userId || await AsyncStorage.getItem('userId') || '';
+      if (!currentToken || !currentUserId) {
+        console.warn('Missing token/userId for medication data fetch', { currentToken: !!currentToken, currentUserId: !!currentUserId });
+        return;
+      }
+      console.log('Fetching medication data for user:', currentUserId);
       const [weekly, full] = await Promise.all([
-        MedicationService.getWeeklyOverview(userId, token),
-        MedicationService.getFullOverview(userId, token)
+        MedicationService.getWeeklyOverview(currentUserId, currentToken),
+        MedicationService.getFullOverview(currentUserId, currentToken)
       ]);
       
       // Debug: Log dữ liệu thực tế từ API

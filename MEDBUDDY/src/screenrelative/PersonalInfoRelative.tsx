@@ -62,7 +62,7 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
   const essentialsItems = [
     {
       id: 'medications',
-      title: 'Thuốc',
+      title: 'Thuốc của người bệnh',
       icon: 'medical',
       bgColor: '#3B82F6',
       customIcon: (
@@ -75,7 +75,7 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
     },
     {
       id: 'medication-schedule',
-      title: 'Lịch hẹn uống thuốc',
+      title: 'Lịch hẹn uống thuốc người bệnh',
       icon: 'time',
       bgColor: '#F59E0B'
     },
@@ -87,7 +87,7 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
     },
     {
       id: 'appointments',
-      title: 'Lịch tái khám',
+      title: 'Lịch tái khám người bệnh',
       icon: 'calendar',
       bgColor: '#3B82F6'
     },
@@ -106,6 +106,12 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
       title: 'Cài đặt ứng dụng',
       icon: 'settings',
       bgColor: '#0D9488'
+    },
+    {
+      id: 'upgrade-account',
+      title: 'Nâng cấp tài khoản người bệnh',
+      icon: 'rocket',
+      bgColor: '#4A7BA7'
     },
     {
       id: 'help-center',
@@ -144,6 +150,8 @@ const ProfileSettingsScreen = ({ navigation }: any) => {
           navigation.navigate('MedicationsScreen', { medications });
           } else if (item.id === 'medication-schedule') {
           navigation.navigate('MedicationSchedule');
+        } else if (item.id === 'upgrade-account') {
+          navigation.navigate('PackageScreen');
         } else if (item.id === 'help-center') {
           navigation.navigate('HelpCenter');
         } else if (item.id === 'appointments') {

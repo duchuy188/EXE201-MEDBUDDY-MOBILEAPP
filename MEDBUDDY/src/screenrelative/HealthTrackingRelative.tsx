@@ -133,11 +133,11 @@ const HealthTrackingRelative = ({ navigation }: any) => {
           <Text style={styles.userType}>
             {type === 'patient' ? 'Người bệnh' : 'Người thân'}
           </Text>
-          {user.permissions && (
+          {/* {user.permissions && (
             <Text style={styles.userPermissions}>
               Quyền: {user.permissions.length} quyền được cấp
             </Text>
-          )}
+          )} */}
         </View>
         <Ionicons name="chevron-forward" size={24} color="#999" />
       </TouchableOpacity>
@@ -242,7 +242,7 @@ const HealthTrackingRelative = ({ navigation }: any) => {
                       <Text style={{ fontSize: 16, marginBottom: 8 }}>Vai trò: {info?.role === 'patient' ? 'Người bệnh' : 'Người thân'}</Text>
                       {selectedUser.permissions && selectedUser.permissions.length > 0 && (
                         <>
-                          <Text style={{ fontSize: 16, marginBottom: 8, fontWeight: 'bold' }}>Quyền được cấp:</Text>
+                          {/* <Text style={{ fontSize: 16, marginBottom: 8, fontWeight: 'bold' }}>Quyền được cấp:</Text>
                           {selectedUser.permissions.map((permission: string, index: number) => (
                             <Text key={index} style={{ fontSize: 14, marginBottom: 4, marginLeft: 10 }}>
                               • {permission === 'view_medical_records' ? 'Xem hồ sơ y tế' :
@@ -250,7 +250,7 @@ const HealthTrackingRelative = ({ navigation }: any) => {
                                   permission === 'schedule_appointment' ? 'Đặt lịch tái khám' :
                                   permission === 'manage_health_data' ? 'Quản lý dữ liệu sức khỏe' : permission}
                             </Text>
-                          ))}
+                          ))} */}
                         </>
                       )}
                     </>

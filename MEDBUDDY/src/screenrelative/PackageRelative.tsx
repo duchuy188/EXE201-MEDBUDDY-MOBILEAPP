@@ -295,12 +295,18 @@ const PackageScreen = () => {
           </View>
         )}
 
-        <TouchableOpacity
-          style={styles.selectButton}
-          onPress={() => handleSelectPackage(item)}
-        >
-          <Text style={styles.selectButtonText}>Chọn gói</Text>
-        </TouchableOpacity>
+        {item.price === 0 ? (
+          <View style={[styles.selectButton, { backgroundColor: '#fff', borderWidth: 0, paddingVertical: 12 }]}>
+            <Text style={{ color: '#007AFF', fontSize: 14, textAlign: 'center' }}>Vui lòng kích hoạt gói này bên người bệnh</Text>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.selectButton}
+            onPress={() => handleSelectPackage(item)}
+          >
+            <Text style={styles.selectButtonText}>Chọn gói</Text>
+          </TouchableOpacity>
+        )}
       </TouchableOpacity>
     );
   };

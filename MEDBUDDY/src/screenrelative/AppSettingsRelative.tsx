@@ -140,13 +140,13 @@ const AppSettingsRelative = ({ navigation, route }: any) => {
     <Text style={styles.menuTitle}>Xem gói hiện tại</Text>
     <Ionicons name="chevron-forward" size={20} color="#999" />
   </TouchableOpacity> */}
-  <TouchableOpacity
+  {/* <TouchableOpacity
     style={styles.menuItem}
     onPress={() => navigation.navigate('PackageScreen')}
   >
     <Text style={styles.menuTitle}>Nâng cấp tài khoản</Text>
     <Ionicons name="chevron-forward" size={20} color="#999" />
-  </TouchableOpacity>
+  </TouchableOpacity> */}
 
   <TouchableOpacity
     style={styles.menuItem}
@@ -171,7 +171,7 @@ const AppSettingsRelative = ({ navigation, route }: any) => {
       }
     }}
   >
-    <Text style={styles.menuTitle}>Xem gói hiện tại</Text>
+    <Text style={styles.menuTitle}>Xem gói của người bệnh</Text>
     <Ionicons name="chevron-forward" size={20} color="#999" />
   </TouchableOpacity>
 
