@@ -55,6 +55,17 @@ const PackageHistoryScreen = ({ navigation }: any) => {
     }).format(price);
   };
 
+  // Format thời hạn (hỗ trợ cả singular/plural từ backend: day/days, month/months, year/years)
+  const formatDuration = (duration: number, unit: string) => {
+    if (!duration) return '';
+    const u = (unit || '').toLowerCase();
+    if (u.includes('day')) return `${duration} ngày`;
+    if (u.includes('month')) return `${duration} tháng`;
+    if (u.includes('year') || u.includes('năm')) return `${duration} năm`;
+    // fallback: show raw unit
+    return `${duration} ${unit}`;
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -120,7 +131,7 @@ const PackageHistoryScreen = ({ navigation }: any) => {
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Thời hạn:</Text>
                   <Text style={styles.infoValue}>
-                    {item.package.duration} {item.package.unit === 'days' ? 'ngày' : item.package.unit === 'months' ? 'tháng' : 'năm'}
+                    {formatDuration(item.package.duration, item.package.unit)}
                   </Text>
                 </View>
                 <View style={styles.infoRow}>
