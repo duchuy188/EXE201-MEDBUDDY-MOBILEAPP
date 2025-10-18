@@ -6,7 +6,7 @@ import RelativePatientService from '../api/RelativePatient';
 // import type { WeeklyOverview, FullOverview } from '../api/RelativePatient';
 import BloodPressureService from '../api/RelativePatient';// keep types if defined there
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import WeeklyReportCard from '../components/WeeklyReportCard';
 
 const medicineComplianceData = [
@@ -44,14 +44,15 @@ const HealthStatisticsRelative: React.FC = () => {
   const [loadingAI, setLoadingAI] = useState(false);
   
   const route = useRoute();
+  const navigation = useNavigation();
 
   // Retrieve token and userId from navigation params
   // @ts-ignore
   const token = route.params?.token || '';
   // @ts-ignore
   const userId = route.params?.userId || '';
-  // target patient id: selectedPatient._id (if chosen) or userId param
-  const targetPatientId = selectedPatient?._id || userId;
+  // target patient id: prefer selectedPatient.userId, then backend _id, then userId param
+  const targetPatientId = selectedPatient?.userId || selectedPatient?._id || userId;
 
   // Load patients when token becomes available and auto-select first patient if none selected
   useEffect(() => {
@@ -65,16 +66,18 @@ const HealthStatisticsRelative: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  // Fetch data only when we have a validated selected patient id
+  // Fetch data only when we have a validated selected patient id (either userId or _id)
   useEffect(() => {
-    if (!token || !selectedPatient?._id) return;
+    if (!token || (!selectedPatient?._id && !selectedPatient?.userId)) return;
     fetchAllData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, selectedPatient?._id]);
+  }, [token, selectedPatient?._id, selectedPatient?.userId]);
 
   const fetchAllData = async () => {
     setLoading(true);
     try {
+      console.log('fetchAllData selectedPatient=', selectedPatient);
+      console.log('fetchAllData targetPatientId=', targetPatientId);
       await Promise.all([
         fetchBloodPressureData(),
         fetchMedicationData(),
@@ -122,6 +125,7 @@ const HealthStatisticsRelative: React.FC = () => {
   // --- BEGIN: thêm 2 hàm fetch để tránh ReferenceError ---
   const fetchBloodPressureData = async (patientId?: string) => {
     const pid = patientId || targetPatientId;
+    console.log('fetchBloodPressureData pid=', pid);
     if (!pid || !token) return;
     try {
       const resp = await RelativePatientService.getPatientBloodPressures(pid, token);
@@ -144,12 +148,34 @@ const HealthStatisticsRelative: React.FC = () => {
 
   const fetchMedicationData = async (patientId?: string) => {
     const pid = patientId || targetPatientId;
+    console.log('fetchMedicationData pid=', pid);
     if (!pid || !token) return;
     try {
       const weeklyResp = await RelativePatientService.getPatientWeeklyOverview(pid, token);
       const fullResp = await RelativePatientService.getPatientFullOverview(pid, token);
-      const weekly = weeklyResp?.data ?? weeklyResp ?? null;
-      const full = fullResp?.data ?? fullResp ?? null;
+      console.log('getPatientWeeklyOverview response:', weeklyResp);
+      console.log('getPatientFullOverview response:', fullResp);
+
+      const unwrapWeekly = (r: any) => {
+        if (!r) return null;
+        // If response already contains top-level medications/summary/period, use it
+        if (r.medications || r.summary || r.period) return r;
+        // Otherwise prefer r.data when it's an object
+        if (r.data && typeof r.data === 'object' && !Array.isArray(r.data)) return r.data;
+        return r;
+      };
+
+      const unwrapFull = (r: any) => {
+        if (!r) return null;
+        // If response already contains expected fields, use it
+        if (r.adherenceRate || r.medicationGroups || r.stats) return r;
+        // Otherwise prefer r.data when it's an object
+        if (r.data && typeof r.data === 'object' && !Array.isArray(r.data)) return r.data;
+        return r;
+      };
+
+      const weekly = unwrapWeekly(weeklyResp);
+      const full = unwrapFull(fullResp);
       setWeeklyOverview(weekly || null);
       setFullOverview(full || null);
     } catch (err: any) {
@@ -388,6 +414,19 @@ const HealthStatisticsRelative: React.FC = () => {
             <Text style={styles.headerTitle}>Thống kê sức khỏe</Text>
           </View>
         </View>
+        {/* Patient selector button */}
+        <View style={{ width: '94%', alignSelf: 'center', marginBottom: 12 }}>
+          <TouchableOpacity style={styles.patientBtn} onPress={openPatientSelector}>
+            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
+              <View style={{flex: 1}}>
+                <Text style={styles.patientName}>{selectedPatient?.fullName || 'Chọn người bệnh'}</Text>
+                <Text style={styles.patientMeta}>{selectedPatient?.email || selectedPatient?.phone || ''}</Text>
+              </View>
+              <Ionicons name="chevron-down" size={24} color="#64748B" />
+            </View>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.tabsRow}>
           {TABS.map(tab => (
             <TouchableOpacity
@@ -905,11 +944,12 @@ const HealthStatisticsRelative: React.FC = () => {
               keyExtractor={it => it._id || it.email || Math.random().toString()}
               renderItem={({item}) => (
                 <TouchableOpacity
-                  style={{ padding:12, borderBottomWidth:1, borderColor:'#eee', backgroundColor: selectedPatient?._id === item._id ? '#EBF4FF' : '#fff' }}
+                  style={{ paddingVertical:14, paddingHorizontal:8, borderBottomWidth:1, borderColor:'#F3F4F6', backgroundColor: selectedPatient?._id === item._id ? '#FBFEFF' : '#fff' }}
                   onPress={() => { setSelectedPatient(item); setShowPatientSelector(false); }}
                 >
-                  <Text style={{fontWeight:'700'}}>{item.fullName || 'Tên chưa cập nhật'}</Text>
-                  <Text style={{color:'#9CA3AF', marginTop:6}}>{item.email || item.phone || item._id}</Text>
+                  <Text style={{fontWeight:'700', fontSize:16, color: '#0F172A'}}>{item.fullName || 'Tên chưa cập nhật'}</Text>
+                  {item.email ? <Text style={{color:'#9CA3AF', marginTop:8}}>Email: {item.email}</Text> : null}
+                  {item.phone ? <Text style={{color:'#9CA3AF', marginTop:4}}>SDT: {item.phone}</Text> : null}
                   {item.dateOfBirth ? <Text style={{color:'#9CA3AF', marginTop:4}}>Sinh: {new Date(item.dateOfBirth).toLocaleDateString('vi-VN')}</Text> : null}
                 </TouchableOpacity>
               )}
@@ -929,28 +969,48 @@ const HealthStatisticsRelative: React.FC = () => {
         </View>
       </Modal>
 
-      {/* Upgrade modal */}
-      <Modal visible={upgradeModalVisible} animationType="slide" transparent onRequestClose={() => setUpgradeModalVisible(false)}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.7)' }}>
-          <View style={{ width: '80%', backgroundColor: '#fff', borderRadius: 12, padding: 16 }}>
-            <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12, textAlign: 'center' }}>Thông báo nâng cấp</Text>
-            <Text style={{ fontSize: 16, marginBottom: 24, textAlign: 'center' }}>{upgradeMessage}</Text>
+      {/* Upgrade modal shown when server returns 403 asking to buy plan (NEW) */}
+      <Modal
+        visible={upgradeModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setUpgradeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.patientModal, { maxHeight: 240 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Không thể tạo lịch hẹn</Text>
+              <TouchableOpacity onPress={() => setUpgradeModalVisible(false)}>
+                <Ionicons name="close" size={22} color="#374151" />
+              </TouchableOpacity>
+            </View>
 
-            <TouchableOpacity
-              style={{ backgroundColor: '#3B82F6', borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginBottom: 12 }}
-              onPress={() => {
-                setUpgradeModalVisible(false);
-                // Navigate to upgrade screen or link
-              }}
-            >
-              <Text style={{ color: '#fff', fontWeight: '600' }}>Nâng cấp ngay</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={{ paddingVertical: 12, alignItems: 'center' }}
-              onPress={() => setUpgradeModalVisible(false)}
-            >
-              <Text style={{ color: '#6B7280' }}>Đóng</Text>
-            </TouchableOpacity>
+            <View style={{ paddingTop: 8 }}>
+              <Text style={{ color: '#374151', fontSize: 15, lineHeight: 22 }}>
+                {upgradeMessage || 'Vui lòng mua gói để sử dụng tính năng này.'}
+              </Text>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 }}>
+                <TouchableOpacity
+                  onPress={() => setUpgradeModalVisible(false)}
+                  style={{ paddingHorizontal: 12, paddingVertical: 8, marginRight: 10 }}
+                >
+                  <Text style={{ color: '#6B7280' }}>Đóng</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setUpgradeModalVisible(false);
+                    // Navigate to subscription/upgrade screen - replace 'Subscription' with your actual screen name
+                    // @ts-ignore
+                    (navigation as any)?.navigate?.('PackageScreen');
+                  }}
+                  style={{ backgroundColor: '#4A7BA7', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '600' }}>Mua gói</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1288,6 +1348,10 @@ const styles = StyleSheet.create({
   },
   patientName: { fontWeight: '700', color: '#0F172A' },
   patientMeta: { color: '#9CA3AF', marginTop: 6, fontSize: 13 },
+  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
+  patientModal: { width: '86%', backgroundColor: '#fff', borderRadius: 12, padding: 16, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, elevation: 6 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: '#0F172A' },
 });
 
 export default HealthStatisticsRelative;
