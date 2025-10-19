@@ -29,14 +29,22 @@ interface PatientRelationship {
 }
 
 const AddAppointmentRelative = () => {
-  const route = useRoute();
+  const route = useRoute<any>();
   const navigation = useNavigation();
-  const { token, userId } = route.params as { token: string; userId: string };
+  // Accept token, userId and optionally a preselected patient passed via navigation
+  const { token, userId, selectedPatient: initialSelectedPatient } = route.params as { token?: string; userId?: string; selectedPatient?: Patient };
   
   // Patient selection states
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showPatientSelector, setShowPatientSelector] = useState(false);
+
+  // If a patient was passed via navigation, initialize the selected patient
+  React.useEffect(() => {
+    if (initialSelectedPatient) {
+      setSelectedPatient(initialSelectedPatient);
+    }
+  }, [initialSelectedPatient]);
   
   // Appointment form states
   const [appointmentTitle, setAppointmentTitle] = useState('');

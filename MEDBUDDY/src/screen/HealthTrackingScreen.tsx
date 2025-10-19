@@ -24,6 +24,19 @@ const HealthTrackingScreen = ({ navigation }: any) => {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
+  // Sort users (patients/relatives) newest-first by createdAt. If createdAt is nested under `relative`, use that.
+  const sortUsersNewestFirst = (items: any[]) => {
+    if (!Array.isArray(items)) return [];
+    return items.slice().sort((a: any, b: any) => {
+      const getTime = (x: any) => {
+        const val = x?.createdAt ?? x?.relative?.createdAt ?? 0;
+        const t = val ? new Date(val).getTime() : 0;
+        return isNaN(t) ? 0 : t;
+      };
+      return getTime(b) - getTime(a);
+    });
+  };
+
   const fetchData = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
@@ -32,8 +45,8 @@ const HealthTrackingScreen = ({ navigation }: any) => {
         const relativesData = await RelativePatientService.getRelativesOfPatient(token);
         console.log('Full patients data:', JSON.stringify(patientsData, null, 2));
         console.log('Full relatives data:', JSON.stringify(relativesData, null, 2));
-        setPatients(patientsData);
-        setRelatives(relativesData);
+  setPatients(sortUsersNewestFirst(patientsData));
+  setRelatives(sortUsersNewestFirst(relativesData));
       }
     } catch (error) {
       console.error('Error fetching data:', error);

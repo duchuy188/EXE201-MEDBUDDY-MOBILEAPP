@@ -284,9 +284,12 @@ const AddReminderRelative = () => {
               if (repeatType === 'custom') {
                 setSelectedDays([]);
               }
-              
-              // Navigate back to previous screen
-              navigation.goBack();
+
+              // Explicitly navigate to the MedicationSchedule (RemindersRelative) screen
+              // so the reminders list is shown and refreshed.
+              // Passing selectedPatient can help the target screen if it reads params.
+              // @ts-ignore
+              navigation.navigate('MedicationSchedule', { selectedPatient });
             }
           }
         ]

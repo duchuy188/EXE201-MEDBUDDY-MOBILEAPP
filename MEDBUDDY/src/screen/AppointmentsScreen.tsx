@@ -26,6 +26,17 @@ const AppointmentsScreen = ({ navigation }: any) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Sort appointments so the newest (by createdAt) appear first
+  const sortAppointmentsNewestFirst = (items: Appointment[]) => {
+    if (!Array.isArray(items)) return [];
+    return items.slice().sort((a: any, b: any) => {
+      const aTime = a?.createdAt ? new Date(a.createdAt).getTime() : (a?.date ? new Date(a.date).getTime() : 0);
+      const bTime = b?.createdAt ? new Date(b.createdAt).getTime() : (b?.date ? new Date(b.date).getTime() : 0);
+      // sort descending: newest first
+      return (bTime || 0) - (aTime || 0);
+    });
+  };
+
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     fetchAppointments().then(() => setRefreshing(false));
@@ -46,13 +57,13 @@ const AppointmentsScreen = ({ navigation }: any) => {
         if (response) {
           if (Array.isArray(response)) {
             console.log('Response is an array, setting directly');
-            setAppointments(response);
+            setAppointments(sortAppointmentsNewestFirst(response));
           } else if (response.data && Array.isArray(response.data)) {
             console.log('Response has data array, setting from data');
-            setAppointments(response.data);
+            setAppointments(sortAppointmentsNewestFirst(response.data));
           } else if (response.appointments && Array.isArray(response.appointments)) {
             console.log('Response has appointments array, setting from appointments');
-            setAppointments(response.appointments);
+            setAppointments(sortAppointmentsNewestFirst(response.appointments));
           } else {
             console.log('Invalid response structure:', response);
             setAppointments([]);

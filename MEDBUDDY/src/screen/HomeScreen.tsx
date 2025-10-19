@@ -646,10 +646,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
             <View style={{flexDirection: 'row', alignItems: 'center'}}>
               {userType === 'patient' && (
                 <TouchableOpacity onPress={() => setShowNotification(!showNotification)} style={{marginRight: 10}}>
-                  <View>
+                  {/* <View>
                     <Ionicons name="notifications" size={28} color="#3B82F6" />
                     <View style={{position: 'absolute', top: -2, right: -2, width: 10, height: 10, backgroundColor: '#F04438', borderRadius: 5}} />
-                  </View>
+                  </View> */}
                 </TouchableOpacity>
               )}
               

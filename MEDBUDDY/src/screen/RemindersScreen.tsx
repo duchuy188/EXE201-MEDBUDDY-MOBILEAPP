@@ -15,6 +15,17 @@ const RemindersScreen = ({ navigation }: any) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Sort reminders so the newest (by createdAt) appear first
+  const sortRemindersNewestFirst = (items: Reminder[]) => {
+    if (!Array.isArray(items)) return [];
+    return items.slice().sort((a: any, b: any) => {
+      const aTime = a?.createdAt ? new Date(a.createdAt).getTime() : (a?.startDate ? new Date(a.startDate).getTime() : 0);
+      const bTime = b?.createdAt ? new Date(b.createdAt).getTime() : (b?.startDate ? new Date(b.startDate).getTime() : 0);
+      // sort descending: newest first
+      return (bTime || 0) - (aTime || 0);
+    });
+  };
+
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     fetchReminders().then(() => setRefreshing(false));
@@ -36,13 +47,13 @@ const RemindersScreen = ({ navigation }: any) => {
         if (response) {
           if (Array.isArray(response)) {
             console.log('Response is an array, setting directly');
-            setReminders(response);
+            setReminders(sortRemindersNewestFirst(response));
           } else if (response.data && Array.isArray(response.data)) {
             console.log('Response has data array, setting from data');
-            setReminders(response.data);
+            setReminders(sortRemindersNewestFirst(response.data));
           } else if (response.reminders && Array.isArray(response.reminders)) {
             console.log('Response has reminders array, setting from reminders');
-            setReminders(response.reminders);
+            setReminders(sortRemindersNewestFirst(response.reminders));
           } else {
             console.log('Invalid response structure:', response);
             setReminders([]);

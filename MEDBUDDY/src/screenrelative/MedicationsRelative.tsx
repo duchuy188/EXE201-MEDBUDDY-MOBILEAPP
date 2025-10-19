@@ -62,6 +62,25 @@ const MedicationsRelative = ({ route, navigation }: any) => {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showPatientSelector, setShowPatientSelector] = useState(false);
 
+  // Sorting helpers
+  const sortPatientsNewestFirst = (items: Patient[]) => {
+    if (!Array.isArray(items)) return [];
+    return items.slice().sort((a: any, b: any) => {
+      const aTime = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return (bTime || 0) - (aTime || 0);
+    });
+  };
+
+  const sortMedicationsNewestFirst = (items: Medication[]) => {
+    if (!Array.isArray(items)) return [];
+    return items.slice().sort((a: any, b: any) => {
+      const aTime = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return (bTime || 0) - (aTime || 0);
+    });
+  };
+
   // Lấy token và userId từ route.params hoặc AsyncStorage
   React.useEffect(() => {
     const loadAuthData = async () => {
@@ -132,18 +151,20 @@ const MedicationsRelative = ({ route, navigation }: any) => {
         relationshipsList = patientsData.patients;
       }
       
-      // Transform the relationship data to Patient format
+      // Transform the relationship data to Patient format (include createdAt if available)
       const patientsList: Patient[] = relationshipsList.map((relationship) => ({
         _id: relationship.patient._id,
         email: relationship.patient.email,
         fullName: relationship.patient.fullName,
         phone: relationship.patient.phoneNumber,
         dateOfBirth: relationship.patient.dateOfBirth,
+        // relationship may have createdAt or patient may have createdAt
+        createdAt: (relationship as any).createdAt ?? relationship.patient.createdAt ?? undefined,
       }));
       
       console.log('Processed patients list:', patientsList);
       setPatientRelationships(relationshipsList);
-      setPatients(patientsList);
+      setPatients(sortPatientsNewestFirst(patientsList));
       
       if (patientsList.length === 0) {
         console.log('No patients found. You may need to add patients first using the addPatientRelative API.');
@@ -253,10 +274,10 @@ const MedicationsRelative = ({ route, navigation }: any) => {
         medicationsList = updatedMedications.medications;
       }
       
-      console.log('Processed medications list:', medicationsList);
-      console.log('Medications count:', medicationsList.length);
+  console.log('Processed medications list:', medicationsList);
+  console.log('Medications count:', medicationsList.length);
       
-      setMedicationsList(medicationsList);
+  setMedicationsList(sortMedicationsNewestFirst(medicationsList));
     } catch (error) {
       console.error('Error fetching medications:', error);
       Alert.alert('Lỗi', 'Không thể lấy danh sách thuốc mới!');

@@ -24,6 +24,19 @@ const HealthTrackingRelative = ({ navigation }: any) => {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
+  // Sort users (patients/relatives) newest-first by createdAt. If createdAt is nested under `relative` or `patient`, use that.
+  const sortUsersNewestFirst = (items: any[]) => {
+    if (!Array.isArray(items)) return [];
+    return items.slice().sort((a: any, b: any) => {
+      const getTime = (x: any) => {
+        const val = x?.createdAt ?? x?.relative?.createdAt ?? x?.patient?.createdAt ?? 0;
+        const t = val ? new Date(val).getTime() : 0;
+        return isNaN(t) ? 0 : t;
+      };
+      return getTime(b) - getTime(a);
+    });
+  };
+
   // API function to get patients of relative
   const getPatientsOfRelative = async (token: string) => {
     const res = await apiClient.get('/relative-patient/patients', {
@@ -54,10 +67,10 @@ const HealthTrackingRelative = ({ navigation }: any) => {
       if (token) {
         const patientsData = await getPatientsOfRelative(token);
         const relativesData = await getRelativesOfPatient(token);
-        console.log('Full patients data:', JSON.stringify(patientsData, null, 2));
-        console.log('Full relatives data:', JSON.stringify(relativesData, null, 2));
-        setPatients(patientsData);
-        setRelatives(relativesData);
+  console.log('Full patients data:', JSON.stringify(patientsData, null, 2));
+  console.log('Full relatives data:', JSON.stringify(relativesData, null, 2));
+  setPatients(sortUsersNewestFirst(patientsData));
+  setRelatives(sortUsersNewestFirst(relativesData));
       }
     } catch (error) {
       console.error('Error fetching data:', error);

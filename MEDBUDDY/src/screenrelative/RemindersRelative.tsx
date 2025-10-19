@@ -46,6 +46,31 @@ const RemindersRelative = ({ navigation }: any) => {
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [patientLoading, setPatientLoading] = useState(false);
 
+  // Sorting helpers
+  const sortPatientsNewestFirst = (items: Patient[]) => {
+    if (!Array.isArray(items)) return [];
+    return items.slice().sort((a: any, b: any) => {
+      const aTime = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return (bTime || 0) - (aTime || 0);
+    });
+  };
+
+  const sortRemindersNewestFirst = (items: Reminder[]) => {
+    if (!Array.isArray(items)) return [];
+    return items.slice().sort((a: any, b: any) => {
+      const getTime = (r: any) => {
+        if (r?.createdAt) return new Date(r.createdAt).getTime();
+        if (r?.startDate) return new Date(r.startDate).getTime();
+        if (r?.times && r.times.length > 0) return new Date(r.times[0].time).getTime();
+        return 0;
+      };
+      const aTime = getTime(a) || 0;
+      const bTime = getTime(b) || 0;
+      return bTime - aTime;
+    });
+  };
+
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     fetchReminders().then(() => setRefreshing(false));
@@ -79,7 +104,7 @@ const RemindersRelative = ({ navigation }: any) => {
         }));
         
         console.log('Processed patients list:', patientsList);
-        setPatients(patientsList);
+        setPatients(sortPatientsNewestFirst(patientsList));
       }
     } catch (error: any) {
       console.error('Error fetching patients:', error);
@@ -111,13 +136,13 @@ const RemindersRelative = ({ navigation }: any) => {
         if (response) {
           if (Array.isArray(response)) {
             console.log('Response is an array, setting directly');
-            setReminders(response);
+            setReminders(sortRemindersNewestFirst(response));
           } else if (response.data && Array.isArray(response.data)) {
             console.log('Response has data array, setting from data');
-            setReminders(response.data);
+            setReminders(sortRemindersNewestFirst(response.data));
           } else if (response.reminders && Array.isArray(response.reminders)) {
             console.log('Response has reminders array, setting from reminders');
-            setReminders(response.reminders);
+            setReminders(sortRemindersNewestFirst(response.reminders));
           } else {
             console.log('Invalid response structure:', response);
             setReminders([]);

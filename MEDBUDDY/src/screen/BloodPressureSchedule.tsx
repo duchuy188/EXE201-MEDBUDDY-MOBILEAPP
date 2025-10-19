@@ -27,6 +27,16 @@ const BloodPressureSchedule = ({ navigation }: any) => {
   const [selectedDetail, setSelectedDetail] = useState<BloodPressureReminder | null>(null);
   const isFocused = useIsFocused();
 
+  // Sort reminders so the newest (by createdAt) appear first. If createdAt missing, fallback to first time in times[].
+  const sortRemindersNewestFirst = (items: BloodPressureReminder[]) => {
+    if (!Array.isArray(items)) return [];
+    return items.slice().sort((a: any, b: any) => {
+      const aTime = a?.createdAt ? new Date(a.createdAt).getTime() : (a?.times && a.times.length > 0 ? new Date(a.times[0].time).getTime() : 0);
+      const bTime = b?.createdAt ? new Date(b.createdAt).getTime() : (b?.times && b.times.length > 0 ? new Date(b.times[0].time).getTime() : 0);
+      return (bTime || 0) - (aTime || 0);
+    });
+  };
+
   const fetchReminders = useCallback(async () => {
     try {
       setLoading(true);
@@ -38,8 +48,8 @@ const BloodPressureSchedule = ({ navigation }: any) => {
       }
 
       const res = await BPReminderService.getBloodPressureReminders(token, userId || undefined);
-      const list = Array.isArray(res) ? res : res?.data ?? [];
-      setReminders(list);
+  const list = Array.isArray(res) ? res : res?.data ?? [];
+  setReminders(sortRemindersNewestFirst(list));
     } catch (err) {
       console.warn('Failed to load blood pressure reminders', err);
       setReminders([]);
