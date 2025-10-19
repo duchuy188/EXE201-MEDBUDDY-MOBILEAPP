@@ -38,6 +38,59 @@ const PhotoCaptureScreen: React.FC = () => {
     getToken();
   }, [route.params]);
 
+  // Function to parse times from rawText
+  const parseTimesFromText = (rawText: string, medicineName: string) => {
+    const times: any[] = [];
+    
+    try {
+      console.log(` [PARSE] Phân tích rawText cho "${medicineName}"`);
+      
+      // Tìm pattern "X lần" trong text
+      const timesPattern = /(\d+)\s*l[àa]n/gi;
+      const matches = rawText.match(timesPattern);
+      
+      if (matches) {
+        const frequency = parseInt(matches[0].replace(/[^\d]/g, ''));
+        console.log(` [PARSE] Tìm thấy tần suất: ${frequency} lần/ngày`);
+        
+        // Tạo times array dựa trên tần suất
+        if (frequency === 1) {
+          times.push({ time: 'Sáng', dosage: '1 lần' });
+        } else if (frequency === 2) {
+          times.push({ time: 'Sáng', dosage: '1 lần' });
+          times.push({ time: 'Tối', dosage: '1 lần' });
+        } else if (frequency === 3) {
+          times.push({ time: 'Sáng', dosage: '1 lần' });
+          times.push({ time: 'Chiều', dosage: '1 lần' });
+          times.push({ time: 'Tối', dosage: '1 lần' });
+        } else if (frequency >= 4) {
+          times.push({ time: 'Sáng', dosage: '1 lần' });
+          times.push({ time: 'Chiều', dosage: '1 lần' });
+          times.push({ time: 'Tối', dosage: '1 lần' });
+        }
+      }
+      
+      // Tìm pattern liều lượng cụ thể như "1 viên", "1 giọt"
+      const dosagePattern = /(\d+)\s*(viên|giọt|ml|g)/gi;
+      const dosageMatches = rawText.match(dosagePattern);
+      
+      if (dosageMatches && times.length > 0) {
+        const dosage = dosageMatches[0];
+        console.log(`💊 [PARSE] Tìm thấy liều lượng: ${dosage}`);
+        times.forEach(time => {
+          time.dosage = dosage;
+        });
+      }
+      
+      console.log(` [PARSE] Kết quả phân tích cho "${medicineName}":`, times);
+      
+    } catch (error) {
+      console.error(' [PARSE] Lỗi khi phân tích thời gian:', error);
+    }
+    
+    return times;
+  };
+
   const processImage = async (uri: string) => {
     setIsProcessing(true);
     try {
@@ -52,10 +105,29 @@ const PhotoCaptureScreen: React.FC = () => {
         name: fileName,
         type: 'image/jpeg',
       };
+      console.log(' [OCR] Đang xử lý ảnh:', fileName);
       const ocrResult = await OrcService.recognizePrescription(image, token);
+      console.log(' [OCR] Kết quả OCR nhận được:', JSON.stringify(ocrResult, null, 2));
+      
       setExtractedData(ocrResult);
       if (ocrResult?.medicines) {
-        setEditableMedicines(ocrResult.medicines.map((med: any) => ({ ...med })));
+        console.log(' [OCR] Danh sách thuốc trước khi edit:', JSON.stringify(ocrResult.medicines, null, 2));
+        
+        // Auto-parse times from rawText if times array is empty
+        const enhancedMedicines = ocrResult.medicines.map((med: any) => {
+          if (!med.times || med.times.length === 0) {
+            const parsedTimes = parseTimesFromText(ocrResult.rawText, med.name);
+            if (parsedTimes.length > 0) {
+              console.log(` [AUTO-PARSE] Tự động phân tích thời gian cho "${med.name}":`, parsedTimes);
+              return { ...med, times: parsedTimes };
+            }
+          }
+          return { ...med };
+        });
+        
+        setEditableMedicines(enhancedMedicines);
+      } else {
+        console.log(' [OCR] Không tìm thấy medicines trong kết quả');
       }
     } catch (error: any) {
       // Thử lấy thông tin lỗi từ nhiều trường hợp khác nhau
@@ -112,31 +184,132 @@ const PhotoCaptureScreen: React.FC = () => {
     }
   };
 
+  // Function to normalize time values to match backend enum
+  const normalizeTimeValue = (time: string): 'Sáng' | 'Chiều' | 'Tối' => {
+    const lowerTime = time.toLowerCase().trim();
+    console.log(`🔄 [NORMALIZE] Chuyển đổi time: "${time}" -> "${lowerTime}"`);
+    
+    switch (lowerTime) {
+      case 'sáng':
+      case 'sang':
+      case 'morning':
+        console.log(` [NORMALIZE] "${time}" -> "Sáng"`);
+        return 'Sáng';
+      case 'chiều':
+      case 'chieu':
+      case 'afternoon':
+        console.log(` [NORMALIZE] "${time}" -> "Chiều"`);
+        return 'Chiều';
+      case 'tối':
+      case 'toi':
+      case 'evening':
+      case 'night':
+        console.log(` [NORMALIZE] "${time}" -> "Tối"`);
+        return 'Tối';
+      default:
+        console.log(` [NORMALIZE] Không nhận dạng được "${time}", dùng default "Sáng"`);
+        return 'Sáng'; // default fallback
+    }
+  };
 
+  // Function to normalize medicines data before saving
+  const normalizeMedicinesData = (medicines: any[]) => {
+    console.log(' [NORMALIZE] Dữ liệu medicines trước khi chuẩn hóa:', JSON.stringify(medicines, null, 2));
+    
+    return medicines.map((med, index) => {
+      console.log(` [NORMALIZE] Xử lý thuốc ${index + 1}: ${med.name}`);
+      
+      // Extract số lượng từ string quantity
+      const quantityNumber = med.quantity ? parseInt(med.quantity.match(/\d+/)?.[0] || '0') : 0;
+      console.log(` [NORMALIZE] Thuốc "${med.name}": quantity="${med.quantity}" -> totalQuantity=${quantityNumber}`);
+      
+      const normalizedMed = {
+        ...med,
+        totalQuantity: quantityNumber,
+        remainingQuantity: quantityNumber, // Mới thêm thì remaining = total
+        lowStockThreshold: Math.max(5, Math.floor(quantityNumber * 0.2)), // 20% của tổng số hoặc tối thiểu 5
+        times: Array.isArray(med.times) ? med.times.map((t: any, timeIndex: number) => {
+          console.log(` [NORMALIZE] Xử lý time ${timeIndex + 1}:`, t);
+          
+          if (typeof t === 'string') {
+            console.log(` [NORMALIZE] Time là string: "${t}"`);
+            return t;
+          }
+          if (typeof t === 'object' && t !== null && t.time) {
+            const normalizedTime = {
+              time: normalizeTimeValue(t.time),
+              dosage: t.dosage || ''
+            };
+            console.log(` [NORMALIZE] Time là object:`, t, '-> normalized:', normalizedTime);
+            return normalizedTime;
+          }
+          console.log(` [NORMALIZE] Time không hợp lệ:`, t);
+          return t;
+        }) : []
+      };
+      
+      console.log(` [NORMALIZE] Thuốc ${index + 1} sau khi chuẩn hóa:`, JSON.stringify(normalizedMed, null, 2));
+      return normalizedMed;
+    });
+  };
 
   const handleAddToInventory = async () => {
     try {
+      console.log(' [SAVE] Bắt đầu lưu thuốc vào kho...');
+      
       if (!token) {
+        console.log('❌ [SAVE] Không tìm thấy token');
         Alert.alert('Lỗi', 'Không tìm thấy token xác thực.');
         return;
       }
+      
       // @ts-ignore
       const userId = route.params?.userId || '';
+      console.log(' [SAVE] User ID:', userId);
+      
       // Giả sử bạn đã có biến cloudinaryUrl là link ảnh trên Cloudinary
-      const cloudinaryUrl = extractedData?.imageUrl || ''; // hoặc lấy từ nơi bạn upload ảnh
+      const cloudinaryUrl = extractedData?.imageUrl || '';
+      console.log(' [SAVE] Image URL:', cloudinaryUrl);
+      
+      console.log(' [SAVE] editableMedicines trước khi normalize:', JSON.stringify(editableMedicines, null, 2));
+      
+      // Normalize medicines data before sending
+      const normalizedMedicines = normalizeMedicinesData(editableMedicines);
+      
       const data = {
         userId,
-        medicines: editableMedicines,
-        imageUrl: cloudinaryUrl, // truyền link ảnh Cloudinary vào đây
+        medicines: normalizedMedicines,
+        imageUrl: cloudinaryUrl,
         rawText: extractedData?.rawText || '',
       };
-      await medicationServiceWithOCR.saveMedicationsFromOCR(data, token);
+      
+      console.log(' [SAVE] Dữ liệu sẽ gửi lên server:', JSON.stringify(data, null, 2));
+      
+      const result = await medicationServiceWithOCR.saveMedicationsFromOCR(data, token);
+      console.log(' [SAVE] Lưu thành công! Kết quả từ server:', JSON.stringify(result, null, 2));
+      
+      // Check if server ignored totalQuantity and remainingQuantity
+      if (result && Array.isArray(result)) {
+        result.forEach((savedMed: any, index: number) => {
+          const originalMed = normalizedMedicines[index];
+          if (savedMed.totalQuantity !== originalMed?.totalQuantity) {
+            console.log(` [SAVE] SERVER BỎ QUA totalQuantity! Gửi: ${originalMed?.totalQuantity}, Nhận: ${savedMed.totalQuantity}`);
+            console.log(` [SAVE] Backend cần được sửa để xử lý totalQuantity và remainingQuantity từ request!`);
+          }
+        });
+      }
+      
       Alert.alert('Thêm vào kho thành công!', 'Thông tin thuốc đã được thêm vào kho.');
       setCapturedImage(null);
       setExtractedData(null);
       setEditableMedicines([]);
-    } catch (error) {
-      Alert.alert('Lỗi', 'Không thể lưu thuốc vào kho. Vui lòng thử lại.');
+    } catch (error: any) {
+      console.error(' [SAVE] Lỗi khi lưu thuốc:', error);
+      console.error(' [SAVE] Error response:', error?.response?.data);
+      console.error(' [SAVE] Error message:', error?.message);
+      console.error('[SAVE] Full error object:', JSON.stringify(error, null, 2));
+      
+      Alert.alert('Lỗi', `Không thể lưu thuốc vào kho. ${error?.response?.data?.message || error?.message || 'Vui lòng thử lại.'}`);
     }
   };
 
@@ -326,7 +499,7 @@ const PhotoCaptureScreen: React.FC = () => {
                           <Text style={{fontWeight: 'bold', color: '#2563EB'}}>Thời gian uống:</Text>
                           {med.times.map((t: any, i: number) => (
                             <Text key={i} style={{color: '#64748B', marginLeft: 8}}>
-                              • {t}
+                              • {typeof t === 'string' ? t : (typeof t === 'object' && t !== null ? `${t.time || ''} (${t.dosage || ''})` : String(t))}
                             </Text>
                           ))}
                         </View>

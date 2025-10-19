@@ -115,6 +115,32 @@ const MedicationsScreen = ({ route, navigation }: any) => {
 
   const renderMedicationItem = ({ item }: { item: Medication }) => {
     console.log('Rendering medication item:', JSON.stringify(item, null, 2));
+    
+    // Helper function to safely render times
+    const getTimesText = () => {
+      if (!item.times || !Array.isArray(item.times) || item.times.length === 0) {
+        return 'Chưa có lịch';
+      }
+      
+      try {
+        const timesArray = item.times.map((timeItem, index) => {
+          if (typeof timeItem === 'string') {
+            return timeItem;
+          }
+          if (timeItem && typeof timeItem === 'object') {
+            const time = timeItem.time || '';
+            const dosage = timeItem.dosage || '';
+            return `${time} (${dosage})`;
+          }
+          return 'Không xác định';
+        });
+        return timesArray.join(', ');
+      } catch (error) {
+        console.error('Error processing times:', error);
+        return 'Lỗi hiển thị lịch';
+      }
+    };
+
     return (
       <TouchableOpacity style={styles.itemContainer} onPress={() => {
         setModalMedication(item);
@@ -129,11 +155,7 @@ const MedicationsScreen = ({ route, navigation }: any) => {
             Dạng: {item.form || 'Không xác định'} - Số lượng: {item.remainingQuantity || 0} {item.form || 'viên'}
           </Text>
           <Text style={styles.itemDetail}>
-            Lịch uống: {
-              item.times && Array.isArray(item.times) && item.times.length > 0
-                ? item.times.map((t) => `${t.time} (${t.dosage})`).join(', ')
-                : 'Chưa có lịch'
-            }
+            Lịch uống: {getTimesText()}
           </Text>
           <Text style={styles.itemDetail}>
             Ngày thêm vào: {item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : 'Không xác định'}
@@ -267,15 +289,18 @@ const MedicationsScreen = ({ route, navigation }: any) => {
                   <MaterialIcons name="schedule" size={22} color="#3B82F6" style={{ marginRight: 8, marginTop: 2 }} />
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: '#64748B', fontWeight: '500', marginBottom: 4 }}>Lịch uống:</Text>
-                    {modalMedication?.times && modalMedication.times.length > 0 ? (
-                      modalMedication.times.map((timeSlot, index) => (
-                        <Text key={index} style={{ color: '#1E293B', marginLeft: 8, marginBottom: 2 }}>
-                          • {timeSlot.time}: {timeSlot.dosage}
-                        </Text>
-                      ))
-                    ) : (
-                      <Text style={{ color: '#1E293B', marginLeft: 8 }}>Chưa có lịch uống</Text>
-                    )}
+                    <Text style={{ color: '#1E293B', fontSize: 16 }}>
+                      {modalMedication?.times && Array.isArray(modalMedication.times) && modalMedication.times.length > 0 
+                        ? modalMedication.times.map((t, index) => {
+                            if (typeof t === 'string') return t;
+                            if (t && typeof t === 'object') {
+                              return `${t.time || ''} (${t.dosage || ''})`;
+                            }
+                            return 'Không xác định';
+                          }).join(', ')
+                        : 'Chưa có lịch uống'
+                      }
+                    </Text>
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
