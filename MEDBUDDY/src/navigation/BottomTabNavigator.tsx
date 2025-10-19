@@ -45,12 +45,13 @@ export default function BottomTabNavigator({ route }: any) {
   const userId = route?.params?.userId || '';
 
   function TabScreens() {
-    const [tabs, setTabs] = React.useState([
+    const baseTabs = [
       { name: "Trang chủ", component: HomeScreen },
       { name: "Thêm thuốc", component: AddMedicineScreen },
       { name: "Lịch uống thuốc", component: MedicationScheduleScreen },
       { name: "Thông tin cá nhân", component: PersonalInfoScreen },
-    ]);
+    ];
+    const [tabs, setTabs] = React.useState(baseTabs);
     const [loading, setLoading] = React.useState(true);
 
     React.useEffect(() => {
@@ -61,13 +62,17 @@ export default function BottomTabNavigator({ route }: any) {
           console.log('activePackage:', activePackage);
           // Sửa tại đây: kiểm tra activePackage.data.isActive
           if (activePackage?.data?.isActive) {
-            setTabs(prev => {
-              const filtered = prev.filter(tab => tab.name !== "Thống kê");
-              filtered.splice(3, 0, { name: "Thống kê", component: HealthStatisticsScreen });
-              return filtered;
-            });
+            // create a new array with 'Thống kê' inserted at position 3
+            const withStats = [
+              baseTabs[0],
+              baseTabs[1],
+              baseTabs[2],
+              { name: "Thống kê", component: HealthStatisticsScreen },
+              baseTabs[3],
+            ];
+            setTabs(withStats);
           } else {
-            setTabs(prev => prev.filter(tab => tab.name !== "Thống kê"));
+            setTabs(baseTabs);
           }
         } catch (e) {
           setTabs(prev => prev.filter(tab => tab.name !== "Thống kê"));
@@ -77,8 +82,6 @@ export default function BottomTabNavigator({ route }: any) {
       };
       checkPackage();
     }, [token]);
-
-    if (loading) return null;
 
     return (
       <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
@@ -229,7 +232,8 @@ export default function BottomTabNavigator({ route }: any) {
         name="MedicationSchedule" 
         component={RemindersScreen} 
         initialParams={{ token, userId }}
-        options={{ headerShown: true, title: 'Lịch hẹn uống thuốc' }} 
+        // headerShown false because RemindersScreen already renders its own header
+        options={{ headerShown: false, title: 'Lịch hẹn uống thuốc' }} 
       />
       <Stack.Screen
         name="BloodPressureSchedule"

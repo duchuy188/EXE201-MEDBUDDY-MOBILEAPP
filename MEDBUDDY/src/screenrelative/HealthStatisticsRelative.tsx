@@ -688,16 +688,23 @@ const HealthStatisticsRelative: React.FC = () => {
                       let displayDate = '';
                       if (date) {
                         const now = new Date();
-                        const diffTime = Math.abs(now.getTime() - date.getTime());
-                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                         const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                        
+
+                        // Compare by calendar day (local timezone) to avoid misclassifying same-day times
+                        const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                        const dateMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                        const msPerDay = 24 * 60 * 60 * 1000;
+                        const diffDays = Math.round((nowMidnight.getTime() - dateMidnight.getTime()) / msPerDay);
+
                         if (diffDays === 0) {
                           displayDate = `Hôm nay - ${timeStr}`;
                         } else if (diffDays === 1) {
                           displayDate = `Hôm qua - ${timeStr}`;
-                        } else {
+                        } else if (diffDays > 1) {
                           displayDate = `${diffDays} ngày trước - ${timeStr}`;
+                        } else {
+                          // Future timestamp or unexpected negative diff: show full date
+                          displayDate = `${date.toLocaleDateString('vi-VN')} - ${timeStr}`;
                         }
                       }
                       return (

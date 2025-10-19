@@ -157,7 +157,7 @@ const HealthTrackingRelative = ({ navigation }: any) => {
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate('RelativeTabs', { screen: 'Hồ sơ người thân' })}
         >
           <Ionicons name="arrow-back" size={24} color="#000000ff" />
         </TouchableOpacity>

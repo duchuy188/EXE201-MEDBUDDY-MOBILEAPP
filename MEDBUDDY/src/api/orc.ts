@@ -19,7 +19,7 @@ class OcrService {
 
     const res = await apiClient.post('/ocr', formData, { 
       headers, 
-      timeout: 30000 
+      timeout: 60000
     });
     return res.data;
   }

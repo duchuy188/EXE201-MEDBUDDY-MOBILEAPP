@@ -447,14 +447,19 @@ const HealthStatisticsScreen: React.FC = () => {
                     let displayDate = '';
                     if (date) {
                       const now = new Date();
-                      const diffTime = Math.abs(now.getTime() - date.getTime());
-                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      // Compare start-of-day timestamps to get an integer day difference
+                      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                      const startOfRecordDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                      const diffDays = Math.round((startOfToday.getTime() - startOfRecordDay.getTime()) / (1000 * 60 * 60 * 24));
                       const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                      
+
                       if (diffDays === 0) {
                         displayDate = `Hôm nay - ${timeStr}`;
                       } else if (diffDays === 1) {
                         displayDate = `Hôm qua - ${timeStr}`;
+                      } else if (diffDays < 0) {
+                        // In case of a future timestamp, show full date
+                        displayDate = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()} - ${timeStr}`;
                       } else {
                         displayDate = `${diffDays} ngày trước - ${timeStr}`;
                       }

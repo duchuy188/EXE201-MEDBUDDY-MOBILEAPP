@@ -51,7 +51,10 @@ const AddMedicineRelative: React.FC = () => {
 
   // Patient selection states
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  // If a patient was passed via route params (navigated from a previous screen), preselect them
+  // @ts-ignore
+  const initialPassedPatient: Patient | null = route.params?.patient || null;
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(initialPassedPatient);
   const [showPatientSelector, setShowPatientSelector] = useState(false);
 
   // Medication form states
@@ -74,7 +77,7 @@ const AddMedicineRelative: React.FC = () => {
 
   const handleCaptureMedicine = () => {
     // @ts-ignore
-    navigation.navigate('PhotoCapture', { token, userId });
+    navigation.navigate('PhotoCapture', { token, userId, patient: selectedPatient });
   };
 
   // Fetch patients function
@@ -106,6 +109,14 @@ const AddMedicineRelative: React.FC = () => {
   React.useEffect(() => {
     fetchPatients();
   }, [token]);
+
+  // If navigation passes a patient after mount (or changes), update the selected patient
+  React.useEffect(() => {
+    const passed: Patient | undefined = (route as any).params?.patient;
+    if (passed) {
+      setSelectedPatient(passed);
+    }
+  }, [(route as any).params?.patient]);
 
   const toggleTimeSlot = (timeId: string) => {
     setSelectedTimes(prev =>
@@ -196,9 +207,9 @@ const AddMedicineRelative: React.FC = () => {
           { text: 'Thêm thuốc', style: 'cancel' },
           { text: 'Xem thuốc', onPress: () => {
               try {
-                // Navigate to MedicationsScreen. Pass token and userId so the screen can load data if it expects them.
+                // Navigate to MedicationsScreen and pass the selected patient so it can be preselected
                 // @ts-ignore
-                navigation.navigate('MedicationsScreen', { token, userId: selectedPatient._id });
+                navigation.navigate('MedicationsScreen', { token, userId, patient: selectedPatient });
               } catch (navErr) {
                 console.error('Navigation error:', navErr);
               }

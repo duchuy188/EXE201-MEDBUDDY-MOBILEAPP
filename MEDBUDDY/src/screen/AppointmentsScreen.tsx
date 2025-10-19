@@ -111,7 +111,6 @@ const AppointmentsScreen = ({ navigation }: any) => {
           <Text style={styles.cardSubtitle}>Địa điểm: {item.location}</Text>
           <Text style={styles.cardSubtitle}>Ngày: {new Date(item.date).toLocaleDateString()} - Giờ: {item.time}</Text>
           <Text style={styles.cardSubtitle}>Ghi chú: {item.notes || 'Không có ghi chú'}</Text>
-          <Text style={styles.cardSubtitle}>Trạng thái: {item.status}</Text>
         </View>
         <Ionicons name="chevron-forward" size={20} color="#999" />
       </View>
@@ -188,10 +187,6 @@ const AppointmentsScreen = ({ navigation }: any) => {
                 <View style={styles.modalRow}>
                   <Ionicons name="document-text" size={20} color="#2563EB" style={styles.modalIcon}/>
                   <Text style={styles.modalText}>Ghi chú: {selectedAppointment.notes || 'Không có ghi chú'}</Text>
-                </View>
-                <View style={styles.modalRow}>
-                  <Ionicons name="alert-circle" size={20} color="#2563EB" style={styles.modalIcon}/>
-                  <Text style={styles.modalText}>Trạng thái: {selectedAppointment.status}</Text>
                 </View>
                 <View style={styles.modalActions}>
                   <View style={{ alignItems: 'center' }}>

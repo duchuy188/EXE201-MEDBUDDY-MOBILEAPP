@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Modal, TextInput, Button, Pressable, Image, Alert } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Modal, TextInput, Button, Pressable, Image, Alert, ScrollView } from 'react-native';
 import RelativePatientService from '../api/RelativePatient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -100,6 +100,17 @@ const MedicationsRelative = ({ route, navigation }: any) => {
 
     loadAuthData();
   }, [route.params]);
+
+  // If a patient was passed via navigation params (for example after adding a medicine), preselect them
+  React.useEffect(() => {
+    // @ts-ignore
+    const passedPatient: Patient | undefined = route.params?.patient;
+    if (passedPatient) {
+      setSelectedPatient(passedPatient);
+      // clear medicationsList so fetch will refetch for this patient
+      setMedicationsList([]);
+    }
+  }, [(route as any).params?.patient]);
 
   const [medicationsList, setMedicationsList] = useState<Medication[]>([]);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -442,7 +453,8 @@ const MedicationsRelative = ({ route, navigation }: any) => {
             Alert.alert('Lỗi', 'Không tìm thấy thông tin đăng nhập. Vui lòng đăng nhập lại.');
             return;
           }
-          navigation.navigate('AddMedicine', { token, userId });
+          // Pass the currently selected patient so AddMedicineRelative can preselect it
+          navigation.navigate('AddMedicine', { token, userId, patient: selectedPatient });
         }}
       >
         <Text style={styles.addButtonText}>+ Thêm thuốc</Text>
@@ -456,164 +468,170 @@ const MedicationsRelative = ({ route, navigation }: any) => {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
-          <View style={{ backgroundColor: '#fff', borderRadius: 24, padding: 22, width: '90%', alignItems: 'center', borderWidth: 1.5, borderColor: '#B6D5FA', shadowColor: '#F0F6FF', shadowOpacity: 0.1, shadowRadius: 8, elevation: 2 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 16 }}>
-              <View style={{ width: 40 }} />
-              <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#1E293B', textAlign: 'center', flex: 1 }}>Thông tin thuốc</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)} style={{ width: 40, alignItems: 'flex-end' }}>
-                <MaterialIcons name="close" size={24} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-            {/* Info fields with icon */}
-            <View style={{ width: '100%', marginBottom: 10 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <MaterialIcons name="medication" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Tên thuốc:</Text>
-                <Text style={{ color: '#1E293B', fontWeight: 'bold' }}>{modalMedication?.name || modalName}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <MaterialIcons name="medical-services" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Dạng thuốc:</Text>
-                <Text style={{ color: '#1E293B' }}>{modalMedication?.form || 'Không xác định'}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <MaterialIcons name="format-list-numbered" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Số lượng:</Text>
-                <Text style={{ color: '#1E293B' }}>{modalMedication?.remainingQuantity || 0} {modalMedication?.form || 'viên'}</Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
-                <MaterialIcons name="schedule" size={22} color="#3B82F6" style={{ marginRight: 8, marginTop: 2 }} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#64748B', fontWeight: '500', marginBottom: 4 }}>Lịch uống:</Text>
-                  {modalMedication?.times && modalMedication.times.length > 0 ? (
-                    modalMedication.times.map((timeSlot, index) => (
-                      <Text key={index} style={{ color: '#1E293B', marginLeft: 8, marginBottom: 2 }}>
-                        • {timeSlot.time}: {timeSlot.dosage}
-                      </Text>
-                    ))
-                  ) : (
-                    <Text style={{ color: '#1E293B', marginLeft: 8 }}>Chưa có lịch uống</Text>
-                  )}
-                </View>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <MaterialIcons name="calendar-today" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Ngày thêm vào:</Text>
-                <Text style={{ color: '#1E293B' }}>
-                  {modalMedication?.createdAt 
-                    ? new Date(modalMedication.createdAt).toLocaleDateString('vi-VN')
-                    : modalDate.toLocaleDateString('vi-VN')}
-                </Text>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <MaterialIcons name="notes" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
-                <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Ghi chú:</Text>
-                <Text style={{ color: '#1E293B', flex: 1 }}>{modalMedication?.note || modalNote || 'Chưa có ghi chú'}</Text>
-              </View>
-            </View>
-            {/* Icon button group */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', marginTop: 16, width: '100%' }}>
-              <TouchableOpacity onPress={() => {
-                // Xóa thuốc
-                (async () => {
-                  try {
-                    if (!modalMedication?._id || !selectedPatient?._id) throw new Error('Không tìm thấy thông tin thuốc hoặc người bệnh');
-                    const token = await AsyncStorage.getItem('token');
-                    if (!token) throw new Error('Không tìm thấy token');
-                    await RelativePatientService.deletePatientMedication(selectedPatient._id, modalMedication._id, token);
-                    Alert.alert('Xóa', 'Đã xóa thuốc này');
-                    setModalVisible(false);
-                    // Cập nhật lại danh sách
-                    await fetchMedications();
-                  } catch (err) {
-                    Alert.alert('Lỗi', 'Xóa thuốc thất bại!');
-                  }
-                })();
-              }} style={{ alignItems: 'center' }}>
-                <View style={{ backgroundColor: '#F6F8FB', borderRadius: 50, padding: 16 }}>
-                  <MaterialIcons name="delete" size={28} color="#EF4444" />
-                </View>
-                <Text style={{ color: '#EF4444', marginTop: 4, fontWeight: '500' }}>Xóa</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => {
-                setModalVisible(false);
-                navigation.navigate('EditMedicine', { medicine: modalMedication });
-              }} style={{ alignItems: 'center' }}>
-                <View style={{ backgroundColor: '#F6F8FB', borderRadius: 50, padding: 16 }}>
-                  <MaterialIcons name="edit" size={28} color="#F59E0B" />
-                </View>
-                <Text style={{ color: '#F59E0B', marginTop: 4, fontWeight: '500' }}>Sửa</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={{ alignItems: 'center' }}>
-                <TouchableOpacity style={{ alignItems: 'center' }} onPress={() => {
-                  if (!token || !userId) {
-                    Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng');
-                    return;
-                  }
-                  setModalVisible(false);
-                  navigation.navigate('AddReminder', {
-                    token,
-                    userId,
-                    medication: modalMedication,
-                    selectedPatient: selectedPatient
-                  });
-                }}>
-                  <View style={{ backgroundColor: '#F6F8FB', borderRadius: 50, padding: 16 }}>
-                    <MaterialIcons name="access-time" size={28} color="#8B5CF6" />
-                  </View>
-                  <Text style={{ color: '#8B5CF6', marginTop: 4, fontWeight: '500' }}>Giờ uống</Text>
+          {/* Constrain modal height and make content scrollable when it's long */}
+          <View style={{ backgroundColor: '#fff', borderRadius: 24, width: '90%', maxHeight: '80%', borderWidth: 1.5, borderColor: '#B6D5FA', shadowColor: '#F0F6FF', shadowOpacity: 0.1, shadowRadius: 8, elevation: 2, overflow: 'hidden' }}>
+            <ScrollView contentContainerStyle={{ padding: 22 }} keyboardShouldPersistTaps="handled">
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: 16 }}>
+                <View style={{ width: 40 }} />
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#1E293B', textAlign: 'center', flex: 1 }}>Thông tin thuốc</Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)} style={{ width: 40, alignItems: 'flex-end' }}>
+                  <MaterialIcons name="close" size={24} color="#64748B" />
                 </TouchableOpacity>
-              </TouchableOpacity>
-            </View>
-            
-            {/* Second row of buttons */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', marginTop: 12, width: '100%' }}>
-              {/* Set threshold button */}
-              <TouchableOpacity 
-                style={{ alignItems: 'center' }}
-                onPress={() => {
-                  setModalVisible(false);
-                  navigation.navigate('SetThresholdRelative', { 
-                    medication: modalMedication,
-                    patientId: selectedPatient?._id,
-                    onSuccess: fetchMedications
-                  });
-                }}
-              >
-                <View style={{ backgroundColor: '#F6F8FB', borderRadius: 50, padding: 16 }}>
-                  <MaterialIcons name="settings" size={28} color="#06B6D4" />
-                </View>
-                <Text style={{ color: '#06B6D4', marginTop: 4, fontWeight: '500' }}>Đặt ngưỡng</Text>
-              </TouchableOpacity>
+              </View>
 
-              {/* Add stock button */}
-              <TouchableOpacity 
-                style={{ alignItems: 'center' }}
-                onPress={() => {
-                  setModalVisible(false);
-                  navigation.navigate('AddStockRelative', { 
-                    medication: modalMedication,
-                    patientId: selectedPatient?._id,
-                    onSuccess: fetchMedications
-                  });
-                }}
-              >
-                <View style={{ backgroundColor: '#F6F8FB', borderRadius: 50, padding: 16 }}>
-                  <MaterialIcons name="add-shopping-cart" size={28} color="#10B981" />
+              {/* Info fields with icon */}
+              <View style={{ width: '100%', marginBottom: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <MaterialIcons name="medication" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
+                  <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Tên thuốc:</Text>
+                  <Text style={{ color: '#1E293B', fontWeight: 'bold' }}>{modalMedication?.name || modalName}</Text>
                 </View>
-                <Text style={{ color: '#10B981', marginTop: 4, fontWeight: '500' }}>Mua thêm</Text>
-              </TouchableOpacity>
-            </View>
-            <DateTimePickerModal
-              isVisible={showDatePicker}
-              mode="date"
-              onConfirm={(date) => {
-                setModalDate(date);
-                setShowDatePicker(false);
-              }}
-              onCancel={() => setShowDatePicker(false)}
-              minimumDate={new Date()}
-            />
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <MaterialIcons name="medical-services" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
+                  <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Dạng thuốc:</Text>
+                  <Text style={{ color: '#1E293B' }}>{modalMedication?.form || 'Không xác định'}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <MaterialIcons name="format-list-numbered" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
+                  <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Số lượng:</Text>
+                  <Text style={{ color: '#1E293B' }}>{modalMedication?.remainingQuantity || 0} {modalMedication?.form || 'viên'}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <MaterialIcons name="schedule" size={22} color="#3B82F6" style={{ marginRight: 8, marginTop: 2 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#64748B', fontWeight: '500', marginBottom: 4 }}>Lịch uống:</Text>
+                    {modalMedication?.times && modalMedication.times.length > 0 ? (
+                      modalMedication.times.map((timeSlot, index) => (
+                        <Text key={index} style={{ color: '#1E293B', marginLeft: 8, marginBottom: 2 }}>
+                          • {timeSlot.time}: {timeSlot.dosage}
+                        </Text>
+                      ))
+                    ) : (
+                      <Text style={{ color: '#1E293B', marginLeft: 8 }}>Chưa có lịch uống</Text>
+                    )}
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <MaterialIcons name="calendar-today" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
+                  <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Ngày thêm vào:</Text>
+                  <Text style={{ color: '#1E293B' }}>
+                    {modalMedication?.createdAt 
+                      ? new Date(modalMedication.createdAt).toLocaleDateString('vi-VN')
+                      : modalDate.toLocaleDateString('vi-VN')}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <MaterialIcons name="notes" size={22} color="#3B82F6" style={{ marginRight: 8 }} />
+                  <Text style={{ color: '#64748B', fontWeight: '500', marginRight: 8 }}>Ghi chú:</Text>
+                  <Text style={{ color: '#1E293B', flex: 1 }}>{modalMedication?.note || modalNote || 'Chưa có ghi chú'}</Text>
+                </View>
+              </View>
+
+              {/* Icon button group */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', marginTop: 16, width: '100%' }}>
+                <TouchableOpacity onPress={() => {
+                  // Xóa thuốc
+                  (async () => {
+                    try {
+                      if (!modalMedication?._id || !selectedPatient?._id) throw new Error('Không tìm thấy thông tin thuốc hoặc người bệnh');
+                      const token = await AsyncStorage.getItem('token');
+                      if (!token) throw new Error('Không tìm thấy token');
+                      await RelativePatientService.deletePatientMedication(selectedPatient._id, modalMedication._id, token);
+                      Alert.alert('Xóa', 'Đã xóa thuốc này');
+                      setModalVisible(false);
+                      // Cập nhật lại danh sách
+                      await fetchMedications();
+                    } catch (err) {
+                      Alert.alert('Lỗi', 'Xóa thuốc thất bại!');
+                    }
+                  })();
+                }} style={{ alignItems: 'center' }}>
+                  <View style={{ backgroundColor: '#F6F8FB', borderRadius: 50, padding: 16 }}>
+                    <MaterialIcons name="delete" size={28} color="#EF4444" />
+                  </View>
+                  <Text style={{ color: '#EF4444', marginTop: 4, fontWeight: '500' }}>Xóa</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => {
+                  setModalVisible(false);
+                  navigation.navigate('EditMedicine', { medicine: modalMedication });
+                }} style={{ alignItems: 'center' }}>
+                  <View style={{ backgroundColor: '#F6F8FB', borderRadius: 50, padding: 16 }}>
+                    <MaterialIcons name="edit" size={28} color="#F59E0B" />
+                  </View>
+                  <Text style={{ color: '#F59E0B', marginTop: 4, fontWeight: '500' }}>Sửa</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={{ alignItems: 'center' }}>
+                  <TouchableOpacity style={{ alignItems: 'center' }} onPress={() => {
+                    if (!token || !userId) {
+                      Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng');
+                      return;
+                    }
+                    setModalVisible(false);
+                    navigation.navigate('AddReminder', {
+                      token,
+                      userId,
+                      medication: modalMedication,
+                      selectedPatient: selectedPatient
+                    });
+                  }}>
+                    <View style={{ backgroundColor: '#F6F8FB', borderRadius: 50, padding: 16 }}>
+                      <MaterialIcons name="access-time" size={28} color="#8B5CF6" />
+                    </View>
+                    <Text style={{ color: '#8B5CF6', marginTop: 4, fontWeight: '500' }}>Giờ uống</Text>
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              </View>
+
+              {/* Second row of buttons */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', marginTop: 12, width: '100%' }}>
+                {/* Set threshold button */}
+                <TouchableOpacity 
+                  style={{ alignItems: 'center' }}
+                  onPress={() => {
+                    setModalVisible(false);
+                    navigation.navigate('SetThresholdRelative', { 
+                      medication: modalMedication,
+                      patientId: selectedPatient?._id,
+                      onSuccess: fetchMedications
+                    });
+                  }}
+                >
+                  <View style={{ backgroundColor: '#F6F8FB', borderRadius: 50, padding: 16 }}>
+                    <MaterialIcons name="settings" size={28} color="#06B6D4" />
+                  </View>
+                  <Text style={{ color: '#06B6D4', marginTop: 4, fontWeight: '500' }}>Đặt ngưỡng</Text>
+                </TouchableOpacity>
+
+                {/* Add stock button */}
+                <TouchableOpacity 
+                  style={{ alignItems: 'center' }}
+                  onPress={() => {
+                    setModalVisible(false);
+                    navigation.navigate('AddStockRelative', { 
+                      medication: modalMedication,
+                      patientId: selectedPatient?._id,
+                      onSuccess: fetchMedications
+                    });
+                  }}
+                >
+                  <View style={{ backgroundColor: '#F6F8FB', borderRadius: 50, padding: 16 }}>
+                    <MaterialIcons name="add-shopping-cart" size={28} color="#10B981" />
+                  </View>
+                  <Text style={{ color: '#10B981', marginTop: 4, fontWeight: '500' }}>Mua thêm</Text>
+                </TouchableOpacity>
+              </View>
+
+              <DateTimePickerModal
+                isVisible={showDatePicker}
+                mode="date"
+                onConfirm={(date) => {
+                  setModalDate(date);
+                  setShowDatePicker(false);
+                }}
+                onCancel={() => setShowDatePicker(false)}
+                minimumDate={new Date()}
+              />
+            </ScrollView>
           </View>
         </View>
       </Modal>

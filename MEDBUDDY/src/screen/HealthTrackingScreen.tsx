@@ -126,7 +126,8 @@ const HealthTrackingScreen = ({ navigation }: any) => {
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          // Navigate into the MainTabs navigator and open the "Thông tin cá nhân" tab
+          onPress={() => navigation.navigate('MainTabs', { screen: 'Thông tin cá nhân' })}
         >
           <Ionicons name="arrow-back" size={24} color="#000000ff" />
         </TouchableOpacity>

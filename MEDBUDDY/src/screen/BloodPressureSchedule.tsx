@@ -114,7 +114,6 @@ const BloodPressureSchedule = ({ navigation }: any) => {
 
             <Text style={styles.smallText}>{dateText}</Text>
             {item.note ? <Text style={styles.smallText}>Ghi chú: {item.note}</Text> : null}
-            <Text style={styles.smallText}>Trạng thái: {item.status ?? (item.isActive ? 'active' : 'pending')}</Text>
           </View>
 
           <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
@@ -182,6 +181,12 @@ const BloodPressureSchedule = ({ navigation }: any) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
+        {/* Instruction banner */}
+        {reminders.length > 0 && (
+          <View style={styles.infoBanner}>
+            <Text style={styles.infoText}>Vui lòng lướt qua phải để tắt thông báo</Text>
+          </View>
+        )}
         {loading ? (
           <View style={styles.emptyState}>
             <ActivityIndicator size="large" color="#16A34A" />
@@ -264,11 +269,6 @@ const BloodPressureSchedule = ({ navigation }: any) => {
                   ) : null}
 
                   {/* Trạng thái */}
-                  <View style={styles.modalRow}>
-                    <Ionicons name="alert-circle" size={20} color="#16A34A" style={styles.modalIcon} />
-                    <Text style={styles.modalText}>Trạng thái: {selectedDetail.status ?? 'pending'}</Text>
-                  </View>
-
                   <View style={styles.modalActions}>
                     <View style={{ alignItems: 'center' }}>
                       <TouchableOpacity style={styles.modalActionBtn} onPress={() => setModalVisible(false)}>
@@ -435,6 +435,19 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginLeft: 10,
     fontWeight: '500',
+  },
+  infoBanner: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E6EEF8',
+  },
+  infoText: {
+    color: '#0F172A',
+    fontSize: 14,
+    textAlign: 'center',
   },
   
   // 3 nút hành động

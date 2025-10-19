@@ -36,9 +36,20 @@ const PhotoCaptureRelative: React.FC = () => {
       // @ts-ignore
       const paramToken = route.params?.token;
       // @ts-ignore
-      const paramUserId = route.params?.userId || route.params?.patientId;
-      if (paramToken) setToken(paramToken);
-      if (paramUserId) setPatientId(paramUserId);
+  const paramUserId = (route as any).params?.userId || (route as any).params?.patientId;
+      // @ts-ignore - may be passed as full patient object
+      const paramPatient = (route as any).params?.patient;
+  if (paramToken) setToken(paramToken);
+  if (paramUserId) setPatientId(paramUserId);
+      if (paramPatient) {
+        // If a full patient object is passed, preselect it
+        try {
+          setSelectedPatient(paramPatient);
+          if (paramPatient._id) setPatientId(paramPatient._id);
+        } catch (e) {
+          // ignore malformed param
+        }
+      }
     };
     getParams();
   }, [route.params]);

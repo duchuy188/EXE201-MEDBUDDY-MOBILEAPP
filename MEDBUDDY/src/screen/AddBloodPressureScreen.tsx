@@ -10,6 +10,26 @@ const AddBloodPressureScreen = ({ navigation }: any) => {
   const [note, setNote] = useState('');
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [currentSlot, setCurrentSlot] = useState<'morning' | 'evening'>('morning');
+  const [pickerDate, setPickerDate] = useState<Date>(new Date());
+
+  const DEFAULT_MORNING = '07:00';
+  const DEFAULT_EVENING = '18:00';
+
+  const timeStringToDate = (time: string) => {
+    // time expected in 'HH:mm' 24-hour format
+    const d = new Date();
+    const parts = (time || '').split(':');
+    if (parts.length >= 2) {
+      const hh = parseInt(parts[0], 10);
+      const mm = parseInt(parts[1], 10);
+      if (!isNaN(hh) && !isNaN(mm)) {
+        d.setHours(hh, mm, 0, 0);
+        return d;
+      }
+    }
+    // fallback to now
+    return d;
+  };
 
   const today = new Date();
   const formatDate = (d: Date) => {
@@ -88,14 +108,24 @@ const AddBloodPressureScreen = ({ navigation }: any) => {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Thời gian nhắc - Buổi sáng</Text>
-            <TouchableOpacity style={styles.timeInput} onPress={() => { setCurrentSlot('morning'); setShowTimePicker(true); }}>
+            <TouchableOpacity style={styles.timeInput} onPress={() => {
+              setCurrentSlot('morning');
+              // set picker initial date to existing time or default 07:00
+              setPickerDate(timeStringToDate(morningTime || DEFAULT_MORNING));
+              setShowTimePicker(true);
+            }}>
               <Text style={styles.timeText}>{morningTime || 'Chọn thời gian'}</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Thời gian nhắc - Buổi tối</Text>
-            <TouchableOpacity style={styles.timeInput} onPress={() => { setCurrentSlot('evening'); setShowTimePicker(true); }}>
+            <TouchableOpacity style={styles.timeInput} onPress={() => {
+              setCurrentSlot('evening');
+              // set picker initial date to existing time or default 18:00
+              setPickerDate(timeStringToDate(eveningTime || DEFAULT_EVENING));
+              setShowTimePicker(true);
+            }}>
               <Text style={styles.timeText}>{eveningTime || 'Chọn thời gian'}</Text>
             </TouchableOpacity>
           </View>
@@ -125,6 +155,7 @@ const AddBloodPressureScreen = ({ navigation }: any) => {
           <DateTimePickerModal
             isVisible={showTimePicker}
             mode="time"
+            date={pickerDate}
             onConfirm={(date) => {
               const formatted = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
               if (currentSlot === 'morning') setMorningTime(formatted);

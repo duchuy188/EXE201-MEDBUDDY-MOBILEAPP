@@ -929,13 +929,14 @@ const MedicationScheduleScreen = () => {
                           appointment: selectedReminder
                         });
                       } else if (selectedReminder) {
-                        const reminderId = selectedReminder._id.split('-')[0];
-                        navigation.navigate('EditReminder', { 
-                          token, 
-                          userId,
-                          reminderId,
-                          reminder: selectedReminder
-                        });
+                          const reminderId = selectedReminder._id.split('-')[0];
+                          // Navigate to MedicationSchedule screen with reminder data
+                          navigation.navigate('MedicationSchedule', { 
+                            token, 
+                            userId,
+                            reminderId,
+                            reminder: selectedReminder
+                          });
                       }
                     }}
                     style={styles.actionButton}

@@ -134,6 +134,18 @@ const RemindersScreen = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Header with back button to Personal Info tab */}
+      <View style={styles.headerInner}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.navigate('MainTabs', { screen: 'Thông tin cá nhân' })}
+        >
+          <Ionicons name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Lịch nhắc</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
       {loading ? (
         <ActivityIndicator size="large" color="#F59E0B" style={styles.loader} />
       ) : reminders.length > 0 ? (
@@ -339,8 +351,25 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingTop: 50,
   },
+  headerInner: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingTop: 50,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
   headerTitle: {
-    color: '#fff',
+    color: '#111827',
     fontSize: 18,
     fontWeight: '600',
   },
