@@ -154,45 +154,65 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
     setLoadingReminders(true);
     try {
       const remindersData = await ReminderService.getReminders(token);
-      
+      console.log('DEBUG: getReminders raw response:', remindersData);
+
+      // remindersData can be either an array or an object with a data field
+      let remindersList: any[] = [];
+      if (Array.isArray(remindersData)) {
+        remindersList = remindersData as any[];
+      } else if (remindersData && Array.isArray((remindersData as any).data)) {
+        remindersList = (remindersData as any).data;
+      } else if (remindersData && Array.isArray((remindersData as any).data?.data)) {
+        // handle nested data.data
+        remindersList = (remindersData as any).data.data;
+      } else {
+        remindersList = [];
+      }
+
+      // If the list already contains repeatTimes, use it directly; otherwise fetch detail per reminder
       const detailedReminders = await Promise.all(
-        ((remindersData as any).data || []).map(async (reminder: any) => {
-          const detailData = await ReminderService.getReminderById(reminder._id, token);
-          
-          // Lấy thêm status details từ API mới
+        remindersList.map(async (reminder: any) => {
+          // If reminder already contains repeatTimes, use it
+          let detailData: any = reminder;
+          if (!Array.isArray(reminder.repeatTimes) || reminder.repeatTimes.length === 0) {
+            try {
+              detailData = await ReminderService.getReminderById(reminder._id, token);
+              if (detailData && detailData.data) detailData = detailData.data;
+            } catch (err) {
+              console.error('DEBUG: error fetching detail for reminder', reminder._id, err);
+              // fallback to the basic reminder object
+              detailData = reminder;
+            }
+          }
+
+          // Try to fetch status details and merge into repeatTimes when possible
           try {
             const statusResponse = await ReminderService.getReminderStatus(reminder._id, token);
-            
             // Kiểm tra structure của response
-            if (statusResponse && statusResponse.statusDetails) {
-              const statusDetails = statusResponse.statusDetails;
-              
-              if ((detailData as any).repeatTimes && Array.isArray((detailData as any).repeatTimes)) {
-                (detailData as any).repeatTimes = (detailData as any).repeatTimes.map((rt: any) => {
-                  // Tìm statusDetail khớp với time
-                  const statusDetail = statusDetails.find((sd: any) => sd.time === rt.time);
-                  
-                  if (statusDetail) {
-                    return {
-                      ...rt,
-                      taken: statusDetail.taken,
-                      status: statusDetail.status,
-                      takenAt: statusDetail.takenAt,
-                    };
-                  }
-                  return rt;
-                });
-              }
+            let statusDetails: any = null;
+            if (statusResponse?.statusDetails) statusDetails = statusResponse.statusDetails;
+            else if (Array.isArray(statusResponse)) statusDetails = statusResponse;
+            else if (statusResponse?.data) statusDetails = statusResponse.data;
+
+            if (statusDetails && Array.isArray(statusDetails) && Array.isArray((detailData as any).repeatTimes)) {
+              (detailData as any).repeatTimes = (detailData as any).repeatTimes.map((rt: any) => {
+                const statusDetail = statusDetails.find((sd: any) => sd.time === rt.time);
+                if (statusDetail) {
+                  return { ...rt, taken: statusDetail.taken, status: statusDetail.status, takenAt: statusDetail.takenAt };
+                }
+                return rt;
+              });
             }
           } catch (statusError) {
-            // Ignore status error
+            console.error('DEBUG: error fetching status for reminder', reminder._id, statusError);
           }
-          
+
           return detailData;
         })
       );
-      
-      setReminders(detailedReminders as DetailedReminder[]);
+  console.log('DEBUG: detailedReminders prepared:', detailedReminders);
+  setReminders(detailedReminders as DetailedReminder[]);
+  console.log('DEBUG: state reminders set, length=', (detailedReminders || []).length);
     } catch (e) {
       // Ignore error
     } finally {
@@ -203,18 +223,31 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
   // Flatten reminders - GIỐNG MedicationScheduleScreen
   const flattenReminders = (reminders: DetailedReminder[]): FlattenedReminder[] => {
     const flattened: FlattenedReminder[] = [];
-    
+
     reminders.forEach(reminder => {
-      if (reminder.repeatTimes && reminder.repeatTimes.length > 0) {
-        reminder.repeatTimes.forEach((repeatTime, index) => {
-          const timeLabel = reminder.times[index]?.time || 'Không xác định';
-          
+      // Normalize possible shapes
+      const repeatTimesAny: any[] = Array.isArray((reminder as any).repeatTimes)
+        ? (reminder as any).repeatTimes
+        : Array.isArray((reminder as any).data?.repeatTimes)
+        ? (reminder as any).data.repeatTimes
+        : [];
+
+      const timesAny: any[] = Array.isArray((reminder as any).times)
+        ? (reminder as any).times
+        : Array.isArray((reminder as any).data?.times)
+        ? (reminder as any).data.times
+        : [];
+
+      if (repeatTimesAny.length > 0) {
+        repeatTimesAny.forEach((repeatTime: any, index: number) => {
+          const timeLabel = timesAny[index]?.time || 'Không xác định';
+
           // Lấy dosage từ form thay vì quantity
           let dosage = '';
           if (reminder.medicationId?.form) {
             dosage = reminder.medicationId.form;
           }
-          
+
           flattened.push({
             _id: `${reminder._id}-${index}`,
             time: repeatTime.time || 'Chưa đặt giờ',
@@ -228,7 +261,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
         });
       }
     });
-    
+
+    console.log('DEBUG: flattenReminders output:', flattened);
     return flattened;
   };
 
@@ -238,10 +272,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ userType = 'patient', onLogout 
     today.setHours(0, 0, 0, 0);
     
     const flattenedReminders = flattenReminders(reminders);
+    console.log('DEBUG: flattenedReminders (all):', flattenedReminders);
     
     return flattenedReminders.filter(reminder => {
       // Tìm reminder gốc để check startDate/endDate
       const originalReminder = reminders.find(r => reminder._id.startsWith(r._id));
+      if (!originalReminder) {
+        console.warn('DEBUG: originalReminder not found for flattened id', reminder._id);
+      }
       if (!originalReminder) return false;
       
       const startDate = new Date(originalReminder.startDate);

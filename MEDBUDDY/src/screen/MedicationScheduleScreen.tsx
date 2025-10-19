@@ -201,11 +201,35 @@ const MedicationScheduleScreen = () => {
         status = 'snoozed';
       }
       
-      const payload: UpdateReminderStatusPayload = {
+      const payload: any = {
         action: action,
         time: selectedReminder.time,
         status: status
       };
+
+      // If snoozing, add snoozeTime (5 minutes from now) to payload and update local state optimistically
+      if (action === 'snooze') {
+        const now = new Date();
+        const snoozeDate = new Date(now.getTime() + 5 * 60 * 1000);
+        payload.snoozeTime = snoozeDate.toISOString();
+
+        // Optimistically update local reminders state so UI shows snoozed item immediately
+        setReminders(prev => prev.map(r => {
+          if (r._id === reminderId || reminderId.startsWith(r._id)) {
+            return {
+              ...r,
+              repeatTimes: r.repeatTimes?.map(rt => {
+                // match by time label or exact time
+                if (rt.time === selectedReminder.time || selectedReminder.timeLabel === rt.time) {
+                  return { ...rt, status: 'snoozed', snoozeTime: payload.snoozeTime } as any;
+                }
+                return rt;
+              })
+            } as any;
+          }
+          return r;
+        }));
+      }
 
       await ReminderService.updateReminderStatus(reminderId, payload, token);
       
@@ -237,8 +261,10 @@ const MedicationScheduleScreen = () => {
 
           // Nếu có takenAt, kiểm tra có trùng ngày không
           let takenDate: Date | null = null;
-          if (repeatTime.takenAt) {
-            takenDate = new Date(repeatTime.takenAt);
+          // repeatTime may come from API with different shapes; use optional access
+          const rtAny: any = repeatTime;
+          if (rtAny.takenAt) {
+            takenDate = new Date(rtAny.takenAt);
             takenDate.setHours(0, 0, 0, 0);
           }
 
@@ -248,23 +274,54 @@ const MedicationScheduleScreen = () => {
           startDate.setHours(0, 0, 0, 0);
           endDate.setHours(0, 0, 0, 0);
 
-          if (selected >= startDate && selected <= endDate) {
-            // Nếu có takenAt trùng ngày thì lấy trạng thái, nếu không thì trạng thái mặc định
-            const isTakenToday = takenDate && takenDate.getTime() === selected.getTime();
-            flattened.push({
-              _id: `${reminder._id}-${index}-${repeatTime.time || 'none'}`,
-              userId: reminder.userId,
-              time: repeatTime.time || 'Chưa đặt giờ',
-              timeLabel: reminder.times[index]?.time || 'Không xác định',
-              startDate: reminder.startDate,
-              endDate: reminder.endDate,
-              note: reminder.note,
-              isActive: reminder.isActive,
-              status: isTakenToday ? repeatTime.status || 'pending' : 'pending',
-              medicationId: reminder.medicationId,
-              taken: isTakenToday ? repeatTime.taken || false : false
-            });
+          // If the repeatTime has a snoozeTime, and that snoozeTime falls on the selected date,
+          // we should render the snoozed instance at the snoozed time with status 'snoozed'.
+          const snoozeTimeStr: string | undefined = rtAny.snoozeTime;
+          let snoozeDate: Date | null = null;
+          if (snoozeTimeStr) {
+            const d = new Date(snoozeTimeStr);
+            if (!isNaN(d.getTime())) {
+              snoozeDate = new Date(d);
+              snoozeDate.setHours(0, 0, 0, 0);
+            }
           }
+
+          const snoozedOnSelected = snoozeDate ? snoozeDate.getTime() === selected.getTime() : false;
+          const isMarkedSnoozed = rtAny.status === 'snoozed';
+
+          // Include if snoozed for selected date, explicitly marked snoozed, or within start-end range
+          if (snoozedOnSelected || isMarkedSnoozed || (selected >= startDate && selected <= endDate)) {
+              // Nếu có takenAt trùng ngày thì đánh dấu taken, nhưng nếu repeatTime đã có status (ví dụ 'snoozed'),
+              // sử dụng status đó để hiển thị (không chỉ khi takenToday)
+              const isTakenToday = takenDate && takenDate.getTime() === selected.getTime();
+              // If snoozed on this selected date, use snoozeTime's time string
+              let effectiveTime = repeatTime.time || 'Chưa đặt giờ';
+              let effectiveTimeLabel = reminder.times[index]?.time || 'Không xác định';
+              if (snoozedOnSelected && rtAny.snoozeTime) {
+                const sd = new Date(rtAny.snoozeTime);
+                const hh = sd.getHours().toString().padStart(2, '0');
+                const mm = sd.getMinutes().toString().padStart(2, '0');
+                effectiveTime = `${hh}:${mm}`;
+                effectiveTimeLabel = effectiveTime;
+              }
+
+              const statusForItem = rtAny.status ? rtAny.status : (isTakenToday ? (rtAny.status || 'on_time') : 'pending');
+              const takenFlag = !!rtAny.taken || isTakenToday;
+
+              flattened.push({
+                _id: `${reminder._id}-${index}-${effectiveTime}`,
+                userId: reminder.userId,
+                time: effectiveTime,
+                timeLabel: effectiveTimeLabel,
+                startDate: reminder.startDate,
+                endDate: reminder.endDate,
+                note: reminder.note,
+                isActive: reminder.isActive,
+                status: statusForItem,
+                medicationId: reminder.medicationId,
+                taken: takenFlag
+              });
+            }
         });
       } 
       else if (reminder.times && reminder.times.length > 0) {

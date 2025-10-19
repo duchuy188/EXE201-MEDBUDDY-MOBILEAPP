@@ -72,6 +72,16 @@ const MedicationsScreen = ({ route, navigation }: any) => {
   const [medicationsList, setMedicationsList] = useState<Medication[]>([]);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
 
+  // Sort helper: newest createdAt first
+  const sortMedicationsNewestFirst = (list: Medication[] | undefined | null) => {
+    if (!list || !Array.isArray(list)) return [];
+    return [...list].sort((a, b) => {
+      const aCreated = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const bCreated = b.createdAt ? Date.parse(b.createdAt) : 0;
+      return bCreated - aCreated; // newer first
+    });
+  };
+
   // Modal state for editing/viewing medication
   const [modalVisible, setModalVisible] = useState(false);
   const [modalMedication, setModalMedication] = useState<Medication | null>(null);
@@ -174,12 +184,19 @@ const MedicationsScreen = ({ route, navigation }: any) => {
       }
 
       const updatedMedications = await MedicationService.getMedications(token);
-      setMedicationsList(updatedMedications);
+      setMedicationsList(sortMedicationsNewestFirst(updatedMedications));
     } catch (error) {
       console.error('Error fetching medications:', error);
       Alert.alert('Lỗi', 'Không thể lấy danh sách thuốc mới!');
     }
   }, [token]);
+
+  // Initialize medicationsList from route params (sorted newest first)
+  React.useEffect(() => {
+    if (medications && Array.isArray(medications)) {
+      setMedicationsList(sortMedicationsNewestFirst(medications));
+    }
+  }, [medications]);
 
   useFocusEffect(
     React.useCallback(() => {
